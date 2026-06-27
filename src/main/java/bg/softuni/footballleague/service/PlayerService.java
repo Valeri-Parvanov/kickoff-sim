@@ -3,18 +3,19 @@ package bg.softuni.footballleague.service;
 import bg.softuni.footballleague.dto.PlayerDto;
 
 import java.util.List;
+import java.util.UUID;
 
 public interface PlayerService {
 
     List<PlayerDto> findAll();
 
-    List<PlayerDto> findAllByTeam(Long teamId);
+    List<PlayerDto> findAllByTeam(UUID teamId);
 
-    PlayerDto findById(Long id);
+    PlayerDto findById(UUID id);
 
     PlayerDto create(PlayerDto playerDto);
 
-    PlayerDto update(Long id, PlayerDto playerDto);
+    PlayerDto update(UUID id, PlayerDto playerDto);
 
-    void delete(Long id);
+    void delete(UUID id);
 }

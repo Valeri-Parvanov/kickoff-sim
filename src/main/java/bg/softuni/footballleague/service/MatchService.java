@@ -3,18 +3,19 @@ package bg.softuni.footballleague.service;
 import bg.softuni.footballleague.dto.MatchDto;
 
 import java.util.List;
+import java.util.UUID;
 
 public interface MatchService {
 
     List<MatchDto> findAll();
 
-    List<MatchDto> findAllByTeam(Long teamId);
+    List<MatchDto> findAllByTeam(UUID teamId);
 
-    MatchDto findById(Long id);
+    MatchDto findById(UUID id);
 
     MatchDto create(MatchDto matchDto);
 
-    MatchDto update(Long id, MatchDto matchDto);
+    MatchDto update(UUID id, MatchDto matchDto);
 
-    void delete(Long id);
+    void delete(UUID id);
 }

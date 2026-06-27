@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -27,7 +28,7 @@ public class MatchServiceImpl implements MatchService {
     }
 
     @Override
-    public List<MatchDto> findAllByTeam(Long teamId) {
+    public List<MatchDto> findAllByTeam(UUID teamId) {
         Team team = getTeamOrThrow(teamId);
         return matchRepository.findAllByHomeTeamOrAwayTeam(team, team).stream()
                 .map(this::toDto)
@@ -35,7 +36,7 @@ public class MatchServiceImpl implements MatchService {
     }
 
     @Override
-    public MatchDto findById(Long id) {
+    public MatchDto findById(UUID id) {
         return toDto(getMatchOrThrow(id));
     }
 
@@ -47,25 +48,25 @@ public class MatchServiceImpl implements MatchService {
     }
 
     @Override
-    public MatchDto update(Long id, MatchDto matchDto) {
+    public MatchDto update(UUID id, MatchDto matchDto) {
         Match match = getMatchOrThrow(id);
         mapToEntity(matchDto, match);
         return toDto(matchRepository.save(match));
     }
 
     @Override
-    public void delete(Long id) {
+    public void delete(UUID id) {
         matchRepository.delete(getMatchOrThrow(id));
     }
 
-    private Match getMatchOrThrow(Long id) {
+    private Match getMatchOrThrow(UUID id) {
         return matchRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Match with id %d not found".formatted(id)));
+                .orElseThrow(() -> new EntityNotFoundException("Match with id %s not found".formatted(id)));
     }
 
-    private Team getTeamOrThrow(Long id) {
+    private Team getTeamOrThrow(UUID id) {
         return teamRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Team with id %d not found".formatted(id)));
+                .orElseThrow(() -> new EntityNotFoundException("Team with id %s not found".formatted(id)));
     }
 
     private void mapToEntity(MatchDto matchDto, Match match) {

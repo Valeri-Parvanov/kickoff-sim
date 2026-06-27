@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -24,7 +25,7 @@ public class LeagueServiceImpl implements LeagueService {
     }
 
     @Override
-    public LeagueDto findById(Long id) {
+    public LeagueDto findById(UUID id) {
         return toDto(getLeagueOrThrow(id));
     }
 
@@ -36,20 +37,20 @@ public class LeagueServiceImpl implements LeagueService {
     }
 
     @Override
-    public LeagueDto update(Long id, LeagueDto leagueDto) {
+    public LeagueDto update(UUID id, LeagueDto leagueDto) {
         League league = getLeagueOrThrow(id);
         mapToEntity(leagueDto, league);
         return toDto(leagueRepository.save(league));
     }
 
     @Override
-    public void delete(Long id) {
+    public void delete(UUID id) {
         leagueRepository.delete(getLeagueOrThrow(id));
     }
 
-    private League getLeagueOrThrow(Long id) {
+    private League getLeagueOrThrow(UUID id) {
         return leagueRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("League with id %d not found".formatted(id)));
+                .orElseThrow(() -> new EntityNotFoundException("League with id %s not found".formatted(id)));
     }
 
     private void mapToEntity(LeagueDto leagueDto, League league) {

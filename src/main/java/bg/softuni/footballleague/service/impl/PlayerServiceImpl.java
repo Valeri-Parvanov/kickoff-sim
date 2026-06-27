@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -27,7 +28,7 @@ public class PlayerServiceImpl implements PlayerService {
     }
 
     @Override
-    public List<PlayerDto> findAllByTeam(Long teamId) {
+    public List<PlayerDto> findAllByTeam(UUID teamId) {
         Team team = getTeamOrThrow(teamId);
         return playerRepository.findAllByTeam(team).stream()
                 .map(this::toDto)
@@ -35,7 +36,7 @@ public class PlayerServiceImpl implements PlayerService {
     }
 
     @Override
-    public PlayerDto findById(Long id) {
+    public PlayerDto findById(UUID id) {
         return toDto(getPlayerOrThrow(id));
     }
 
@@ -47,25 +48,25 @@ public class PlayerServiceImpl implements PlayerService {
     }
 
     @Override
-    public PlayerDto update(Long id, PlayerDto playerDto) {
+    public PlayerDto update(UUID id, PlayerDto playerDto) {
         Player player = getPlayerOrThrow(id);
         mapToEntity(playerDto, player);
         return toDto(playerRepository.save(player));
     }
 
     @Override
-    public void delete(Long id) {
+    public void delete(UUID id) {
         playerRepository.delete(getPlayerOrThrow(id));
     }
 
-    private Player getPlayerOrThrow(Long id) {
+    private Player getPlayerOrThrow(UUID id) {
         return playerRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Player with id %d not found".formatted(id)));
+                .orElseThrow(() -> new EntityNotFoundException("Player with id %s not found".formatted(id)));
     }
 
-    private Team getTeamOrThrow(Long id) {
+    private Team getTeamOrThrow(UUID id) {
         return teamRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Team with id %d not found".formatted(id)));
+                .orElseThrow(() -> new EntityNotFoundException("Team with id %s not found".formatted(id)));
     }
 
     private void mapToEntity(PlayerDto playerDto, Player player) {

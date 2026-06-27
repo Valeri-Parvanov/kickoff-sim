@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -27,7 +28,7 @@ public class TeamServiceImpl implements TeamService {
     }
 
     @Override
-    public List<TeamDto> findAllByLeague(Long leagueId) {
+    public List<TeamDto> findAllByLeague(UUID leagueId) {
         League league = getLeagueOrThrow(leagueId);
         return teamRepository.findAllByLeague(league).stream()
                 .map(this::toDto)
@@ -35,7 +36,7 @@ public class TeamServiceImpl implements TeamService {
     }
 
     @Override
-    public TeamDto findById(Long id) {
+    public TeamDto findById(UUID id) {
         return toDto(getTeamOrThrow(id));
     }
 
@@ -47,25 +48,25 @@ public class TeamServiceImpl implements TeamService {
     }
 
     @Override
-    public TeamDto update(Long id, TeamDto teamDto) {
+    public TeamDto update(UUID id, TeamDto teamDto) {
         Team team = getTeamOrThrow(id);
         mapToEntity(teamDto, team);
         return toDto(teamRepository.save(team));
     }
 
     @Override
-    public void delete(Long id) {
+    public void delete(UUID id) {
         teamRepository.delete(getTeamOrThrow(id));
     }
 
-    private Team getTeamOrThrow(Long id) {
+    private Team getTeamOrThrow(UUID id) {
         return teamRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Team with id %d not found".formatted(id)));
+                .orElseThrow(() -> new EntityNotFoundException("Team with id %s not found".formatted(id)));
     }
 
-    private League getLeagueOrThrow(Long id) {
+    private League getLeagueOrThrow(UUID id) {
         return leagueRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("League with id %d not found".formatted(id)));
+                .orElseThrow(() -> new EntityNotFoundException("League with id %s not found".formatted(id)));
     }
 
     private void mapToEntity(TeamDto teamDto, Team team) {

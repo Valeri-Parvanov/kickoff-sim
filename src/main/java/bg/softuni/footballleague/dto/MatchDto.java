@@ -6,18 +6,19 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Getter
 @Setter
 public class MatchDto {
 
-    private Long id;
+    private UUID id;
 
     @NotNull
-    private Long homeTeamId;
+    private UUID homeTeamId;
 
     @NotNull
-    private Long awayTeamId;
+    private UUID awayTeamId;
 
     @PositiveOrZero
     private Integer homeScore;

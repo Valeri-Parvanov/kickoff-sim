@@ -6,11 +6,13 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.UUID;
+
 @Getter
 @Setter
 public class TeamDto {
 
-    private Long id;
+    private UUID id;
 
     @NotBlank
     @Size(max = 100)
@@ -20,5 +22,5 @@ public class TeamDto {
     private String city;
 
     @NotNull
-    private Long leagueId;
+    private UUID leagueId;
 }
