@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>League form</title>
+</head>
+<body>
+<h1 th:text="${leagueDto.id} ? 'Edit league' : 'Add league'"></h1>
+
+<form th:action="${leagueDto.id} ? @{/leagues/{id}/edit(id=${leagueDto.id})} : @{/leagues/create}"
+      th:object="${leagueDto}" method="post">
+
+    <div>
+        <label for="name">Name</label>
+        <input type="text" id="name" th:field="*{name}"/>
+        <span style="color:red" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></span>
+    </div>
+
+    <div>
+        <label for="country">Country</label>
+        <input type="text" id="country" th:field="*{country}"/>
+        <span style="color:red" th:if="${#fields.hasErrors('country')}" th:errors="*{country}"></span>
+    </div>
+
+    <button type="submit">Save</button>
+</form>
+
+<p><a th:href="@{/leagues}">Back to leagues</a></p>
+</body>
+</html>
