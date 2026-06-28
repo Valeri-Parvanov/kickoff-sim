@@ -84,7 +84,10 @@ public class PlayerServiceImpl implements PlayerService {
         playerDto.setLastName(player.getLastName());
         playerDto.setPosition(player.getPosition());
         playerDto.setShirtNumber(player.getShirtNumber());
-        playerDto.setTeamId(player.getTeam() != null ? player.getTeam().getId() : null);
+        if (player.getTeam() != null) {
+            playerDto.setTeamId(player.getTeam().getId());
+            playerDto.setTeamName(player.getTeam().getName());
+        }
         return playerDto;
     }
 }

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <title>Players</title>
+</head>
+<body>
+<h1>Players</h1>
+
+<p><a th:href="@{/}">Back to home</a></p>
+
+<div sec:authorize="hasRole('ADMIN')">
+    <a th:href="@{/players/create}">Add new player</a>
+</div>
+
+<table border="1" cellpadding="6">
+    <thead>
+    <tr>
+        <th>First name</th>
+        <th>Last name</th>
+        <th>Position</th>
+        <th>Shirt number</th>
+        <th>Team</th>
+        <th sec:authorize="hasRole('ADMIN')">Actions</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr th:each="player : ${players}">
+        <td th:text="${player.firstName}"></td>
+        <td th:text="${player.lastName}"></td>
+        <td th:text="${player.position}"></td>
+        <td th:text="${player.shirtNumber}"></td>
+        <td th:text="${player.teamName}"></td>
+        <td sec:authorize="hasRole('ADMIN')">
+            <a th:href="@{/players/{id}/edit(id=${player.id})}">Edit</a>
+            <form th:action="@{/players/{id}/delete(id=${player.id})}" method="post" style="display:inline">
+                <button type="submit">Delete</button>
+            </form>
+        </td>
+    </tr>
+    </tbody>
+</table>
+</body>
+</html>

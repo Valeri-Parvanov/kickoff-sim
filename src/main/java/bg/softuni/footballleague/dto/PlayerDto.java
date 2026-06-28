@@ -31,4 +31,6 @@ public class PlayerDto {
 
     @NotNull
     private UUID teamId;
+
+    private String teamName;
 }
