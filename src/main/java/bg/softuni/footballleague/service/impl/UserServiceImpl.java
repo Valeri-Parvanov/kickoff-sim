@@ -19,7 +19,7 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
 
     @Override
-    public void register(RegisterDto registerDto) {
+    public Role register(RegisterDto registerDto) {
         if (userRepository.existsByUsername(registerDto.getUsername())) {
             throw new UsernameAlreadyExistsException(
                     "Username %s is already taken".formatted(registerDto.getUsername()));
@@ -31,6 +31,7 @@ public class UserServiceImpl implements UserService {
         user.setRole(userRepository.count() == 0 ? Role.ADMIN : Role.USER);
 
         userRepository.save(user);
+        return user.getRole();
     }
 
     @Override

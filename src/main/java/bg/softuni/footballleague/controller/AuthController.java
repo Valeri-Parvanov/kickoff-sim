@@ -2,6 +2,7 @@ package bg.softuni.footballleague.controller;
 
 import bg.softuni.footballleague.dto.RegisterDto;
 import bg.softuni.footballleague.exception.UsernameAlreadyExistsException;
+import bg.softuni.footballleague.model.Role;
 import bg.softuni.footballleague.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +12,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 @Controller
 @RequiredArgsConstructor
@@ -31,7 +33,7 @@ public class AuthController {
 
     @PostMapping("/register")
     public String register(@Valid @ModelAttribute("registerDto") RegisterDto registerDto,
-                            BindingResult bindingResult) {
+                            BindingResult bindingResult, RedirectAttributes redirectAttributes) {
         if (!registerDto.getPassword().equals(registerDto.getConfirmPassword())) {
             bindingResult.rejectValue("confirmPassword", "password.mismatch", "Passwords do not match");
         }
@@ -40,11 +42,17 @@ public class AuthController {
             return "register";
         }
 
+        Role assignedRole;
         try {
-            userService.register(registerDto);
+            assignedRole = userService.register(registerDto);
         } catch (UsernameAlreadyExistsException e) {
             bindingResult.rejectValue("username", "username.taken", e.getMessage());
             return "register";
+        }
+
+        if (assignedRole == Role.ADMIN) {
+            redirectAttributes.addFlashAttribute("statusMessage",
+                    "Account created! You're the first registered user, so you've been given admin access.");
         }
 
         return "redirect:/login";
