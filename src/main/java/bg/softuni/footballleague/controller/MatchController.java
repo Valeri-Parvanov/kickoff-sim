@@ -4,8 +4,10 @@ import bg.softuni.footballleague.dto.MatchDto;
 import bg.softuni.footballleague.dto.TeamDto;
 import bg.softuni.footballleague.service.MatchService;
 import bg.softuni.footballleague.service.TeamService;
+import bg.softuni.footballleague.web.SortSupport;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -15,7 +17,9 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
+import java.util.Map;
 import java.util.UUID;
 
 @Controller
@@ -23,12 +27,26 @@ import java.util.UUID;
 @RequestMapping("/matches")
 public class MatchController {
 
+    private static final Sort DEFAULT_SORT = Sort.by(Sort.Direction.DESC, "playedAt");
+    private static final Map<String, String> SORTABLE_FIELDS = Map.of(
+            "homeTeam", "homeTeam.name",
+            "awayTeam", "awayTeam.name",
+            "homeScore", "homeScore",
+            "awayScore", "awayScore",
+            "playedAt", "playedAt"
+    );
+
     private final MatchService matchService;
     private final TeamService teamService;
 
     @GetMapping
-    public String list(Model model) {
-        model.addAttribute("matches", matchService.findAll());
+    public String list(@RequestParam(required = false) String sort,
+                        @RequestParam(required = false) String dir,
+                        Model model) {
+        Sort resolvedSort = SortSupport.resolve(sort, dir, SORTABLE_FIELDS, DEFAULT_SORT);
+        model.addAttribute("matches", matchService.findAll(resolvedSort));
+        model.addAttribute("currentSort", sort);
+        model.addAttribute("currentDir", dir == null ? "asc" : dir);
         return "matches/list";
     }
 

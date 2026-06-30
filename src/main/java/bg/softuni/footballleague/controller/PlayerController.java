@@ -5,8 +5,10 @@ import bg.softuni.footballleague.exception.DuplicateShirtNumberException;
 import bg.softuni.footballleague.exception.SquadLimitExceededException;
 import bg.softuni.footballleague.service.PlayerService;
 import bg.softuni.footballleague.service.TeamService;
+import bg.softuni.footballleague.web.SortSupport;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -16,7 +18,9 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
+import java.util.Map;
 import java.util.UUID;
 
 @Controller
@@ -24,12 +28,25 @@ import java.util.UUID;
 @RequestMapping("/players")
 public class PlayerController {
 
+    private static final Sort DEFAULT_SORT = Sort.by("team.name").and(Sort.by("shirtNumber"));
+    private static final Map<String, String> SORTABLE_FIELDS = Map.of(
+            "firstName", "firstName",
+            "lastName", "lastName",
+            "shirtNumber", "shirtNumber",
+            "team", "team.name"
+    );
+
     private final PlayerService playerService;
     private final TeamService teamService;
 
     @GetMapping
-    public String list(Model model) {
-        model.addAttribute("players", playerService.findAll());
+    public String list(@RequestParam(required = false) String sort,
+                        @RequestParam(required = false) String dir,
+                        Model model) {
+        Sort resolvedSort = SortSupport.resolve(sort, dir, SORTABLE_FIELDS, DEFAULT_SORT);
+        model.addAttribute("players", playerService.findAll(resolvedSort));
+        model.addAttribute("currentSort", sort);
+        model.addAttribute("currentDir", dir == null ? "asc" : dir);
         return "players/list";
     }
 

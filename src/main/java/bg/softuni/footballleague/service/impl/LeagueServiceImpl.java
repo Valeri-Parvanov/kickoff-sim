@@ -6,6 +6,7 @@ import bg.softuni.footballleague.model.League;
 import bg.softuni.footballleague.repository.LeagueRepository;
 import bg.softuni.footballleague.service.LeagueService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -15,11 +16,18 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class LeagueServiceImpl implements LeagueService {
 
+    private static final Sort DEFAULT_SORT = Sort.by("name");
+
     private final LeagueRepository leagueRepository;
 
     @Override
     public List<LeagueDto> findAll() {
-        return leagueRepository.findAll().stream()
+        return findAll(DEFAULT_SORT);
+    }
+
+    @Override
+    public List<LeagueDto> findAll(Sort sort) {
+        return leagueRepository.findAll(sort).stream()
                 .map(this::toDto)
                 .toList();
     }

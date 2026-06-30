@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<th th:fragment="sortTh(baseUrl, field, label)">
+    <a th:href="@{${baseUrl}(sort=${field}, dir=${currentSort == field and currentDir == 'asc'} ? 'desc' : 'asc')}"
+       th:text="${label}" class="sort-link"></a>
+    <span th:if="${currentSort == field}" class="sort-arrow"
+          th:text="${currentDir == 'asc'} ? '&#9650;' : '&#9660;'"></span>
+</th>
+</body>
+</html>

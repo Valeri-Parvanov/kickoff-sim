@@ -23,10 +23,10 @@
 <table border="1" cellpadding="6">
     <thead>
     <tr>
-        <th>First name</th>
-        <th>Last name</th>
-        <th>Shirt number</th>
-        <th>Team</th>
+        <th th:replace="~{fragments/sortable :: sortTh('/players', 'firstName', 'First name')}"></th>
+        <th th:replace="~{fragments/sortable :: sortTh('/players', 'lastName', 'Last name')}"></th>
+        <th th:replace="~{fragments/sortable :: sortTh('/players', 'shirtNumber', 'Shirt number')}"></th>
+        <th th:replace="~{fragments/sortable :: sortTh('/players', 'team', 'Team')}"></th>
         <th sec:authorize="hasRole('ADMIN')">Actions</th>
     </tr>
     </thead>

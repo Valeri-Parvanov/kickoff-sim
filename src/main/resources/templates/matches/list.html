@@ -23,10 +23,10 @@
 <table border="1" cellpadding="6">
     <thead>
     <tr>
-        <th>Home team</th>
-        <th>Away team</th>
-        <th>Score</th>
-        <th>Played at</th>
+        <th th:replace="~{fragments/sortable :: sortTh('/matches', 'homeTeam', 'Home team')}"></th>
+        <th th:replace="~{fragments/sortable :: sortTh('/matches', 'awayTeam', 'Away team')}"></th>
+        <th th:replace="~{fragments/sortable :: sortTh('/matches', 'homeScore', 'Score')}"></th>
+        <th th:replace="~{fragments/sortable :: sortTh('/matches', 'playedAt', 'Played at')}"></th>
         <th sec:authorize="hasRole('ADMIN')">Actions</th>
     </tr>
     </thead>

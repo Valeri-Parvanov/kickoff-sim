@@ -23,8 +23,8 @@
 <table border="1" cellpadding="6">
     <thead>
     <tr>
-        <th>Name</th>
-        <th>Country</th>
+        <th th:replace="~{fragments/sortable :: sortTh('/leagues', 'name', 'Name')}"></th>
+        <th th:replace="~{fragments/sortable :: sortTh('/leagues', 'country', 'Country')}"></th>
         <th sec:authorize="hasRole('ADMIN')">Actions</th>
     </tr>
     </thead>

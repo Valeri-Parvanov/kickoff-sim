@@ -9,6 +9,7 @@ import bg.softuni.footballleague.repository.MatchRepository;
 import bg.softuni.footballleague.repository.TeamRepository;
 import bg.softuni.footballleague.service.MatchService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -18,12 +19,19 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class MatchServiceImpl implements MatchService {
 
+    private static final Sort DEFAULT_SORT = Sort.by(Sort.Direction.DESC, "playedAt");
+
     private final MatchRepository matchRepository;
     private final TeamRepository teamRepository;
 
     @Override
     public List<MatchDto> findAll() {
-        return matchRepository.findAll().stream()
+        return findAll(DEFAULT_SORT);
+    }
+
+    @Override
+    public List<MatchDto> findAll(Sort sort) {
+        return matchRepository.findAll(sort).stream()
                 .map(this::toDto)
                 .toList();
     }

@@ -10,6 +10,7 @@ import bg.softuni.footballleague.repository.PlayerRepository;
 import bg.softuni.footballleague.repository.TeamRepository;
 import bg.softuni.footballleague.service.PlayerService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -20,13 +21,19 @@ import java.util.UUID;
 public class PlayerServiceImpl implements PlayerService {
 
     private static final int MAX_SQUAD_SIZE = 12;
+    private static final Sort DEFAULT_SORT = Sort.by("team.name").and(Sort.by("shirtNumber"));
 
     private final PlayerRepository playerRepository;
     private final TeamRepository teamRepository;
 
     @Override
     public List<PlayerDto> findAll() {
-        return playerRepository.findAll().stream()
+        return findAll(DEFAULT_SORT);
+    }
+
+    @Override
+    public List<PlayerDto> findAll(Sort sort) {
+        return playerRepository.findAll(sort).stream()
                 .map(this::toDto)
                 .toList();
     }

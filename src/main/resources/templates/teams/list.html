@@ -23,9 +23,9 @@
 <table border="1" cellpadding="6">
     <thead>
     <tr>
-        <th>Name</th>
-        <th>City</th>
-        <th>League</th>
+        <th th:replace="~{fragments/sortable :: sortTh('/teams', 'name', 'Name')}"></th>
+        <th th:replace="~{fragments/sortable :: sortTh('/teams', 'city', 'City')}"></th>
+        <th th:replace="~{fragments/sortable :: sortTh('/teams', 'league', 'League')}"></th>
         <th sec:authorize="hasRole('ADMIN')">Actions</th>
     </tr>
     </thead>
