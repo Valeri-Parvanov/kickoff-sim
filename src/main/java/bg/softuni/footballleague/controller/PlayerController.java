@@ -1,6 +1,8 @@
 package bg.softuni.footballleague.controller;
 
 import bg.softuni.footballleague.dto.PlayerDto;
+import bg.softuni.footballleague.exception.DuplicateShirtNumberException;
+import bg.softuni.footballleague.exception.SquadLimitExceededException;
 import bg.softuni.footballleague.service.PlayerService;
 import bg.softuni.footballleague.service.TeamService;
 import jakarta.validation.Valid;
@@ -48,7 +50,18 @@ public class PlayerController {
             return "players/form";
         }
 
-        playerService.create(playerDto);
+        try {
+            playerService.create(playerDto);
+        } catch (SquadLimitExceededException e) {
+            bindingResult.rejectValue("teamId", "team.full", e.getMessage());
+            model.addAttribute("teams", teamService.findAll());
+            return "players/form";
+        } catch (DuplicateShirtNumberException e) {
+            bindingResult.rejectValue("shirtNumber", "shirtNumber.taken", e.getMessage());
+            model.addAttribute("teams", teamService.findAll());
+            return "players/form";
+        }
+
         return "redirect:/players";
     }
 
@@ -69,7 +82,18 @@ public class PlayerController {
             return "players/form";
         }
 
-        playerService.update(id, playerDto);
+        try {
+            playerService.update(id, playerDto);
+        } catch (SquadLimitExceededException e) {
+            bindingResult.rejectValue("teamId", "team.full", e.getMessage());
+            model.addAttribute("teams", teamService.findAll());
+            return "players/form";
+        } catch (DuplicateShirtNumberException e) {
+            bindingResult.rejectValue("shirtNumber", "shirtNumber.taken", e.getMessage());
+            model.addAttribute("teams", teamService.findAll());
+            return "players/form";
+        }
+
         return "redirect:/players";
     }
 

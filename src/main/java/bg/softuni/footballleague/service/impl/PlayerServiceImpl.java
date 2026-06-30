@@ -1,7 +1,9 @@
 package bg.softuni.footballleague.service.impl;
 
 import bg.softuni.footballleague.dto.PlayerDto;
+import bg.softuni.footballleague.exception.DuplicateShirtNumberException;
 import bg.softuni.footballleague.exception.EntityNotFoundException;
+import bg.softuni.footballleague.exception.SquadLimitExceededException;
 import bg.softuni.footballleague.model.Player;
 import bg.softuni.footballleague.model.Team;
 import bg.softuni.footballleague.repository.PlayerRepository;
@@ -16,6 +18,8 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class PlayerServiceImpl implements PlayerService {
+
+    private static final int MAX_SQUAD_SIZE = 12;
 
     private final PlayerRepository playerRepository;
     private final TeamRepository teamRepository;
@@ -70,10 +74,26 @@ public class PlayerServiceImpl implements PlayerService {
     }
 
     private void mapToEntity(PlayerDto playerDto, Player player) {
+        Team team = getTeamOrThrow(playerDto.getTeamId());
+        boolean joiningTeam = player.getId() == null || !team.getId().equals(player.getTeam().getId());
+
+        if (joiningTeam && playerRepository.countByTeam(team) >= MAX_SQUAD_SIZE) {
+            throw new SquadLimitExceededException(
+                    "Team '%s' already has the maximum of %d players".formatted(team.getName(), MAX_SQUAD_SIZE));
+        }
+
+        playerRepository.findByTeamAndShirtNumber(team, playerDto.getShirtNumber())
+                .filter(existing -> !existing.getId().equals(player.getId()))
+                .ifPresent(existing -> {
+                    throw new DuplicateShirtNumberException(
+                            "Shirt number %d is already taken in team '%s'"
+                                    .formatted(playerDto.getShirtNumber(), team.getName()));
+                });
+
         player.setFirstName(playerDto.getFirstName());
         player.setLastName(playerDto.getLastName());
         player.setShirtNumber(playerDto.getShirtNumber());
-        player.setTeam(getTeamOrThrow(playerDto.getTeamId()));
+        player.setTeam(team);
     }
 
     private PlayerDto toDto(Player player) {

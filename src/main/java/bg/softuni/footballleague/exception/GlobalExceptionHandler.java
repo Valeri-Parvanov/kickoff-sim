@@ -18,4 +18,16 @@ public class GlobalExceptionHandler {
         model.addAttribute("errorMessage", ex.getMessage());
         return "error";
     }
+
+    @ExceptionHandler(SquadLimitExceededException.class)
+    public String handleSquadLimitExceeded(SquadLimitExceededException ex, Model model) {
+        model.addAttribute("errorMessage", ex.getMessage());
+        return "error";
+    }
+
+    @ExceptionHandler(DuplicateShirtNumberException.class)
+    public String handleDuplicateShirtNumber(DuplicateShirtNumberException ex, Model model) {
+        model.addAttribute("errorMessage", ex.getMessage());
+        return "error";
+    }
 }
