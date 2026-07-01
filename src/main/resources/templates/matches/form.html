@@ -37,18 +37,6 @@
     </div>
 
     <div>
-        <label for="homeScore">Home score</label>
-        <input type="number" id="homeScore" th:field="*{homeScore}"/>
-        <span style="color:red" th:if="${#fields.hasErrors('homeScore')}" th:errors="*{homeScore}"></span>
-    </div>
-
-    <div>
-        <label for="awayScore">Away score</label>
-        <input type="number" id="awayScore" th:field="*{awayScore}"/>
-        <span style="color:red" th:if="${#fields.hasErrors('awayScore')}" th:errors="*{awayScore}"></span>
-    </div>
-
-    <div>
         <label for="playedAt">Played at</label>
         <input type="datetime-local" id="playedAt" th:field="*{playedAt}" step="1800"/>
         <span class="field-hint">Matches scheduled 08:00 – 23:30, every 30 minutes</span>

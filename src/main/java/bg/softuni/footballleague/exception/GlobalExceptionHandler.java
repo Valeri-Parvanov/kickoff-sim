@@ -3,6 +3,7 @@ package bg.softuni.footballleague.exception;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -49,6 +50,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InvalidGoalException.class)
     public String handleInvalidGoal(InvalidGoalException ex, Model model) {
         model.addAttribute("errorMessage", ex.getMessage());
+        return "error";
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public String handleDuplicateEntry(DataIntegrityViolationException ex, Model model) {
+        model.addAttribute("errorMessage", "A record with that name already exists. Please choose a different name.");
         return "error";
     }
 

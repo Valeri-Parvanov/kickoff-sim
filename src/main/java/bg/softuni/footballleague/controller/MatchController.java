@@ -6,6 +6,7 @@ import bg.softuni.footballleague.dto.MatchDto;
 import bg.softuni.footballleague.dto.TeamDto;
 import bg.softuni.footballleague.model.ChangeAction;
 import bg.softuni.footballleague.model.EntityType;
+import bg.softuni.footballleague.model.Half;
 import bg.softuni.footballleague.service.ChangeRequestService;
 import bg.softuni.footballleague.service.MatchService;
 import bg.softuni.footballleague.service.PlayerService;
@@ -164,8 +165,8 @@ public class MatchController {
         GoalEventDto form = new GoalEventDto();
         form.setScorerId(goal.getScorerId());
         form.setAssistantId(goal.getAssistantId());
-        if (goal.getMinute() != null) {
-            int fullMinute = goal.getHalf().name().equals("SECOND") ? goal.getMinute() + 20 : goal.getMinute();
+        if (goal.getMinute() != null && goal.getHalf() != null) {
+            int fullMinute = Half.SECOND.equals(goal.getHalf()) ? goal.getMinute() + 20 : goal.getMinute();
             form.setMinute(fullMinute);
         }
 
