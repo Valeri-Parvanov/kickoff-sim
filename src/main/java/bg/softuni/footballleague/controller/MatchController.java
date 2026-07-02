@@ -72,7 +72,7 @@ public class MatchController {
         return "matches/form";
     }
 
-    @PostMapping("/create")
+    @PostMapping
     public String create(@Valid @ModelAttribute("matchDto") MatchDto matchDto, BindingResult bindingResult,
                           Model model, Authentication authentication, RedirectAttributes redirectAttributes) {
         validateTeams(matchDto, bindingResult);
@@ -128,18 +128,18 @@ public class MatchController {
     }
 
     @PreAuthorize("hasRole('ADMIN')")
-    @GetMapping("/{id}/goals/add")
+    @GetMapping("/{id}/goals/new")
     public String addGoalForm(@PathVariable UUID id, Model model) {
         MatchDto match = matchService.findById(id);
         model.addAttribute("match", match);
         model.addAttribute("homePlayers", playerService.findAllByTeam(match.getHomeTeamId()));
         model.addAttribute("awayPlayers", playerService.findAllByTeam(match.getAwayTeamId()));
         model.addAttribute("goalEventDto", new GoalEventDto());
-        return "matches/goals/add";
+        return "matches/goals/new";
     }
 
     @PreAuthorize("hasRole('ADMIN')")
-    @PostMapping("/{id}/goals/add")
+    @PostMapping("/{id}/goals")
     public String addGoal(@PathVariable UUID id,
                           @Valid @ModelAttribute("goalEventDto") GoalEventDto goalEventDto,
                           BindingResult bindingResult, Model model,
@@ -149,11 +149,20 @@ public class MatchController {
             model.addAttribute("match", match);
             model.addAttribute("homePlayers", playerService.findAllByTeam(match.getHomeTeamId()));
             model.addAttribute("awayPlayers", playerService.findAllByTeam(match.getAwayTeamId()));
-            return "matches/goals/add";
+            return "matches/goals/new";
         }
-        matchService.addGoal(id, goalEventDto);
-        redirectAttributes.addFlashAttribute("statusMessage", "Goal recorded.");
-        return "redirect:/matches";
+        try {
+            matchService.addGoal(id, goalEventDto);
+            redirectAttributes.addFlashAttribute("statusMessage", "Goal recorded.");
+            return "redirect:/matches";
+        } catch (bg.softuni.footballleague.exception.InvalidGoalException e) {
+            MatchDto match = matchService.findById(id);
+            model.addAttribute("match", match);
+            model.addAttribute("homePlayers", playerService.findAllByTeam(match.getHomeTeamId()));
+            model.addAttribute("awayPlayers", playerService.findAllByTeam(match.getAwayTeamId()));
+            model.addAttribute("errorMessage", e.getMessage());
+            return "matches/goals/new";
+        }
     }
 
     @PreAuthorize("hasRole('ADMIN')")
@@ -192,9 +201,19 @@ public class MatchController {
             model.addAttribute("awayPlayers", playerService.findAllByTeam(match.getAwayTeamId()));
             return "matches/goals/edit";
         }
-        matchService.updateGoal(goalId, goalEventDto);
-        redirectAttributes.addFlashAttribute("statusMessage", "Goal updated.");
-        return "redirect:/matches";
+        try {
+            matchService.updateGoal(goalId, goalEventDto);
+            redirectAttributes.addFlashAttribute("statusMessage", "Goal updated.");
+            return "redirect:/matches";
+        } catch (bg.softuni.footballleague.exception.InvalidGoalException e) {
+            MatchDto match = matchService.findById(id);
+            model.addAttribute("match", match);
+            model.addAttribute("goalId", goalId);
+            model.addAttribute("homePlayers", playerService.findAllByTeam(match.getHomeTeamId()));
+            model.addAttribute("awayPlayers", playerService.findAllByTeam(match.getAwayTeamId()));
+            model.addAttribute("errorMessage", e.getMessage());
+            return "matches/goals/edit";
+        }
     }
 
     @PreAuthorize("hasRole('ADMIN')")

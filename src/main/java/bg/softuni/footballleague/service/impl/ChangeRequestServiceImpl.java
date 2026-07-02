@@ -20,7 +20,7 @@ import bg.softuni.footballleague.service.MatchService;
 import bg.softuni.footballleague.service.PlayerService;
 import bg.softuni.footballleague.service.TeamService;
 import bg.softuni.footballleague.service.UserService;
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
@@ -106,6 +106,10 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
     @Override
     public void approve(UUID id, Authentication authentication) {
         ChangeRequest changeRequest = getOrThrow(id);
+        if (changeRequest.getStatus() != ChangeRequestStatus.PENDING) {
+            throw new ChangeRequestApprovalException(
+                    "Change request is already " + changeRequest.getStatus().name().toLowerCase() + ".");
+        }
         User reviewer = userService.findByUsername(authentication.getName());
 
         Object dto = changeRequest.getAction() == ChangeAction.DELETE
@@ -139,6 +143,10 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
     @Override
     public void reject(UUID id, Authentication authentication, String reason) {
         ChangeRequest changeRequest = getOrThrow(id);
+        if (changeRequest.getStatus() != ChangeRequestStatus.PENDING) {
+            throw new ChangeRequestApprovalException(
+                    "Change request is already " + changeRequest.getStatus().name().toLowerCase() + ".");
+        }
         User reviewer = userService.findByUsername(authentication.getName());
 
         changeRequest.setStatus(ChangeRequestStatus.REJECTED);

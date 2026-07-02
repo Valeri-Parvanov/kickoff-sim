@@ -15,7 +15,7 @@
 <main class="page">
 <h1 th:text="${matchDto.id} ? 'Edit match' : 'Add match'"></h1>
 
-<form th:action="${matchDto.id} ? @{/matches/{id}/edit(id=${matchDto.id})} : @{/matches/create}"
+<form th:action="${matchDto.id} ? @{/matches/{id}/edit(id=${matchDto.id})} : @{/matches}"
       th:object="${matchDto}" method="post" class="card-form">
 
     <div>
@@ -37,10 +37,25 @@
     </div>
 
     <div>
-        <label for="playedAt">Played at</label>
-        <input type="datetime-local" id="playedAt" th:field="*{playedAt}" step="1800"/>
+        <label for="homeScore">Home score</label>
+        <input type="number" id="homeScore" th:field="*{homeScore}" min="0" placeholder="0"/>
+        <span style="color:red" th:if="${#fields.hasErrors('homeScore')}" th:errors="*{homeScore}"></span>
+    </div>
+
+    <div>
+        <label for="awayScore">Away score</label>
+        <input type="number" id="awayScore" th:field="*{awayScore}" min="0" placeholder="0"/>
+        <span style="color:red" th:if="${#fields.hasErrors('awayScore')}" th:errors="*{awayScore}"></span>
+    </div>
+
+    <div>
+        <label>Played at</label>
+        <div class="input-row">
+            <input type="date" id="datePart"/>
+            <select id="timePart"></select>
+        </div>
         <span class="field-hint">Matches scheduled 08:00 – 23:30, every 30 minutes</span>
-        <span style="color:red" id="timeError"></span>
+        <input type="hidden" th:field="*{playedAt}" id="playedAt"/>
         <span style="color:red" th:if="${#fields.hasErrors('playedAt')}" th:errors="*{playedAt}"></span>
     </div>
 
@@ -49,28 +64,36 @@
 
 <script>
 (function () {
-    var input = document.getElementById('playedAt');
-    var err   = document.getElementById('timeError');
+    var dateInput  = document.getElementById('datePart');
+    var timeSelect = document.getElementById('timePart');
+    var hidden     = document.getElementById('playedAt');
 
-    function validate() {
-        if (!input.value) { err.textContent = ''; return; }
-        var parts  = input.value.split('T');
-        if (parts.length < 2) return;
-        var timeParts = parts[1].split(':');
-        var h = parseInt(timeParts[0], 10);
-        var m = parseInt(timeParts[1], 10);
-        var totalMin = h * 60 + m;
-        if (totalMin < 8 * 60 || totalMin > 23 * 60 + 30) {
-            err.textContent = 'Matches can only be scheduled between 08:00 and 23:30.';
-        } else if (m !== 0 && m !== 30) {
-            err.textContent = 'Please choose a time on the hour or half hour (:00 or :30).';
-        } else {
-            err.textContent = '';
+    for (var total = 8 * 60; total <= 23 * 60 + 30; total += 30) {
+        var h   = Math.floor(total / 60);
+        var m   = total % 60;
+        var lbl = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+        var opt = document.createElement('option');
+        opt.value = lbl;
+        opt.textContent = lbl;
+        timeSelect.appendChild(opt);
+    }
+
+    if (hidden.value) {
+        var parts = hidden.value.split('T');
+        dateInput.value  = parts[0];
+        timeSelect.value = parts[1] ? parts[1].substring(0, 5) : '08:00';
+    } else {
+        timeSelect.value = '08:00';
+    }
+
+    function combine() {
+        if (dateInput.value) {
+            hidden.value = dateInput.value + 'T' + timeSelect.value;
         }
     }
 
-    input.addEventListener('change', validate);
-    input.addEventListener('input',  validate);
+    dateInput.addEventListener('change', combine);
+    timeSelect.addEventListener('change', combine);
 })();
 </script>
 

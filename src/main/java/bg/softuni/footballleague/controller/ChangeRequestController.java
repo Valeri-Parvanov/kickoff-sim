@@ -48,8 +48,12 @@ public class ChangeRequestController {
     @PostMapping("/{id}/reject")
     public String reject(@PathVariable UUID id, @RequestParam(required = false) String reason,
                           Authentication authentication, RedirectAttributes redirectAttributes) {
-        changeRequestService.reject(id, authentication, reason);
-        redirectAttributes.addFlashAttribute("statusMessage", "Change request rejected.");
+        try {
+            changeRequestService.reject(id, authentication, reason);
+            redirectAttributes.addFlashAttribute("statusMessage", "Change request rejected.");
+        } catch (ChangeRequestApprovalException e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+        }
         return "redirect:/admin/change-requests";
     }
 }

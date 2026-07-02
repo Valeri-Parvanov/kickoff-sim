@@ -47,14 +47,6 @@ public class MatchServiceImpl implements MatchService {
     }
 
     @Override
-    public List<MatchDto> findAllByTeam(UUID teamId) {
-        Team team = getTeamOrThrow(teamId);
-        return matchRepository.findAllByHomeTeamOrAwayTeam(team, team).stream()
-                .map(this::toDto)
-                .toList();
-    }
-
-    @Override
     public MatchDto findById(UUID id) {
         return toDto(getMatchOrThrow(id));
     }
@@ -84,30 +76,29 @@ public class MatchServiceImpl implements MatchService {
         Player scorer = getPlayerOrThrow(dto.getScorerId());
 
         UUID scorerTeamId = scorer.getTeam().getId();
-        boolean scorerBelongsToMatch = scorerTeamId.equals(match.getHomeTeam().getId())
-                || scorerTeamId.equals(match.getAwayTeam().getId());
-        if (!scorerBelongsToMatch) {
-            throw new InvalidGoalException(
-                    "Scorer " + scorer.getFirstName() + " " + scorer.getLastName()
-                    + " does not play in this match.");
+        boolean scorerIsHome = scorerTeamId.equals(match.getHomeTeam().getId());
+        boolean scorerIsAway = scorerTeamId.equals(match.getAwayTeam().getId());
+        if (!scorerIsHome && !scorerIsAway) {
+            throw new InvalidGoalException("Scorer %s %s does not play in this match."
+                    .formatted(scorer.getFirstName(), scorer.getLastName()));
+        }
+
+        validateGoalCountLimit(match, scorerIsHome, null);
+
+        Player assistant = null;
+        if (dto.getAssistantId() != null) {
+            assistant = getPlayerOrThrow(dto.getAssistantId());
+            if (!assistant.getTeam().getId().equals(scorerTeamId)) {
+                throw new InvalidGoalException("Assistant must be from the same team as the scorer.");
+            }
         }
 
         Goal goal = new Goal();
-        Integer rawMinute = dto.getMinute();
-        Half half = (rawMinute == null || rawMinute <= 20) ? Half.FIRST : Half.SECOND;
-        Integer halfMinute = (rawMinute != null && rawMinute > 20) ? rawMinute - 20 : rawMinute;
-
         goal.setMatch(match);
         goal.setScorer(scorer);
-        goal.setHalf(half);
-        goal.setMinute(halfMinute);
-
-        if (dto.getAssistantId() != null) {
-            goal.setAssistant(getPlayerOrThrow(dto.getAssistantId()));
-        }
-
+        goal.setAssistant(assistant);
+        applyHalfAndMinute(goal, dto.getMinute());
         goalRepository.save(goal);
-        recalculateAndSaveScores(match);
     }
 
     @Override
@@ -125,34 +116,52 @@ public class MatchServiceImpl implements MatchService {
         Player scorer = getPlayerOrThrow(dto.getScorerId());
 
         UUID scorerTeamId = scorer.getTeam().getId();
-        boolean scorerBelongsToMatch = scorerTeamId.equals(goal.getMatch().getHomeTeam().getId())
-                || scorerTeamId.equals(goal.getMatch().getAwayTeam().getId());
-        if (!scorerBelongsToMatch) {
-            throw new InvalidGoalException(
-                    "Scorer " + scorer.getFirstName() + " " + scorer.getLastName()
-                    + " does not play in this match.");
+        Match match = goal.getMatch();
+        boolean scorerIsHome = scorerTeamId.equals(match.getHomeTeam().getId());
+        boolean scorerIsAway = scorerTeamId.equals(match.getAwayTeam().getId());
+        if (!scorerIsHome && !scorerIsAway) {
+            throw new InvalidGoalException("Scorer %s %s does not play in this match."
+                    .formatted(scorer.getFirstName(), scorer.getLastName()));
         }
 
-        Integer rawMinute = dto.getMinute();
-        Half half = (rawMinute == null || rawMinute <= 20) ? Half.FIRST : Half.SECOND;
-        Integer halfMinute = (rawMinute != null && rawMinute > 20) ? rawMinute - 20 : rawMinute;
+        validateGoalCountLimit(match, scorerIsHome, goalId);
+
+        Player assistant = null;
+        if (dto.getAssistantId() != null) {
+            assistant = getPlayerOrThrow(dto.getAssistantId());
+            if (!assistant.getTeam().getId().equals(scorerTeamId)) {
+                throw new InvalidGoalException("Assistant must be from the same team as the scorer.");
+            }
+        }
 
         goal.setScorer(scorer);
-        goal.setHalf(half);
-        goal.setMinute(halfMinute);
-        goal.setAssistant(dto.getAssistantId() != null ? getPlayerOrThrow(dto.getAssistantId()) : null);
-
+        goal.setAssistant(assistant);
+        applyHalfAndMinute(goal, dto.getMinute());
         goalRepository.save(goal);
-        recalculateAndSaveScores(goal.getMatch());
     }
 
     @Override
     public void deleteGoal(UUID goalId) {
-        goalRepository.findById(goalId).ifPresent(goal -> {
-            Match match = goal.getMatch();
-            goalRepository.delete(goal);
-            recalculateAndSaveScores(match);
-        });
+        Goal goal = goalRepository.findById(goalId)
+                .orElseThrow(() -> new EntityNotFoundException("Goal not found"));
+        goalRepository.delete(goal);
+    }
+
+    private void validateGoalCountLimit(Match match, boolean scorerIsHome, UUID excludeGoalId) {
+        UUID teamId = scorerIsHome ? match.getHomeTeam().getId() : match.getAwayTeam().getId();
+        int declared = scorerIsHome ? match.getHomeScore() : match.getAwayScore();
+        long current = goalRepository.countByMatchAndScorerTeamIdExcluding(match, teamId, excludeGoalId);
+        if (current >= declared) {
+            String side = scorerIsHome ? "home" : "away";
+            throw new InvalidGoalException(
+                    "Cannot add more " + side + " goals — declared " + side + " score is " + declared + ".");
+        }
+    }
+
+    private void applyHalfAndMinute(Goal goal, Integer rawMinute) {
+        goal.setHalf(rawMinute == null || rawMinute <= 20 ? Half.FIRST : Half.SECOND);
+        // explicit boxing avoids NPE: ternary with mixed int/Integer unboxes the null branch
+        goal.setMinute(rawMinute != null && rawMinute > 20 ? Integer.valueOf(rawMinute - 20) : rawMinute);
     }
 
     private Player getPlayerOrThrow(UUID id) {
@@ -178,36 +187,27 @@ public class MatchServiceImpl implements MatchService {
         match.setHomeTeam(getTeamOrThrow(matchDto.getHomeTeamId()));
         match.setAwayTeam(getTeamOrThrow(matchDto.getAwayTeamId()));
         match.setPlayedAt(matchDto.getPlayedAt());
+        match.setHomeScore(matchDto.getHomeScore() != null ? matchDto.getHomeScore() : 0);
+        match.setAwayScore(matchDto.getAwayScore() != null ? matchDto.getAwayScore() : 0);
     }
 
     private MatchDto toDto(Match match) {
         MatchDto matchDto = new MatchDto();
         matchDto.setId(match.getId());
-
-        UUID homeTeamId = null;
-        UUID awayTeamId = null;
-        if (match.getHomeTeam() != null) {
-            homeTeamId = match.getHomeTeam().getId();
-            matchDto.setHomeTeamId(homeTeamId);
-            matchDto.setHomeTeamName(match.getHomeTeam().getName());
-        }
-        if (match.getAwayTeam() != null) {
-            awayTeamId = match.getAwayTeam().getId();
-            matchDto.setAwayTeamId(awayTeamId);
-            matchDto.setAwayTeamName(match.getAwayTeam().getName());
-        }
+        matchDto.setHomeTeamId(match.getHomeTeam().getId());
+        matchDto.setHomeTeamName(match.getHomeTeam().getName());
+        matchDto.setAwayTeamId(match.getAwayTeam().getId());
+        matchDto.setAwayTeamName(match.getAwayTeam().getName());
         matchDto.setHomeScore(match.getHomeScore());
         matchDto.setAwayScore(match.getAwayScore());
         matchDto.setPlayedAt(match.getPlayedAt());
 
-        List<Goal> goals = goalRepository.findAllByMatchOrderByHalfAscMinuteAsc(match);
-        int homeTotal = 0, awayTotal = 0, homeHalf = 0, awayHalf = 0;
-        for (Goal g : goals) {
+        UUID homeTeamId = match.getHomeTeam().getId();
+        int homeHalf = 0, awayHalf = 0;
+        for (Goal g : match.getGoals()) {
             GoalDto dto = toGoalDto(g);
-            boolean isHome = dto.getTeamId() != null && dto.getTeamId().equals(homeTeamId);
+            boolean isHome = homeTeamId.equals(dto.getTeamId());
             boolean isFirst = g.getHalf() == Half.FIRST;
-
-            if (isHome) homeTotal++; else awayTotal++;
 
             if (isFirst) {
                 if (isHome) { matchDto.getFirstHalfHomeGoals().add(dto); homeHalf++; }
@@ -217,27 +217,12 @@ public class MatchServiceImpl implements MatchService {
                 else        matchDto.getSecondHalfAwayGoals().add(dto);
             }
         }
-        matchDto.setHomeScore(homeTotal);
-        matchDto.setAwayScore(awayTotal);
-        if (!goals.isEmpty()) {
+        if (!match.getGoals().isEmpty()) {
             matchDto.setHomeHalfScore(homeHalf);
             matchDto.setAwayHalfScore(awayHalf);
         }
 
         return matchDto;
-    }
-
-    private void recalculateAndSaveScores(Match match) {
-        List<Goal> goals = goalRepository.findAllByMatchOrderByHalfAscMinuteAsc(match);
-        UUID homeId = match.getHomeTeam().getId();
-        int home = 0, away = 0;
-        for (Goal g : goals) {
-            if (g.getScorer() != null && g.getScorer().getTeam().getId().equals(homeId)) home++;
-            else away++;
-        }
-        match.setHomeScore(home);
-        match.setAwayScore(away);
-        matchRepository.save(match);
     }
 
     private GoalDto toGoalDto(Goal goal) {
