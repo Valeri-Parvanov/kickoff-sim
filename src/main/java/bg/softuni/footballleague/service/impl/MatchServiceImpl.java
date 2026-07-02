@@ -17,14 +17,18 @@ import bg.softuni.footballleague.repository.PlayerRepository;
 import bg.softuni.footballleague.repository.TeamRepository;
 import bg.softuni.footballleague.service.MatchService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class MatchServiceImpl implements MatchService {
 
     private static final Sort DEFAULT_SORT = Sort.by(Sort.Direction.DESC, "playedAt");
@@ -52,25 +56,34 @@ public class MatchServiceImpl implements MatchService {
     }
 
     @Override
+    @Transactional
     public MatchDto create(MatchDto matchDto) {
         Match match = new Match();
         mapToEntity(matchDto, match);
-        return toDto(matchRepository.save(match));
+        MatchDto saved = toDto(matchRepository.save(match));
+        log.info("Created match {} vs {}", saved.getHomeTeamName(), saved.getAwayTeamName());
+        return saved;
     }
 
     @Override
+    @Transactional
     public MatchDto update(UUID id, MatchDto matchDto) {
         Match match = getMatchOrThrow(id);
         mapToEntity(matchDto, match);
-        return toDto(matchRepository.save(match));
+        MatchDto saved = toDto(matchRepository.save(match));
+        log.info("Updated match {}", id);
+        return saved;
     }
 
     @Override
+    @Transactional
     public void delete(UUID id) {
         matchRepository.delete(getMatchOrThrow(id));
+        log.info("Deleted match {}", id);
     }
 
     @Override
+    @Transactional
     public void addGoal(UUID matchId, GoalEventDto dto) {
         Match match = getMatchOrThrow(matchId);
         Player scorer = getPlayerOrThrow(dto.getScorerId());
@@ -99,6 +112,7 @@ public class MatchServiceImpl implements MatchService {
         goal.setAssistant(assistant);
         applyHalfAndMinute(goal, dto.getMinute());
         goalRepository.save(goal);
+        log.info("Recorded goal for match {} by player {}", matchId, dto.getScorerId());
     }
 
     @Override
@@ -109,6 +123,7 @@ public class MatchServiceImpl implements MatchService {
     }
 
     @Override
+    @Transactional
     public void updateGoal(UUID goalId, GoalEventDto dto) {
         Goal goal = goalRepository.findById(goalId)
                 .orElseThrow(() -> new EntityNotFoundException("Goal not found"));
@@ -138,13 +153,16 @@ public class MatchServiceImpl implements MatchService {
         goal.setAssistant(assistant);
         applyHalfAndMinute(goal, dto.getMinute());
         goalRepository.save(goal);
+        log.info("Updated goal {}", goalId);
     }
 
     @Override
+    @Transactional
     public void deleteGoal(UUID goalId) {
         Goal goal = goalRepository.findById(goalId)
                 .orElseThrow(() -> new EntityNotFoundException("Goal not found"));
         goalRepository.delete(goal);
+        log.info("Deleted goal {}", goalId);
     }
 
     private void validateGoalCountLimit(Match match, boolean scorerIsHome, UUID excludeGoalId) {
@@ -160,7 +178,6 @@ public class MatchServiceImpl implements MatchService {
 
     private void applyHalfAndMinute(Goal goal, Integer rawMinute) {
         goal.setHalf(rawMinute == null || rawMinute <= 20 ? Half.FIRST : Half.SECOND);
-        // explicit boxing avoids NPE: ternary with mixed int/Integer unboxes the null branch
         goal.setMinute(rawMinute != null && rawMinute > 20 ? Integer.valueOf(rawMinute - 20) : rawMinute);
     }
 

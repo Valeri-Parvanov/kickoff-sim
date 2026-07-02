@@ -8,17 +8,22 @@ import bg.softuni.footballleague.model.User;
 import bg.softuni.footballleague.repository.UserRepository;
 import bg.softuni.footballleague.service.UserService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
+    @Transactional
     public Role register(RegisterDto registerDto) {
         if (userRepository.existsByUsername(registerDto.getUsername())) {
             throw new UsernameAlreadyExistsException(
@@ -31,6 +36,7 @@ public class UserServiceImpl implements UserService {
         user.setRole(userRepository.count() == 0 ? Role.ADMIN : Role.USER);
 
         userRepository.save(user);
+        log.info("Registered user '{}' with role {}", user.getUsername(), user.getRole());
         return user.getRole();
     }
 

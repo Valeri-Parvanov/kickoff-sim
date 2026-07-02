@@ -9,6 +9,9 @@ import bg.softuni.footballleague.repository.LeagueRepository;
 import bg.softuni.footballleague.repository.MatchRepository;
 import bg.softuni.footballleague.service.LeagueService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,7 +20,9 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class LeagueServiceImpl implements LeagueService {
 
     private static final Sort DEFAULT_SORT = Sort.by("name");
@@ -26,6 +31,7 @@ public class LeagueServiceImpl implements LeagueService {
     private final MatchRepository matchRepository;
 
     @Override
+    @Cacheable("leagues")
     public List<LeagueDto> findAll() {
         return findAll(DEFAULT_SORT);
     }
@@ -43,21 +49,30 @@ public class LeagueServiceImpl implements LeagueService {
     }
 
     @Override
+    @Transactional
+    @CacheEvict(value = "leagues", allEntries = true)
     public LeagueDto create(LeagueDto leagueDto) {
         League league = new League();
         mapToEntity(leagueDto, league);
-        return toDto(leagueRepository.save(league));
-    }
-
-    @Override
-    public LeagueDto update(UUID id, LeagueDto leagueDto) {
-        League league = getLeagueOrThrow(id);
-        mapToEntity(leagueDto, league);
-        return toDto(leagueRepository.save(league));
+        LeagueDto saved = toDto(leagueRepository.save(league));
+        log.info("Created league '{}'", saved.getName());
+        return saved;
     }
 
     @Override
     @Transactional
+    @CacheEvict(value = "leagues", allEntries = true)
+    public LeagueDto update(UUID id, LeagueDto leagueDto) {
+        League league = getLeagueOrThrow(id);
+        mapToEntity(leagueDto, league);
+        LeagueDto saved = toDto(leagueRepository.save(league));
+        log.info("Updated league {}", id);
+        return saved;
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(value = "leagues", allEntries = true)
     public void delete(UUID id) {
         League league = getLeagueOrThrow(id);
         for (Team team : league.getTeams()) {
@@ -65,6 +80,7 @@ public class LeagueServiceImpl implements LeagueService {
             matchRepository.deleteAll(matches);
         }
         leagueRepository.delete(league);
+        log.info("Deleted league {}", id);
     }
 
     private League getLeagueOrThrow(UUID id) {

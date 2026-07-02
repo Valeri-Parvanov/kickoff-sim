@@ -5,6 +5,7 @@ import bg.softuni.footballleague.dto.LeagueDto;
 import bg.softuni.footballleague.dto.MatchDto;
 import bg.softuni.footballleague.dto.PlayerDto;
 import bg.softuni.footballleague.dto.TeamDto;
+import bg.softuni.footballleague.dto.TeamSquadPayload;
 import bg.softuni.footballleague.exception.ChangeRequestApprovalException;
 import bg.softuni.footballleague.exception.EntityNotFoundException;
 import bg.softuni.footballleague.model.ChangeAction;
@@ -24,17 +25,23 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class ChangeRequestServiceImpl implements ChangeRequestService {
 
     private final ChangeRequestRepository changeRequestRepository;
@@ -47,12 +54,14 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
     private final Validator validator;
 
     @Override
+    @Transactional
     public boolean submitOrExecute(EntityType entityType, ChangeAction action, Object dto, UUID targetId,
                                     Authentication authentication) {
         User requester = userService.findByUsername(authentication.getName());
 
         if (requester.getRole() == Role.ADMIN) {
             applyChange(entityType, action, dto, targetId);
+            log.info("Admin {} applied {} {} directly", requester.getUsername(), action, entityType);
             return true;
         }
 
@@ -70,6 +79,7 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
         changeRequest.setRequestedBy(requester);
         changeRequest.setRequestedAt(LocalDateTime.now());
         changeRequestRepository.save(changeRequest);
+        log.info("User {} submitted {} {} request for approval", requester.getUsername(), action, entityType);
         return false;
     }
 
@@ -78,6 +88,11 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
         return changeRequestRepository.findAllByStatusOrderByRequestedAtAsc(ChangeRequestStatus.PENDING).stream()
                 .map(this::toView)
                 .toList();
+    }
+
+    @Override
+    public long countPending() {
+        return changeRequestRepository.countByStatus(ChangeRequestStatus.PENDING);
     }
 
     @Override
@@ -104,6 +119,7 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
     }
 
     @Override
+    @Transactional
     public void approve(UUID id, Authentication authentication) {
         ChangeRequest changeRequest = getOrThrow(id);
         if (changeRequest.getStatus() != ChangeRequestStatus.PENDING) {
@@ -130,6 +146,8 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
             applyChange(changeRequest.getEntityType(), changeRequest.getAction(), dto, changeRequest.getTargetId());
         } catch (ChangeRequestApprovalException e) {
             throw e;
+        } catch (DataIntegrityViolationException e) {
+            throw new ChangeRequestApprovalException(duplicateNameMessage(changeRequest.getEntityType(), dto));
         } catch (RuntimeException e) {
             throw new ChangeRequestApprovalException(e.getMessage());
         }
@@ -138,9 +156,11 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
         changeRequest.setReviewedBy(reviewer);
         changeRequest.setReviewedAt(LocalDateTime.now());
         changeRequestRepository.save(changeRequest);
+        log.info("Change request {} approved by {}", id, reviewer.getUsername());
     }
 
     @Override
+    @Transactional
     public void reject(UUID id, Authentication authentication, String reason) {
         ChangeRequest changeRequest = getOrThrow(id);
         if (changeRequest.getStatus() != ChangeRequestStatus.PENDING) {
@@ -154,6 +174,37 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
         changeRequest.setReviewedAt(LocalDateTime.now());
         changeRequest.setRejectionReason(reason);
         changeRequestRepository.save(changeRequest);
+        log.info("Change request {} rejected by {}", id, reviewer.getUsername());
+    }
+
+    @Override
+    @Transactional
+    public int expireStalePending(int olderThanDays) {
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(olderThanDays);
+        List<ChangeRequest> stale =
+                changeRequestRepository.findAllByStatusAndRequestedAtBefore(ChangeRequestStatus.PENDING, cutoff);
+        for (ChangeRequest request : stale) {
+            request.setStatus(ChangeRequestStatus.REJECTED);
+            request.setReviewedAt(LocalDateTime.now());
+            request.setRejectionReason("Automatically expired after " + olderThanDays + " days without review");
+        }
+        changeRequestRepository.saveAll(stale);
+        if (!stale.isEmpty()) {
+            log.info("Expired {} stale pending change request(s)", stale.size());
+        }
+        return stale.size();
+    }
+
+    @Override
+    @Transactional
+    public long purgeResolvedOlderThan(int olderThanDays) {
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(olderThanDays);
+        long removed = changeRequestRepository.deleteByStatusInAndReviewedAtBefore(
+                List.of(ChangeRequestStatus.APPROVED, ChangeRequestStatus.REJECTED), cutoff);
+        if (removed > 0) {
+            log.info("Purged {} resolved change request(s) older than {} days", removed, olderThanDays);
+        }
+        return removed;
     }
 
     private void applyChange(EntityType entityType, ChangeAction action, Object dto, UUID targetId) {
@@ -162,6 +213,17 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
             case TEAM -> applyTeamChange(action, (TeamDto) dto, targetId);
             case PLAYER -> applyPlayerChange(action, (PlayerDto) dto, targetId);
             case MATCH -> applyMatchChange(action, (MatchDto) dto, targetId);
+            case TEAM_SQUAD -> applyTeamSquadChange((TeamSquadPayload) dto);
+        }
+    }
+
+    private void applyTeamSquadChange(TeamSquadPayload payload) {
+        UUID teamId = payload.getTeam().getId() != null
+                ? payload.getTeam().getId()
+                : teamService.create(payload.getTeam()).getId();
+        for (PlayerDto player : payload.getPlayers()) {
+            player.setTeamId(teamId);
+            playerService.create(player);
         }
     }
 
@@ -203,6 +265,7 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
             case TEAM -> teamService.findById(targetId);
             case PLAYER -> playerService.findById(targetId);
             case MATCH -> matchService.findById(targetId);
+            case TEAM_SQUAD -> throw new ChangeRequestApprovalException("Squad requests cannot be deleted");
         };
     }
 
@@ -231,6 +294,12 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
             }
             case LEAGUE -> {
             }
+            case TEAM_SQUAD -> {
+                TeamDto team = ((TeamSquadPayload) dto).getTeam();
+                if (team.getLeagueName() == null && team.getLeagueId() != null) {
+                    team.setLeagueName(leagueService.findById(team.getLeagueId()).getName());
+                }
+            }
         }
     }
 
@@ -249,10 +318,25 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
                 case TEAM -> objectMapper.readValue(payload, TeamDto.class);
                 case PLAYER -> objectMapper.readValue(payload, PlayerDto.class);
                 case MATCH -> objectMapper.readValue(payload, MatchDto.class);
+                case TEAM_SQUAD -> objectMapper.readValue(payload, TeamSquadPayload.class);
             };
         } catch (Exception e) {
             throw new ChangeRequestApprovalException("Failed to read change request payload");
         }
+    }
+
+    private String duplicateNameMessage(EntityType entityType, Object dto) {
+        if (dto == null) {
+            return "That name is already taken. Please choose a different one.";
+        }
+        return switch (entityType) {
+            case TEAM -> "A team named '" + ((TeamDto) dto).getName() + "' already exists. Choose a different name.";
+            case LEAGUE ->
+                    "A league named '" + ((LeagueDto) dto).getName() + "' already exists. Choose a different name.";
+            case TEAM_SQUAD -> "A team named '" + ((TeamSquadPayload) dto).getTeam().getName()
+                    + "' already exists. Choose a different name.";
+            default -> "That name is already taken. Please choose a different one.";
+        };
     }
 
     private ChangeRequest getOrThrow(UUID id) {
@@ -296,6 +380,24 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
                     MatchDto d = (MatchDto) dto;
                     yield List.of("Home team: " + d.getHomeTeamName(), "Away team: " + d.getAwayTeamName(),
                             "Played at: " + d.getPlayedAt());
+                }
+                case TEAM_SQUAD -> {
+                    TeamSquadPayload d = (TeamSquadPayload) dto;
+                    List<String> lines = new ArrayList<>();
+                    if (d.getTeam().getId() == null) {
+                        String city = d.getTeam().getCity();
+                        lines.add("New team: " + d.getTeam().getName()
+                                + (city != null && !city.isBlank() ? " (" + city + ")" : ""));
+                        lines.add("League: " + d.getTeam().getLeagueName());
+                    } else {
+                        lines.add("Add players to team: " + d.getTeam().getName());
+                    }
+                    lines.add("Players (" + d.getPlayers().size() + "):");
+                    for (PlayerDto player : d.getPlayers()) {
+                        lines.add("#" + player.getShirtNumber() + " "
+                                + player.getFirstName() + " " + player.getLastName());
+                    }
+                    yield lines;
                 }
             };
         } catch (ChangeRequestApprovalException e) {

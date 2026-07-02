@@ -27,7 +27,7 @@ public class ChangeRequest {
     private UUID id;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "varchar(32)")
     private EntityType entityType;
 
     @Enumerated(EnumType.STRING)

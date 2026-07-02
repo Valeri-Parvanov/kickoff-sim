@@ -15,6 +15,8 @@ public interface ChangeRequestService {
 
     List<ChangeRequestView> findPending();
 
+    long countPending();
+
     List<ChangeRequestView> findMine(Authentication authentication);
 
     Object getPayloadForResubmit(UUID id, Authentication authentication);
@@ -22,4 +24,8 @@ public interface ChangeRequestService {
     void approve(UUID id, Authentication authentication);
 
     void reject(UUID id, Authentication authentication, String reason);
+
+    int expireStalePending(int olderThanDays);
+
+    long purgeResolvedOlderThan(int olderThanDays);
 }
