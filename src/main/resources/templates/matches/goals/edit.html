@@ -36,14 +36,14 @@
         <label for="scorerId">Scorer</label>
         <select id="scorerId" th:field="*{scorerId}">
             <option value="">-- select scorer --</option>
-            <optgroup th:label="${match.homeTeamName}">
+            <optgroup th:label="${match.homeTeamName}" data-team="home">
                 <option th:each="p : ${homePlayers}"
-                        th:value="${p.id}"
+                        th:value="${p.id}" data-team="home"
                         th:text="${p.shirtNumber} + '. ' + ${p.firstName} + ' ' + ${p.lastName}"></option>
             </optgroup>
-            <optgroup th:label="${match.awayTeamName}">
+            <optgroup th:label="${match.awayTeamName}" data-team="away">
                 <option th:each="p : ${awayPlayers}"
-                        th:value="${p.id}"
+                        th:value="${p.id}" data-team="away"
                         th:text="${p.shirtNumber} + '. ' + ${p.firstName} + ' ' + ${p.lastName}"></option>
             </optgroup>
         </select>
@@ -51,17 +51,17 @@
     </div>
 
     <div>
-        <label for="assistantId">Assist <span class="field-hint" style="display:inline">(optional)</span></label>
+        <label for="assistantId">Assist <span class="field-hint" style="display:inline">(optional, same team as scorer)</span></label>
         <select id="assistantId" th:field="*{assistantId}">
             <option value="">-- no assist --</option>
-            <optgroup th:label="${match.homeTeamName}">
+            <optgroup th:label="${match.homeTeamName}" data-team="home">
                 <option th:each="p : ${homePlayers}"
-                        th:value="${p.id}"
+                        th:value="${p.id}" data-team="home"
                         th:text="${p.shirtNumber} + '. ' + ${p.firstName} + ' ' + ${p.lastName}"></option>
             </optgroup>
-            <optgroup th:label="${match.awayTeamName}">
+            <optgroup th:label="${match.awayTeamName}" data-team="away">
                 <option th:each="p : ${awayPlayers}"
-                        th:value="${p.id}"
+                        th:value="${p.id}" data-team="away"
                         th:text="${p.shirtNumber} + '. ' + ${p.firstName} + ' ' + ${p.lastName}"></option>
             </optgroup>
         </select>
@@ -72,5 +72,6 @@
 
 <p><a th:href="@{/matches}" class="back-link">&#8592; Back to matches</a></p>
 </main>
+<script th:src="@{/js/goal-assist.js}"></script>
 </body>
 </html>
