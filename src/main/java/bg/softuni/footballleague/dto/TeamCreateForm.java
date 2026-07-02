@@ -1,0 +1,28 @@
+package bg.softuni.footballleague.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import lombok.Getter;
+import lombok.Setter;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+@Getter
+@Setter
+public class TeamCreateForm {
+
+    @NotBlank(message = "Team name is required")
+    @Size(max = 100, message = "Team name must be at most 100 characters")
+    private String name;
+
+    @Size(max = 100, message = "City must be at most 100 characters")
+    private String city;
+
+    @NotNull(message = "Please select a league")
+    private UUID leagueId;
+
+    private List<PlayerRowDto> players = new ArrayList<>();
+}

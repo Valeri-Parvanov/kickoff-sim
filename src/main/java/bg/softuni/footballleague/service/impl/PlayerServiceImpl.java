@@ -10,14 +10,18 @@ import bg.softuni.footballleague.repository.PlayerRepository;
 import bg.softuni.footballleague.repository.TeamRepository;
 import bg.softuni.footballleague.service.PlayerService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class PlayerServiceImpl implements PlayerService {
 
     private static final int MAX_SQUAD_SIZE = 12;
@@ -47,27 +51,42 @@ public class PlayerServiceImpl implements PlayerService {
     }
 
     @Override
+    public int squadRemainingSlots(UUID teamId) {
+        Team team = getTeamOrThrow(teamId);
+        long taken = playerRepository.countByTeam(team);
+        return Math.max(0, MAX_SQUAD_SIZE - (int) taken);
+    }
+
+    @Override
     public PlayerDto findById(UUID id) {
         return toDto(getPlayerOrThrow(id));
     }
 
     @Override
+    @Transactional
     public PlayerDto create(PlayerDto playerDto) {
         Player player = new Player();
         mapToEntity(playerDto, player);
-        return toDto(playerRepository.save(player));
+        PlayerDto saved = toDto(playerRepository.save(player));
+        log.info("Created player '{} {}' (#{})", saved.getFirstName(), saved.getLastName(), saved.getShirtNumber());
+        return saved;
     }
 
     @Override
+    @Transactional
     public PlayerDto update(UUID id, PlayerDto playerDto) {
         Player player = getPlayerOrThrow(id);
         mapToEntity(playerDto, player);
-        return toDto(playerRepository.save(player));
+        PlayerDto saved = toDto(playerRepository.save(player));
+        log.info("Updated player {}", id);
+        return saved;
     }
 
     @Override
+    @Transactional
     public void delete(UUID id) {
         playerRepository.delete(getPlayerOrThrow(id));
+        log.info("Deleted player {}", id);
     }
 
     private Player getPlayerOrThrow(UUID id) {

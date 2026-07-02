@@ -14,6 +14,8 @@ public interface TeamService {
 
     List<TeamDto> findAllByLeague(UUID leagueId);
 
+    boolean existsByName(String name);
+
     TeamDto findById(UUID id);
 
     TeamDto create(TeamDto teamDto);

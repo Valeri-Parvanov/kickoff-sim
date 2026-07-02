@@ -17,4 +17,6 @@ public interface TeamRepository extends JpaRepository<Team, UUID> {
 
     @EntityGraph(attributePaths = "league")
     List<Team> findAllByLeague(League league);
+
+    boolean existsByName(String name);
 }

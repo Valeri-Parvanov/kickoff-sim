@@ -14,6 +14,8 @@ public interface PlayerService {
 
     List<PlayerDto> findAllByTeam(UUID teamId);
 
+    int squadRemainingSlots(UUID teamId);
+
     PlayerDto findById(UUID id);
 
     PlayerDto create(PlayerDto playerDto);

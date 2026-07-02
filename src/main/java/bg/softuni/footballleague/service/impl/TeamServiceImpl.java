@@ -10,6 +10,7 @@ import bg.softuni.footballleague.repository.MatchRepository;
 import bg.softuni.footballleague.repository.TeamRepository;
 import bg.softuni.footballleague.service.TeamService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,7 +19,9 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class TeamServiceImpl implements TeamService {
 
     private static final Sort DEFAULT_SORT = Sort.by("league.name").and(Sort.by("name"));
@@ -48,22 +51,33 @@ public class TeamServiceImpl implements TeamService {
     }
 
     @Override
+    public boolean existsByName(String name) {
+        return teamRepository.existsByName(name);
+    }
+
+    @Override
     public TeamDto findById(UUID id) {
         return toDto(getTeamOrThrow(id));
     }
 
     @Override
+    @Transactional
     public TeamDto create(TeamDto teamDto) {
         Team team = new Team();
         mapToEntity(teamDto, team);
-        return toDto(teamRepository.save(team));
+        TeamDto saved = toDto(teamRepository.save(team));
+        log.info("Created team '{}'", saved.getName());
+        return saved;
     }
 
     @Override
+    @Transactional
     public TeamDto update(UUID id, TeamDto teamDto) {
         Team team = getTeamOrThrow(id);
         mapToEntity(teamDto, team);
-        return toDto(teamRepository.save(team));
+        TeamDto saved = toDto(teamRepository.save(team));
+        log.info("Updated team {}", id);
+        return saved;
     }
 
     @Override
@@ -73,6 +87,7 @@ public class TeamServiceImpl implements TeamService {
         List<Match> matches = matchRepository.findAllByHomeTeamOrAwayTeam(team, team);
         matchRepository.deleteAll(matches);
         teamRepository.delete(team);
+        log.info("Deleted team {} and {} related match(es)", id, matches.size());
     }
 
     private Team getTeamOrThrow(UUID id) {
