@@ -4,6 +4,7 @@ import bg.softuni.footballleague.dto.GoalDto;
 import bg.softuni.footballleague.dto.GoalEventDto;
 import bg.softuni.footballleague.dto.MatchDto;
 import bg.softuni.footballleague.dto.TeamDto;
+import bg.softuni.footballleague.exception.InvalidGoalException;
 import bg.softuni.footballleague.model.ChangeAction;
 import bg.softuni.footballleague.model.EntityType;
 import bg.softuni.footballleague.model.Half;
@@ -20,10 +21,12 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
@@ -61,7 +64,7 @@ public class MatchController {
         return "matches/list";
     }
 
-    @GetMapping("/create")
+    @GetMapping("/form")
     public String createForm(@RequestParam(required = false) UUID fromRequest, Model model,
                               Authentication authentication) {
         MatchDto matchDto = fromRequest != null
@@ -88,7 +91,7 @@ public class MatchController {
         return "redirect:/matches";
     }
 
-    @GetMapping("/{id}/edit")
+    @GetMapping("/{id}/form")
     public String editForm(@PathVariable UUID id, @RequestParam(required = false) UUID fromRequest, Model model,
                             Authentication authentication) {
         MatchDto matchDto = fromRequest != null
@@ -100,7 +103,7 @@ public class MatchController {
         return "matches/form";
     }
 
-    @PostMapping("/{id}/edit")
+    @PutMapping("/{id}")
     public String edit(@PathVariable UUID id, @Valid @ModelAttribute("matchDto") MatchDto matchDto,
                         BindingResult bindingResult, Model model, Authentication authentication,
                         RedirectAttributes redirectAttributes) {
@@ -117,7 +120,7 @@ public class MatchController {
         return "redirect:/matches";
     }
 
-    @PostMapping("/{id}/delete")
+    @DeleteMapping("/{id}")
     public String delete(@PathVariable UUID id, Authentication authentication,
                           RedirectAttributes redirectAttributes) {
         boolean executed = changeRequestService.submitOrExecute(
@@ -128,12 +131,9 @@ public class MatchController {
     }
 
     @PreAuthorize("hasRole('ADMIN')")
-    @GetMapping("/{id}/goals/new")
+    @GetMapping("/{id}/goals/form")
     public String addGoalForm(@PathVariable UUID id, Model model) {
-        MatchDto match = matchService.findById(id);
-        model.addAttribute("match", match);
-        model.addAttribute("homePlayers", playerService.findAllByTeam(match.getHomeTeamId()));
-        model.addAttribute("awayPlayers", playerService.findAllByTeam(match.getAwayTeamId()));
+        populateGoalFormModel(id, model);
         model.addAttribute("goalEventDto", new GoalEventDto());
         return "matches/goals/new";
     }
@@ -145,30 +145,23 @@ public class MatchController {
                           BindingResult bindingResult, Model model,
                           RedirectAttributes redirectAttributes) {
         if (bindingResult.hasErrors()) {
-            MatchDto match = matchService.findById(id);
-            model.addAttribute("match", match);
-            model.addAttribute("homePlayers", playerService.findAllByTeam(match.getHomeTeamId()));
-            model.addAttribute("awayPlayers", playerService.findAllByTeam(match.getAwayTeamId()));
+            populateGoalFormModel(id, model);
             return "matches/goals/new";
         }
         try {
             matchService.addGoal(id, goalEventDto);
             redirectAttributes.addFlashAttribute("statusMessage", "Goal recorded.");
             return "redirect:/matches";
-        } catch (bg.softuni.footballleague.exception.InvalidGoalException e) {
-            MatchDto match = matchService.findById(id);
-            model.addAttribute("match", match);
-            model.addAttribute("homePlayers", playerService.findAllByTeam(match.getHomeTeamId()));
-            model.addAttribute("awayPlayers", playerService.findAllByTeam(match.getAwayTeamId()));
+        } catch (InvalidGoalException e) {
+            populateGoalFormModel(id, model);
             model.addAttribute("errorMessage", e.getMessage());
             return "matches/goals/new";
         }
     }
 
     @PreAuthorize("hasRole('ADMIN')")
-    @GetMapping("/{id}/goals/{goalId}/edit")
+    @GetMapping("/{id}/goals/{goalId}/form")
     public String editGoalForm(@PathVariable UUID id, @PathVariable UUID goalId, Model model) {
-        MatchDto match = matchService.findById(id);
         GoalDto goal = matchService.findGoalById(goalId);
 
         GoalEventDto form = new GoalEventDto();
@@ -179,50 +172,49 @@ public class MatchController {
             form.setMinute(fullMinute);
         }
 
-        model.addAttribute("match", match);
+        populateGoalFormModel(id, model);
         model.addAttribute("goalId", goalId);
-        model.addAttribute("homePlayers", playerService.findAllByTeam(match.getHomeTeamId()));
-        model.addAttribute("awayPlayers", playerService.findAllByTeam(match.getAwayTeamId()));
         model.addAttribute("goalEventDto", form);
         return "matches/goals/edit";
     }
 
     @PreAuthorize("hasRole('ADMIN')")
-    @PostMapping("/{id}/goals/{goalId}/edit")
+    @PutMapping("/{id}/goals/{goalId}")
     public String editGoal(@PathVariable UUID id, @PathVariable UUID goalId,
                            @Valid @ModelAttribute("goalEventDto") GoalEventDto goalEventDto,
                            BindingResult bindingResult, Model model,
                            RedirectAttributes redirectAttributes) {
         if (bindingResult.hasErrors()) {
-            MatchDto match = matchService.findById(id);
-            model.addAttribute("match", match);
+            populateGoalFormModel(id, model);
             model.addAttribute("goalId", goalId);
-            model.addAttribute("homePlayers", playerService.findAllByTeam(match.getHomeTeamId()));
-            model.addAttribute("awayPlayers", playerService.findAllByTeam(match.getAwayTeamId()));
             return "matches/goals/edit";
         }
         try {
             matchService.updateGoal(goalId, goalEventDto);
             redirectAttributes.addFlashAttribute("statusMessage", "Goal updated.");
             return "redirect:/matches";
-        } catch (bg.softuni.footballleague.exception.InvalidGoalException e) {
-            MatchDto match = matchService.findById(id);
-            model.addAttribute("match", match);
+        } catch (InvalidGoalException e) {
+            populateGoalFormModel(id, model);
             model.addAttribute("goalId", goalId);
-            model.addAttribute("homePlayers", playerService.findAllByTeam(match.getHomeTeamId()));
-            model.addAttribute("awayPlayers", playerService.findAllByTeam(match.getAwayTeamId()));
             model.addAttribute("errorMessage", e.getMessage());
             return "matches/goals/edit";
         }
     }
 
     @PreAuthorize("hasRole('ADMIN')")
-    @PostMapping("/{id}/goals/{goalId}/delete")
+    @DeleteMapping("/{id}/goals/{goalId}")
     public String deleteGoal(@PathVariable UUID id, @PathVariable UUID goalId,
                              RedirectAttributes redirectAttributes) {
         matchService.deleteGoal(goalId);
         redirectAttributes.addFlashAttribute("statusMessage", "Goal removed.");
         return "redirect:/matches";
+    }
+
+    private void populateGoalFormModel(UUID matchId, Model model) {
+        MatchDto match = matchService.findById(matchId);
+        model.addAttribute("match", match);
+        model.addAttribute("homePlayers", playerService.findAllByTeam(match.getHomeTeamId()));
+        model.addAttribute("awayPlayers", playerService.findAllByTeam(match.getAwayTeamId()));
     }
 
     private void validateTeams(MatchDto matchDto, BindingResult bindingResult) {

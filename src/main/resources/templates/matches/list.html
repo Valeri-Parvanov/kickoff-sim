@@ -19,18 +19,16 @@
 <p th:if="${statusMessage}" th:text="${statusMessage}" class="status-message"></p>
 
 <div class="add-new-bar" sec:authorize="isAuthenticated()">
-    <a th:href="@{/matches/create}" class="btn-add">Add new match</a>
+    <a th:href="@{/matches/form}" class="btn-add">Add new match</a>
 </div>
 
 <div class="match-list">
     <div class="match-card" th:each="match : ${matches}">
 
-        <!-- Header: date -->
         <div class="match-meta">
             <span class="match-date" th:text="${#temporals.format(match.playedAt, 'dd MMM yyyy, HH:mm')}"></span>
         </div>
 
-        <!-- Main scoreline -->
         <div class="match-scoreline">
             <span class="team-name home" th:text="${match.homeTeamName}"></span>
             <div class="score-block">
@@ -43,7 +41,6 @@
             <span class="team-name away" th:text="${match.awayTeamName}"></span>
         </div>
 
-        <!-- 1st Half goals -->
         <div class="half-section"
              th:if="${!match.firstHalfHomeGoals.isEmpty() or !match.firstHalfAwayGoals.isEmpty()}">
             <div class="half-label">1st Half</div>
@@ -56,8 +53,8 @@
                         <span th:if="${g.assistantName != null}" class="goal-assist"
                               th:text="'(' + ${g.assistantName} + ')'"></span>
                         <span sec:authorize="hasRole('ADMIN')" style="margin-left:6px">
-                            <a th:href="@{/matches/{mid}/goals/{gid}/edit(mid=${match.id},gid=${g.id})}" class="btn-edit" style="font-size:0.75rem;padding:2px 8px">&#9998;</a>
-                            <form th:action="@{/matches/{mid}/goals/{gid}/delete(mid=${match.id},gid=${g.id})}" method="post" style="display:inline">
+                            <a th:href="@{/matches/{mid}/goals/{gid}/form(mid=${match.id},gid=${g.id})}" class="btn-edit" style="font-size:0.75rem;padding:2px 8px">&#9998;</a>
+                            <form th:action="@{/matches/{mid}/goals/{gid}(mid=${match.id},gid=${g.id})}" th:method="delete" style="display:inline">
                                 <button type="submit" class="btn-del" style="font-size:0.75rem;padding:2px 8px">&#10005;</button>
                             </form>
                         </span>
@@ -66,8 +63,8 @@
                 <div class="goals-col away-goals">
                     <div class="goal-event" th:each="g : ${match.firstHalfAwayGoals}">
                         <span sec:authorize="hasRole('ADMIN')" style="margin-right:6px">
-                            <a th:href="@{/matches/{mid}/goals/{gid}/edit(mid=${match.id},gid=${g.id})}" class="btn-edit" style="font-size:0.75rem;padding:2px 8px">&#9998;</a>
-                            <form th:action="@{/matches/{mid}/goals/{gid}/delete(mid=${match.id},gid=${g.id})}" method="post" style="display:inline">
+                            <a th:href="@{/matches/{mid}/goals/{gid}/form(mid=${match.id},gid=${g.id})}" class="btn-edit" style="font-size:0.75rem;padding:2px 8px">&#9998;</a>
+                            <form th:action="@{/matches/{mid}/goals/{gid}(mid=${match.id},gid=${g.id})}" th:method="delete" style="display:inline">
                                 <button type="submit" class="btn-del" style="font-size:0.75rem;padding:2px 8px">&#10005;</button>
                             </form>
                         </span>
@@ -81,7 +78,6 @@
             </div>
         </div>
 
-        <!-- 2nd Half goals -->
         <div class="half-section"
              th:if="${!match.secondHalfHomeGoals.isEmpty() or !match.secondHalfAwayGoals.isEmpty()}">
             <div class="half-label">2nd Half</div>
@@ -94,8 +90,8 @@
                         <span th:if="${g.assistantName != null}" class="goal-assist"
                               th:text="'(' + ${g.assistantName} + ')'"></span>
                         <span sec:authorize="hasRole('ADMIN')" style="margin-left:6px">
-                            <a th:href="@{/matches/{mid}/goals/{gid}/edit(mid=${match.id},gid=${g.id})}" class="btn-edit" style="font-size:0.75rem;padding:2px 8px">&#9998;</a>
-                            <form th:action="@{/matches/{mid}/goals/{gid}/delete(mid=${match.id},gid=${g.id})}" method="post" style="display:inline">
+                            <a th:href="@{/matches/{mid}/goals/{gid}/form(mid=${match.id},gid=${g.id})}" class="btn-edit" style="font-size:0.75rem;padding:2px 8px">&#9998;</a>
+                            <form th:action="@{/matches/{mid}/goals/{gid}(mid=${match.id},gid=${g.id})}" th:method="delete" style="display:inline">
                                 <button type="submit" class="btn-del" style="font-size:0.75rem;padding:2px 8px">&#10005;</button>
                             </form>
                         </span>
@@ -104,8 +100,8 @@
                 <div class="goals-col away-goals">
                     <div class="goal-event" th:each="g : ${match.secondHalfAwayGoals}">
                         <span sec:authorize="hasRole('ADMIN')" style="margin-right:6px">
-                            <a th:href="@{/matches/{mid}/goals/{gid}/edit(mid=${match.id},gid=${g.id})}" class="btn-edit" style="font-size:0.75rem;padding:2px 8px">&#9998;</a>
-                            <form th:action="@{/matches/{mid}/goals/{gid}/delete(mid=${match.id},gid=${g.id})}" method="post" style="display:inline">
+                            <a th:href="@{/matches/{mid}/goals/{gid}/form(mid=${match.id},gid=${g.id})}" class="btn-edit" style="font-size:0.75rem;padding:2px 8px">&#9998;</a>
+                            <form th:action="@{/matches/{mid}/goals/{gid}(mid=${match.id},gid=${g.id})}" th:method="delete" style="display:inline">
                                 <button type="submit" class="btn-del" style="font-size:0.75rem;padding:2px 8px">&#10005;</button>
                             </form>
                         </span>
@@ -119,11 +115,10 @@
             </div>
         </div>
 
-        <!-- Admin actions -->
         <div class="match-actions" sec:authorize="hasRole('ADMIN')">
-            <a th:href="@{/matches/{id}/goals/new(id=${match.id})}" class="btn-goal">+ Goal</a>
-            <a th:href="@{/matches/{id}/edit(id=${match.id})}" class="btn-edit">Edit</a>
-            <form th:action="@{/matches/{id}/delete(id=${match.id})}" method="post" style="display:inline">
+            <a th:href="@{/matches/{id}/goals/form(id=${match.id})}" class="btn-goal">+ Goal</a>
+            <a th:href="@{/matches/{id}/form(id=${match.id})}" class="btn-edit">Edit</a>
+            <form th:action="@{/matches/{id}(id=${match.id})}" th:method="delete" style="display:inline">
                 <button type="submit" class="btn-del">Delete</button>
             </form>
         </div>
