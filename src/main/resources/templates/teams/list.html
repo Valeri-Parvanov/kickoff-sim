@@ -29,7 +29,7 @@
         <th th:replace="~{fragments/sortable :: sortTh('/teams', 'name', 'Name')}"></th>
         <th th:replace="~{fragments/sortable :: sortTh('/teams', 'city', 'City')}"></th>
         <th th:replace="~{fragments/sortable :: sortTh('/teams', 'league', 'League')}"></th>
-        <th sec:authorize="hasRole('ADMIN')">Actions</th>
+        <th sec:authorize="isAuthenticated()">Actions</th>
     </tr>
     </thead>
     <tbody>
@@ -37,11 +37,14 @@
         <td th:text="${team.name}"></td>
         <td th:text="${team.city}"></td>
         <td th:text="${team.leagueName}"></td>
-        <td sec:authorize="hasRole('ADMIN')">
-            <a th:href="@{/teams/{id}/edit(id=${team.id})}">Edit</a>
-            <form th:action="@{/teams/{id}/delete(id=${team.id})}" method="post" style="display:inline">
-                <button type="submit">Delete</button>
-            </form>
+        <td sec:authorize="isAuthenticated()">
+            <a th:href="@{/teams/{id}/squad(id=${team.id})}">Add squad</a>
+            <span sec:authorize="hasRole('ADMIN')">
+                | <a th:href="@{/teams/{id}/edit(id=${team.id})}">Edit</a>
+                <form th:action="@{/teams/{id}/delete(id=${team.id})}" method="post" style="display:inline">
+                    <button type="submit">Delete</button>
+                </form>
+            </span>
         </td>
     </tr>
     </tbody>

@@ -90,3 +90,16 @@ function fillRandomCountry(inputId) {
 function fillRandomCity(inputId) {
     document.getElementById(inputId).value = randomCity();
 }
+
+function randomizeAllSquad() {
+    document.querySelectorAll(".js-firstname").forEach(function (el) {
+        if (!el.value.trim()) {
+            el.value = randomPlayerFirstName();
+        }
+    });
+    document.querySelectorAll(".js-lastname").forEach(function (el) {
+        if (!el.value.trim()) {
+            el.value = randomPlayerLastName();
+        }
+    });
+}

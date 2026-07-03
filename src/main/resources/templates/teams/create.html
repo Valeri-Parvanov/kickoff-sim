@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add team</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"/>
+    <link rel="stylesheet" th:href="@{/css/style.css}"/>
+</head>
+<body>
+<div th:replace="~{fragments/topbar :: topbar}"></div>
+
+<main class="page">
+<h1>&#128737; Add team</h1>
+<p>Create the team and, optionally, fill in its squad right away. Leave player rows empty to skip them.</p>
+
+<form th:action="@{/teams}" th:object="${teamCreateForm}" method="post" class="card-form" style="max-width:760px">
+
+    <div th:if="${#fields.hasGlobalErrors()}" style="color:red; margin-bottom:12px; font-weight:600">
+        <div th:each="err : ${#fields.globalErrors()}" th:text="${err}"></div>
+    </div>
+
+    <div>
+        <label for="name">Name</label>
+        <div class="input-row">
+            <input type="text" id="name" th:field="*{name}"/>
+            <button type="button" class="dice-btn" onclick="fillRandomTeamName('name')" title="Generate random name">&#127922;</button>
+        </div>
+        <span style="color:red" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></span>
+    </div>
+
+    <div>
+        <label for="city">City</label>
+        <div class="input-row">
+            <input type="text" id="city" th:field="*{city}"/>
+            <button type="button" class="dice-btn" onclick="fillRandomCity('city')" title="Generate random city">&#127922;</button>
+        </div>
+        <span style="color:red" th:if="${#fields.hasErrors('city')}" th:errors="*{city}"></span>
+    </div>
+
+    <div>
+        <label for="leagueId">League</label>
+        <select id="leagueId" th:field="*{leagueId}">
+            <option value="">-- select league --</option>
+            <option th:each="league : ${leagues}" th:value="${league.id}" th:text="${league.name}"></option>
+        </select>
+        <span style="color:red" th:if="${#fields.hasErrors('leagueId')}" th:errors="*{leagueId}"></span>
+    </div>
+
+    <div>
+        <label>Squad <span class="field-hint" style="display:inline">(optional, up to 12 players)</span></label>
+        <button type="button" class="btn-add" onclick="randomizeAllSquad()"
+                style="margin:0.3rem 0 0.8rem">&#127922; Randomize all names</button>
+
+        <div class="table-wrapper">
+        <table border="1" cellpadding="6">
+            <thead>
+            <tr>
+                <th>#</th>
+                <th>Shirt no.</th>
+                <th>First name</th>
+                <th>Last name</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="row, stat : *{players}">
+                <td th:text="${stat.count}">1</td>
+                <td>
+                    <input type="number" min="1" max="99"
+                           th:field="*{players[__${stat.index}__].shirtNumber}"/>
+                    <span style="color:red"
+                          th:if="${#fields.hasErrors('players[__${stat.index}__].shirtNumber')}"
+                          th:errors="*{players[__${stat.index}__].shirtNumber}"></span>
+                </td>
+                <td>
+                    <input type="text" class="js-firstname"
+                           th:field="*{players[__${stat.index}__].firstName}"/>
+                    <span style="color:red"
+                          th:if="${#fields.hasErrors('players[__${stat.index}__].firstName')}"
+                          th:errors="*{players[__${stat.index}__].firstName}"></span>
+                </td>
+                <td>
+                    <input type="text" class="js-lastname"
+                           th:field="*{players[__${stat.index}__].lastName}"/>
+                    <span style="color:red"
+                          th:if="${#fields.hasErrors('players[__${stat.index}__].lastName')}"
+                          th:errors="*{players[__${stat.index}__].lastName}"></span>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+        </div>
+    </div>
+
+    <button type="submit">Save</button>
+</form>
+
+<p><a th:href="@{/teams}" class="back-link">&#8592; Back to teams</a></p>
+</main>
+<script th:src="@{/js/random-names.js}"></script>
+</body>
+</html>
