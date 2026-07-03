@@ -15,8 +15,8 @@
 <main class="page">
 <h1 th:text="${teamDto.id} ? 'Edit team' : 'Add team'"></h1>
 
-<form th:action="${teamDto.id} ? @{/teams/{id}/edit(id=${teamDto.id})} : @{/teams}"
-      th:object="${teamDto}" method="post" class="card-form">
+<form th:action="${teamDto.id} ? @{/teams/{id}(id=${teamDto.id})} : @{/teams}"
+      th:object="${teamDto}" th:method="${teamDto.id} ? 'put' : 'post'" class="card-form">
 
     <div>
         <label for="name">Name</label>

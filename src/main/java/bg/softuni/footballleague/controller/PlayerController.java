@@ -16,10 +16,12 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
@@ -55,7 +57,7 @@ public class PlayerController {
         return "players/list";
     }
 
-    @GetMapping("/create")
+    @GetMapping("/form")
     public String createForm(@RequestParam(required = false) UUID fromRequest, Model model,
                               Authentication authentication) {
         PlayerDto playerDto = fromRequest != null
@@ -93,7 +95,7 @@ public class PlayerController {
         return "redirect:/players";
     }
 
-    @GetMapping("/{id}/edit")
+    @GetMapping("/{id}/form")
     public String editForm(@PathVariable UUID id, @RequestParam(required = false) UUID fromRequest, Model model,
                             Authentication authentication) {
         PlayerDto playerDto = fromRequest != null
@@ -105,7 +107,7 @@ public class PlayerController {
         return "players/form";
     }
 
-    @PostMapping("/{id}/edit")
+    @PutMapping("/{id}")
     public String edit(@PathVariable UUID id, @Valid @ModelAttribute("playerDto") PlayerDto playerDto,
                         BindingResult bindingResult, Model model, Authentication authentication,
                         RedirectAttributes redirectAttributes) {
@@ -133,7 +135,7 @@ public class PlayerController {
         return "redirect:/players";
     }
 
-    @PostMapping("/{id}/delete")
+    @DeleteMapping("/{id}")
     public String delete(@PathVariable UUID id, Authentication authentication,
                           RedirectAttributes redirectAttributes) {
         boolean executed = changeRequestService.submitOrExecute(

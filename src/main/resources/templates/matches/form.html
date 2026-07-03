@@ -15,8 +15,8 @@
 <main class="page">
 <h1 th:text="${matchDto.id} ? 'Edit match' : 'Add match'"></h1>
 
-<form th:action="${matchDto.id} ? @{/matches/{id}/edit(id=${matchDto.id})} : @{/matches}"
-      th:object="${matchDto}" method="post" class="card-form">
+<form th:action="${matchDto.id} ? @{/matches/{id}(id=${matchDto.id})} : @{/matches}"
+      th:object="${matchDto}" th:method="${matchDto.id} ? 'put' : 'post'" class="card-form">
 
     <div>
         <label for="homeTeamId">Home team</label>

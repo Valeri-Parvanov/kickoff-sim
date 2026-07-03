@@ -30,7 +30,7 @@ public class ChangeRequestController {
         return "admin/change-requests";
     }
 
-    @PostMapping("/{id}/approve")
+    @PostMapping("/{id}/approval")
     public String approve(@PathVariable UUID id, Authentication authentication,
                            RedirectAttributes redirectAttributes) {
         try {
@@ -45,7 +45,7 @@ public class ChangeRequestController {
         return "redirect:/admin/change-requests";
     }
 
-    @PostMapping("/{id}/reject")
+    @PostMapping("/{id}/rejection")
     public String reject(@PathVariable UUID id, @RequestParam(required = false) String reason,
                           Authentication authentication, RedirectAttributes redirectAttributes) {
         try {

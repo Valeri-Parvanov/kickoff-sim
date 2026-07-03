@@ -23,8 +23,8 @@
 
 <div th:if="${errorMessage}" style="color:red; margin-bottom:12px; font-weight:600" th:text="${errorMessage}"></div>
 
-<form th:action="@{/matches/{id}/goals/{goalId}/edit(id=${match.id}, goalId=${goalId})}"
-      th:object="${goalEventDto}" method="post" class="card-form">
+<form th:action="@{/matches/{id}/goals/{goalId}(id=${match.id}, goalId=${goalId})}"
+      th:object="${goalEventDto}" th:method="put" class="card-form">
 
     <div>
         <label for="minute">Minute <span class="field-hint" style="display:inline">(optional, 1–40)</span></label>

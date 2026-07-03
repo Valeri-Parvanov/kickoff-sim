@@ -19,7 +19,7 @@
 <p th:if="${statusMessage}" th:text="${statusMessage}" class="status-message"></p>
 
 <div class="add-new-bar" sec:authorize="isAuthenticated()">
-    <a th:href="@{/leagues/create}" class="btn-add">Add new league</a>
+    <a th:href="@{/leagues/form}" class="btn-add">Add new league</a>
 </div>
 
 <div class="table-wrapper">
@@ -36,8 +36,8 @@
         <td th:text="${league.name}"></td>
         <td th:text="${league.country}"></td>
         <td sec:authorize="hasRole('ADMIN')">
-            <a th:href="@{/leagues/{id}/edit(id=${league.id})}">Edit</a>
-            <form th:action="@{/leagues/{id}/delete(id=${league.id})}" method="post" style="display:inline">
+            <a th:href="@{/leagues/{id}/form(id=${league.id})}">Edit</a>
+            <form th:action="@{/leagues/{id}(id=${league.id})}" th:method="delete" style="display:inline">
                 <button type="submit">Delete</button>
             </form>
         </td>
