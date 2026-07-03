@@ -42,10 +42,6 @@ class UserServiceImplTest {
         when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
     }
 
-    // -----------------------------------------------------------------------
-    // First user gets ADMIN
-    // -----------------------------------------------------------------------
-
     @Test
     void register_firstUser_getsAdminRole() {
         when(userRepository.existsByUsername("alice")).thenReturn(false);
@@ -66,10 +62,6 @@ class UserServiceImplTest {
         assertThat(role).isEqualTo(Role.USER);
     }
 
-    // -----------------------------------------------------------------------
-    // Password is encoded
-    // -----------------------------------------------------------------------
-
     @Test
     void register_passwordIsEncoded() {
         when(userRepository.existsByUsername("alice")).thenReturn(false);
@@ -84,10 +76,6 @@ class UserServiceImplTest {
         assertThat(captor.getValue().getPassword()).isNotEqualTo("plaintext");
     }
 
-    // -----------------------------------------------------------------------
-    // Username taken
-    // -----------------------------------------------------------------------
-
     @Test
     void register_usernameTaken_throwsUsernameAlreadyExistsException() {
         when(userRepository.existsByUsername("alice")).thenReturn(true);
@@ -96,10 +84,6 @@ class UserServiceImplTest {
                 .isInstanceOf(UsernameAlreadyExistsException.class)
                 .hasMessageContaining("alice");
     }
-
-    // -----------------------------------------------------------------------
-    // findByUsername
-    // -----------------------------------------------------------------------
 
     @Test
     void findByUsername_exists_returnsUser() {
@@ -121,10 +105,6 @@ class UserServiceImplTest {
                 .isInstanceOf(StaleSessionException.class)
                 .hasMessageContaining("ghost");
     }
-
-    // -----------------------------------------------------------------------
-    // Helpers
-    // -----------------------------------------------------------------------
 
     private RegisterDto registerDto(String username, String password) {
         RegisterDto dto = new RegisterDto();

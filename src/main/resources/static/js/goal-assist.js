@@ -1,5 +1,3 @@
-// Keeps the "Assist" dropdown in sync with the selected scorer:
-// only players from the scorer's team can be chosen as assistant.
 (function () {
     var scorer = document.getElementById('scorerId');
     var assist = document.getElementById('assistantId');
@@ -20,7 +18,7 @@
             var opt = assist.options[i];
             var optTeam = opt.getAttribute('data-team');
             if (optTeam === null) {
-                continue; // the "-- no assist --" placeholder stays available
+                continue;
             }
             var visible = team !== '' && optTeam === team;
             opt.hidden = !visible;

@@ -68,10 +68,6 @@ class ChangeRequestServiceImplTest {
         when(userService.findByUsername("admin")).thenReturn(admin);
     }
 
-    // -----------------------------------------------------------------------
-    // approve — status guard
-    // -----------------------------------------------------------------------
-
     @Test
     void approve_alreadyApproved_throwsChangeRequestApprovalException() {
         when(changeRequestRepository.findById(approvedRequest.getId()))
@@ -91,10 +87,6 @@ class ChangeRequestServiceImplTest {
                 .isInstanceOf(ChangeRequestApprovalException.class)
                 .hasMessageContaining("already rejected");
     }
-
-    // -----------------------------------------------------------------------
-    // reject — status guard
-    // -----------------------------------------------------------------------
 
     @Test
     void reject_alreadyApproved_throwsChangeRequestApprovalException() {
@@ -116,10 +108,6 @@ class ChangeRequestServiceImplTest {
                 .hasMessageContaining("already rejected");
     }
 
-    // -----------------------------------------------------------------------
-    // approve / reject — not found
-    // -----------------------------------------------------------------------
-
     @Test
     void approve_notFound_throwsEntityNotFoundException() {
         UUID unknownId = UUID.randomUUID();
@@ -137,10 +125,6 @@ class ChangeRequestServiceImplTest {
         assertThatThrownBy(() -> changeRequestService.reject(unknownId, authentication, null))
                 .isInstanceOf(EntityNotFoundException.class);
     }
-
-    // -----------------------------------------------------------------------
-    // Helpers
-    // -----------------------------------------------------------------------
 
     private ChangeRequest changeRequest(ChangeRequestStatus status) {
         ChangeRequest cr = new ChangeRequest();

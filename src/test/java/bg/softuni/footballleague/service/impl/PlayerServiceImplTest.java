@@ -43,10 +43,6 @@ class PlayerServiceImplTest {
         team.setName("Test FC");
     }
 
-    // -----------------------------------------------------------------------
-    // Squad limit
-    // -----------------------------------------------------------------------
-
     @Test
     void create_squadFull_throwsSquadLimitExceededException() {
         when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
@@ -70,10 +66,6 @@ class PlayerServiceImplTest {
 
         verify(playerRepository).save(any(Player.class));
     }
-
-    // -----------------------------------------------------------------------
-    // Duplicate shirt number
-    // -----------------------------------------------------------------------
 
     @Test
     void create_duplicateShirtNumber_throwsDuplicateShirtNumberException() {
@@ -114,10 +106,6 @@ class PlayerServiceImplTest {
         verify(playerRepository).save(any(Player.class));
     }
 
-    // -----------------------------------------------------------------------
-    // Not found
-    // -----------------------------------------------------------------------
-
     @Test
     void findById_notFound_throwsEntityNotFoundException() {
         UUID id = UUID.randomUUID();
@@ -135,10 +123,6 @@ class PlayerServiceImplTest {
         assertThatThrownBy(() -> playerService.delete(id))
                 .isInstanceOf(EntityNotFoundException.class);
     }
-
-    // -----------------------------------------------------------------------
-    // Helpers
-    // -----------------------------------------------------------------------
 
     private PlayerDto playerDto(int shirtNumber) {
         PlayerDto dto = new PlayerDto();

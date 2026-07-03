@@ -92,10 +92,6 @@ class MatchServiceImplTest {
         match.setPlayedAt(LocalDateTime.now().minusDays(1));
     }
 
-    // -----------------------------------------------------------------------
-    // Half / minute calculation
-    // -----------------------------------------------------------------------
-
     @ParameterizedTest(name = "minute={0} → half={1}, storedMinute={2}")
     @CsvSource({
             "1,  FIRST,  1",
@@ -139,10 +135,6 @@ class MatchServiceImplTest {
         assertThat(captor.getValue().getHalf()).isEqualTo(Half.FIRST);
         assertThat(captor.getValue().getMinute()).isNull();
     }
-
-    // -----------------------------------------------------------------------
-    // Score limit validation — addGoal
-    // -----------------------------------------------------------------------
 
     @Test
     void addGoal_scorerNotInMatch_throwsInvalidGoalException() {
@@ -215,10 +207,6 @@ class MatchServiceImplTest {
                 .hasMessageContaining("same team as the scorer");
     }
 
-    // -----------------------------------------------------------------------
-    // Score limit validation — updateGoal (this was the bug)
-    // -----------------------------------------------------------------------
-
     @Test
     void updateGoal_changingScorerToFullAwayTeam_throwsInvalidGoalException() {
         UUID goalId = UUID.randomUUID();
@@ -251,7 +239,6 @@ class MatchServiceImplTest {
 
         when(goalRepository.findById(goalId)).thenReturn(Optional.of(goal));
         when(playerRepository.findById(homePlayerId)).thenReturn(Optional.of(homePlayer));
-        // excludeGoalId = goalId, so the old goal is excluded → count = 0 < 1 → passes
         when(goalRepository.countByMatchAndScorerTeamIdExcluding(match, homeTeamId, goalId)).thenReturn(0L);
 
         GoalEventDto dto = new GoalEventDto();
@@ -262,10 +249,6 @@ class MatchServiceImplTest {
 
         verify(goalRepository).save(any(Goal.class));
     }
-
-    // -----------------------------------------------------------------------
-    // deleteGoal
-    // -----------------------------------------------------------------------
 
     @Test
     void deleteGoal_goalNotFound_throwsEntityNotFoundException() {
@@ -290,10 +273,6 @@ class MatchServiceImplTest {
         verify(goalRepository).delete(goal);
     }
 
-    // -----------------------------------------------------------------------
-    // mapToEntity — score fields are saved (regression for the critical bug)
-    // -----------------------------------------------------------------------
-
     @Test
     void create_homeAndAwayScoresAreSavedToEntity() {
         when(teamRepository.findById(homeTeamId)).thenReturn(Optional.of(homeTeam));
@@ -309,7 +288,6 @@ class MatchServiceImplTest {
             savedMatch.setPlayedAt(m.getPlayedAt());
             savedMatch.setId(UUID.randomUUID());
             return savedMatch;
-            // match.getGoals() returns the empty ArrayList from the field initializer — no mock needed
         });
 
         MatchDto dto = new MatchDto();
@@ -324,10 +302,6 @@ class MatchServiceImplTest {
         assertThat(savedMatch.getHomeScore()).isEqualTo(3);
         assertThat(savedMatch.getAwayScore()).isEqualTo(1);
     }
-
-    // -----------------------------------------------------------------------
-    // Helpers
-    // -----------------------------------------------------------------------
 
     private Goal goalWithScorer(Player scorer) {
         Goal g = new Goal();
