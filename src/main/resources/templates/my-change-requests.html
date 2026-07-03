@@ -27,6 +27,7 @@
                     <span th:case="'TEAM'">&#128737; Team</span>
                     <span th:case="'PLAYER'">&#129489; Player</span>
                     <span th:case="'MATCH'">&#9917; Match</span>
+                    <span th:case="'TEAM_SQUAD'">&#128101; Team &amp; squad</span>
                 </span>
             </span>
             <span class="badge"
@@ -51,16 +52,16 @@
 
         <div class="cr-actions" th:if="${cr.status.name() == 'REJECTED' and cr.action.name() != 'DELETE'}">
             <span th:if="${cr.action.name() == 'CREATE'}" th:switch="${cr.entityType.name()}">
-                <a th:case="'LEAGUE'" th:href="@{/leagues/create(fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
-                <a th:case="'TEAM'" th:href="@{/teams/create(fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
-                <a th:case="'PLAYER'" th:href="@{/players/create(fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
-                <a th:case="'MATCH'" th:href="@{/matches/create(fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
+                <a th:case="'LEAGUE'" th:href="@{/leagues/form(fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
+                <a th:case="'TEAM'" th:href="@{/teams/form(fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
+                <a th:case="'PLAYER'" th:href="@{/players/form(fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
+                <a th:case="'MATCH'" th:href="@{/matches/form(fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
             </span>
             <span th:if="${cr.action.name() == 'UPDATE'}" th:switch="${cr.entityType.name()}">
-                <a th:case="'LEAGUE'" th:href="@{/leagues/{id}/edit(id=${cr.targetId},fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
-                <a th:case="'TEAM'" th:href="@{/teams/{id}/edit(id=${cr.targetId},fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
-                <a th:case="'PLAYER'" th:href="@{/players/{id}/edit(id=${cr.targetId},fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
-                <a th:case="'MATCH'" th:href="@{/matches/{id}/edit(id=${cr.targetId},fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
+                <a th:case="'LEAGUE'" th:href="@{/leagues/{id}/form(id=${cr.targetId},fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
+                <a th:case="'TEAM'" th:href="@{/teams/{id}/form(id=${cr.targetId},fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
+                <a th:case="'PLAYER'" th:href="@{/players/{id}/form(id=${cr.targetId},fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
+                <a th:case="'MATCH'" th:href="@{/matches/{id}/form(id=${cr.targetId},fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
             </span>
         </div>
     </div>

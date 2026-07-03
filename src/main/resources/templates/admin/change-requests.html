@@ -30,6 +30,7 @@
                     <span th:case="'TEAM'">&#128737; Team</span>
                     <span th:case="'PLAYER'">&#129489; Player</span>
                     <span th:case="'MATCH'">&#9917; Match</span>
+                    <span th:case="'TEAM_SQUAD'">&#128101; Team &amp; squad</span>
                 </span>
             </span>
             <span class="badge"
@@ -46,10 +47,10 @@
         </ul>
 
         <div class="cr-actions">
-            <form th:action="@{/admin/change-requests/{id}/approve(id=${cr.id})}" method="post" style="display:inline">
+            <form th:action="@{/admin/change-requests/{id}/approval(id=${cr.id})}" method="post" style="display:inline">
                 <button type="submit" class="btn-approve">Approve</button>
             </form>
-            <form th:action="@{/admin/change-requests/{id}/reject(id=${cr.id})}" method="post" class="cr-reject-form">
+            <form th:action="@{/admin/change-requests/{id}/rejection(id=${cr.id})}" method="post" class="cr-reject-form">
                 <input type="text" name="reason" placeholder="Reason (optional)" class="cr-reason-input"
                        th:value="${failedRequestId != null and failedRequestId == cr.id} ? ${suggestedReason} : null"
                        th:attr="list=${'reasons-' + cr.id}"/>
