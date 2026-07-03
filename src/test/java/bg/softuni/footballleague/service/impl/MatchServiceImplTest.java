@@ -208,6 +208,42 @@ class MatchServiceImplTest {
     }
 
     @Test
+    void addGoal_scorerAsOwnAssistant_throwsInvalidGoalException() {
+        when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
+        when(playerRepository.findById(homePlayerId)).thenReturn(Optional.of(homePlayer));
+        when(goalRepository.countByMatchAndScorerTeamIdExcluding(match, homeTeamId, null)).thenReturn(0L);
+
+        GoalEventDto dto = new GoalEventDto();
+        dto.setScorerId(homePlayerId);
+        dto.setAssistantId(homePlayerId);
+        dto.setMinute(10);
+
+        assertThatThrownBy(() -> matchService.addGoal(matchId, dto))
+                .isInstanceOf(InvalidGoalException.class)
+                .hasMessageContaining("cannot assist his own goal");
+
+        verify(goalRepository, never()).save(any());
+    }
+
+    @Test
+    void addGoal_duplicateMinute_throwsInvalidGoalException() {
+        when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
+        when(playerRepository.findById(homePlayerId)).thenReturn(Optional.of(homePlayer));
+        when(goalRepository.countByMatchAndScorerTeamIdExcluding(match, homeTeamId, null)).thenReturn(0L);
+        when(goalRepository.countByMatchAndHalfAndMinuteExcluding(match, Half.FIRST, 10, null)).thenReturn(1L);
+
+        GoalEventDto dto = new GoalEventDto();
+        dto.setScorerId(homePlayerId);
+        dto.setMinute(10);
+
+        assertThatThrownBy(() -> matchService.addGoal(matchId, dto))
+                .isInstanceOf(InvalidGoalException.class)
+                .hasMessageContaining("minute 10");
+
+        verify(goalRepository, never()).save(any());
+    }
+
+    @Test
     void updateGoal_changingScorerToFullAwayTeam_throwsInvalidGoalException() {
         UUID goalId = UUID.randomUUID();
 

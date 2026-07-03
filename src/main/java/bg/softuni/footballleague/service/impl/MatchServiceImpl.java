@@ -22,6 +22,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -97,14 +98,9 @@ public class MatchServiceImpl implements MatchService {
         }
 
         validateGoalCountLimit(match, scorerIsHome, null);
+        validateMinuteUnique(match, dto.getMinute(), null);
 
-        Player assistant = null;
-        if (dto.getAssistantId() != null) {
-            assistant = getPlayerOrThrow(dto.getAssistantId());
-            if (!assistant.getTeam().getId().equals(scorerTeamId)) {
-                throw new InvalidGoalException("Assistant must be from the same team as the scorer.");
-            }
-        }
+        Player assistant = resolveAssistant(dto.getAssistantId(), scorer);
 
         Goal goal = new Goal();
         goal.setMatch(match);
@@ -140,14 +136,9 @@ public class MatchServiceImpl implements MatchService {
         }
 
         validateGoalCountLimit(match, scorerIsHome, goalId);
+        validateMinuteUnique(match, dto.getMinute(), goalId);
 
-        Player assistant = null;
-        if (dto.getAssistantId() != null) {
-            assistant = getPlayerOrThrow(dto.getAssistantId());
-            if (!assistant.getTeam().getId().equals(scorerTeamId)) {
-                throw new InvalidGoalException("Assistant must be from the same team as the scorer.");
-            }
-        }
+        Player assistant = resolveAssistant(dto.getAssistantId(), scorer);
 
         goal.setScorer(scorer);
         goal.setAssistant(assistant);
@@ -163,6 +154,31 @@ public class MatchServiceImpl implements MatchService {
                 .orElseThrow(() -> new EntityNotFoundException("Goal not found"));
         goalRepository.delete(goal);
         log.info("Deleted goal {}", goalId);
+    }
+
+    private void validateMinuteUnique(Match match, Integer rawMinute, UUID excludeGoalId) {
+        if (rawMinute == null) {
+            return;
+        }
+        Half half = rawMinute <= 20 ? Half.FIRST : Half.SECOND;
+        int storedMinute = rawMinute <= 20 ? rawMinute : rawMinute - 20;
+        if (goalRepository.countByMatchAndHalfAndMinuteExcluding(match, half, storedMinute, excludeGoalId) > 0) {
+            throw new InvalidGoalException("A goal has already been recorded at minute " + rawMinute + ".");
+        }
+    }
+
+    private Player resolveAssistant(UUID assistantId, Player scorer) {
+        if (assistantId == null) {
+            return null;
+        }
+        if (assistantId.equals(scorer.getId())) {
+            throw new InvalidGoalException("A player cannot assist his own goal.");
+        }
+        Player assistant = getPlayerOrThrow(assistantId);
+        if (!assistant.getTeam().getId().equals(scorer.getTeam().getId())) {
+            throw new InvalidGoalException("Assistant must be from the same team as the scorer.");
+        }
+        return assistant;
     }
 
     private void validateGoalCountLimit(Match match, boolean scorerIsHome, UUID excludeGoalId) {
@@ -220,21 +236,36 @@ public class MatchServiceImpl implements MatchService {
         matchDto.setPlayedAt(match.getPlayedAt());
 
         UUID homeTeamId = match.getHomeTeam().getId();
-        int homeHalf = 0, awayHalf = 0;
-        for (Goal g : match.getGoals()) {
-            GoalDto dto = toGoalDto(g);
-            boolean isHome = homeTeamId.equals(dto.getTeamId());
-            boolean isFirst = g.getHalf() == Half.FIRST;
 
-            if (isFirst) {
-                if (isHome) { matchDto.getFirstHalfHomeGoals().add(dto); homeHalf++; }
-                else        { matchDto.getFirstHalfAwayGoals().add(dto); awayHalf++; }
-            } else {
-                if (isHome) matchDto.getSecondHalfHomeGoals().add(dto);
-                else        matchDto.getSecondHalfAwayGoals().add(dto);
+        List<GoalDto> sorted = match.getGoals().stream()
+                .map(this::toGoalDto)
+                .sorted(Comparator.comparingInt(dto ->
+                        dto.getMinute() == null ? Integer.MAX_VALUE
+                                : dto.getHalf() == Half.FIRST ? dto.getMinute() : dto.getMinute() + 20))
+                .toList();
+
+        int runningHome = 0, runningAway = 0, homeHalf = 0, awayHalf = 0;
+        Half currentHalf = null;
+        for (GoalDto dto : sorted) {
+            boolean isHome = homeTeamId.equals(dto.getTeamId());
+            dto.setHomeGoal(isHome);
+
+            if (!dto.getHalf().equals(currentHalf)) {
+                dto.setFirstInHalf(true);
+                currentHalf = dto.getHalf();
             }
+
+            if (isHome) runningHome++; else runningAway++;
+            dto.setRunningHomeScore(runningHome);
+            dto.setRunningAwayScore(runningAway);
+
+            if (dto.getHalf() == Half.FIRST) {
+                if (isHome) homeHalf++; else awayHalf++;
+            }
+
+            matchDto.getGoalTimeline().add(dto);
         }
-        if (!match.getGoals().isEmpty()) {
+        if (!sorted.isEmpty()) {
             matchDto.setHomeHalfScore(homeHalf);
             matchDto.setAwayHalfScore(awayHalf);
         }

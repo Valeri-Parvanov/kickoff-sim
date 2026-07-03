@@ -55,8 +55,5 @@ public class MatchDto {
 
     private Integer awayHalfScore;
 
-    private List<GoalDto> firstHalfHomeGoals = new ArrayList<>();
-    private List<GoalDto> firstHalfAwayGoals = new ArrayList<>();
-    private List<GoalDto> secondHalfHomeGoals = new ArrayList<>();
-    private List<GoalDto> secondHalfAwayGoals = new ArrayList<>();
+    private List<GoalDto> goalTimeline = new ArrayList<>();
 }

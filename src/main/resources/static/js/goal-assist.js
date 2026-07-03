@@ -20,7 +20,7 @@
             if (optTeam === null) {
                 continue;
             }
-            var visible = team !== '' && optTeam === team;
+            var visible = team !== '' && optTeam === team && opt.value !== scorer.value;
             opt.hidden = !visible;
             opt.disabled = !visible;
         }

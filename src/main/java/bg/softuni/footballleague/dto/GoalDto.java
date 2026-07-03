@@ -18,4 +18,8 @@ public class GoalDto {
     private Integer minute;
     private Half half;
     private UUID teamId;
+    private Integer runningHomeScore;
+    private Integer runningAwayScore;
+    private boolean homeGoal;
+    private boolean firstInHalf;
 }
