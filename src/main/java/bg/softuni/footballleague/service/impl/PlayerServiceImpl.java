@@ -15,6 +15,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -47,6 +48,7 @@ public class PlayerServiceImpl implements PlayerService {
         Team team = getTeamOrThrow(teamId);
         return playerRepository.findAllByTeam(team).stream()
                 .map(this::toDto)
+                .sorted(Comparator.comparingInt(PlayerDto::getShirtNumber))
                 .toList();
     }
 

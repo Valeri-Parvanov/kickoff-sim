@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
@@ -13,8 +13,27 @@
 <div th:replace="~{fragments/topbar :: topbar}"></div>
 
 <main class="page">
-<h1>Something went wrong</h1>
-<p th:text="${errorMessage}"></p>
+
+<div class="error-page">
+    <div class="error-code" th:if="${status != null}" th:text="${status}"></div>
+
+    <h1 th:if="${errorTitle != null}" th:text="${errorTitle}"></h1>
+    <h1 th:if="${errorTitle == null and status == 404}">&#128269; Page not found</h1>
+    <h1 th:if="${errorTitle == null and status != 404}">Something went wrong</h1>
+
+    <p class="error-desc" th:if="${errorMessage != null}" th:text="${errorMessage}"></p>
+    <p class="error-desc" th:if="${errorMessage == null and status == 404}">
+        The page <strong th:text="${path}"></strong> does not exist.
+    </p>
+
+    <div class="error-nav">
+        <a href="/" class="btn-add">&#127968; Home</a>
+        <a th:href="@{/leagues}" class="btn-edit">Leagues</a>
+        <a th:href="@{/teams}" class="btn-edit">Teams</a>
+        <a th:href="@{/matches}" class="btn-edit">Matches</a>
+    </div>
+</div>
+
 </main>
 </body>
 </html>

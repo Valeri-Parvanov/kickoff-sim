@@ -51,7 +51,7 @@
     <button type="submit">Save</button>
 </form>
 
-<p><a th:href="@{/players}" class="back-link">&#8592; Back to players</a></p>
+<p><a th:href="${playerDto.teamId != null ? '/teams/' + playerDto.teamId : '/teams'}" class="back-link">&#8592; Back to team</a></p>
 </main>
 <script th:src="@{/js/random-names.js}"></script>
 </body>

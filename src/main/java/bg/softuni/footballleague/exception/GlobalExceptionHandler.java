@@ -4,15 +4,22 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @ControllerAdvice
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public String handleAccessDenied() {
+        return "redirect:/";
+    }
 
     @ExceptionHandler(StaleSessionException.class)
     public String handleStaleSession(HttpServletRequest request) {
@@ -23,9 +30,16 @@ public class GlobalExceptionHandler {
         return "redirect:/login?expired";
     }
 
+    @ExceptionHandler(NoResourceFoundException.class)
+    public String handleNoResource(Model model) {
+        model.addAttribute("errorTitle", "Page not found");
+        model.addAttribute("errorMessage", "The page you're looking for doesn't exist. Please check the address or use the links below.");
+        return "error";
+    }
+
     @ExceptionHandler(EntityNotFoundException.class)
-    public String handleEntityNotFound(EntityNotFoundException ex, Model model) {
-        model.addAttribute("errorMessage", ex.getMessage());
+    public String handleEntityNotFound(Model model) {
+        model.addAttribute("errorMessage", "The requested item was not found. It may have been deleted or the link may be outdated.");
         return "error";
     }
 
@@ -36,8 +50,8 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(SquadLimitExceededException.class)
-    public String handleSquadLimitExceeded(SquadLimitExceededException ex, Model model) {
-        model.addAttribute("errorMessage", ex.getMessage());
+    public String handleSquadLimitExceeded(Model model) {
+        model.addAttribute("errorMessage", "This team's squad is already full (maximum 12 players).");
         return "error";
     }
 
@@ -54,7 +68,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
-    public String handleDuplicateEntry(DataIntegrityViolationException ex, Model model) {
+    public String handleDuplicateEntry(Model model) {
         model.addAttribute("errorMessage", "A record with that name already exists. Please choose a different name.");
         return "error";
     }
@@ -62,9 +76,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public String handleGeneric(Exception ex, Model model) {
         log.error("Unhandled exception", ex);
-        model.addAttribute("errorMessage", ex.getMessage() != null
-                ? ex.getMessage()
-                : ex.getClass().getSimpleName());
+        model.addAttribute("errorMessage", "Something unexpected happened. Please try again or use the links below to navigate.");
         return "error";
     }
 }

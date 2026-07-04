@@ -58,11 +58,15 @@ public class PlayerController {
     }
 
     @GetMapping("/form")
-    public String createForm(@RequestParam(required = false) UUID fromRequest, Model model,
-                              Authentication authentication) {
+    public String createForm(@RequestParam(required = false) UUID fromRequest,
+                              @RequestParam(required = false) UUID teamId,
+                              Model model, Authentication authentication) {
         PlayerDto playerDto = fromRequest != null
                 ? (PlayerDto) changeRequestService.getPayloadForResubmit(fromRequest, authentication)
                 : new PlayerDto();
+        if (teamId != null && playerDto.getTeamId() == null) {
+            playerDto.setTeamId(teamId);
+        }
         model.addAttribute("playerDto", playerDto);
         model.addAttribute("teams", teamService.findAll());
         return "players/form";
@@ -92,7 +96,7 @@ public class PlayerController {
 
         redirectAttributes.addFlashAttribute("statusMessage",
                 executed ? "Player created." : "Submitted for admin approval.");
-        return "redirect:/players";
+        return "redirect:/teams/" + playerDto.getTeamId();
     }
 
     @GetMapping("/{id}/form")
@@ -132,16 +136,17 @@ public class PlayerController {
 
         redirectAttributes.addFlashAttribute("statusMessage",
                 executed ? "Player updated." : "Submitted for admin approval.");
-        return "redirect:/players";
+        return "redirect:/teams/" + playerDto.getTeamId();
     }
 
     @DeleteMapping("/{id}")
     public String delete(@PathVariable UUID id, Authentication authentication,
                           RedirectAttributes redirectAttributes) {
+        UUID teamId = playerService.findById(id).getTeamId();
         boolean executed = changeRequestService.submitOrExecute(
                 EntityType.PLAYER, ChangeAction.DELETE, null, id, authentication);
         redirectAttributes.addFlashAttribute("statusMessage",
                 executed ? "Player deleted." : "Submitted for admin approval.");
-        return "redirect:/players";
+        return "redirect:/teams/" + teamId;
     }
 }

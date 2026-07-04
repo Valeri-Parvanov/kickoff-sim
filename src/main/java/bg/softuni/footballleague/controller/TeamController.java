@@ -1,5 +1,6 @@
 package bg.softuni.footballleague.controller;
 
+import bg.softuni.footballleague.dto.PlayerDto;
 import bg.softuni.footballleague.dto.PlayerRowDto;
 import bg.softuni.footballleague.dto.TeamCreateForm;
 import bg.softuni.footballleague.dto.TeamDto;
@@ -8,6 +9,7 @@ import bg.softuni.footballleague.model.ChangeAction;
 import bg.softuni.footballleague.model.EntityType;
 import bg.softuni.footballleague.service.ChangeRequestService;
 import bg.softuni.footballleague.service.LeagueService;
+import bg.softuni.footballleague.service.PlayerService;
 import bg.softuni.footballleague.service.TeamService;
 import bg.softuni.footballleague.web.SortSupport;
 import bg.softuni.footballleague.web.SquadRowValidator;
@@ -33,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+
 @Controller
 @RequiredArgsConstructor
 @RequestMapping("/teams")
@@ -49,6 +52,15 @@ public class TeamController {
     private final TeamService teamService;
     private final LeagueService leagueService;
     private final ChangeRequestService changeRequestService;
+    private final PlayerService playerService;
+
+    @GetMapping("/{id}")
+    public String detail(@PathVariable UUID id, Model model) {
+        model.addAttribute("team", teamService.findById(id));
+        model.addAttribute("players", playerService.findAllByTeam(id));
+        model.addAttribute("remainingSlots", playerService.squadRemainingSlots(id));
+        return "teams/detail";
+    }
 
     @GetMapping
     public String list(@RequestParam(required = false) String sort,

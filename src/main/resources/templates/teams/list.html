@@ -34,7 +34,7 @@
     </thead>
     <tbody>
     <tr th:each="team : ${teams}">
-        <td th:text="${team.name}"></td>
+        <td><a th:href="@{/teams/{id}(id=${team.id})}" th:text="${team.name}" class="entity-link"></a></td>
         <td th:text="${team.city}"></td>
         <td th:text="${team.leagueName}"></td>
         <td sec:authorize="isAuthenticated()">

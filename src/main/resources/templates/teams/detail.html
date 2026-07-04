@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${team.name}">Team</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"/>
+    <link rel="stylesheet" th:href="@{/css/style.css}"/>
+</head>
+<body>
+<div th:replace="~{fragments/topbar :: topbar}"></div>
+
+<main class="page">
+
+<p th:if="${statusMessage}" th:text="${statusMessage}" class="status-message"></p>
+
+<div class="team-detail-header">
+    <div>
+        <h1>&#128737; <span th:text="${team.name}"></span></h1>
+        <p class="team-detail-meta">
+            <span th:text="${team.city}"></span>
+            <span class="team-detail-sep">·</span>
+            <span th:text="${team.leagueName}"></span>
+        </p>
+    </div>
+    <div class="team-detail-actions" sec:authorize="isAuthenticated()">
+        <a th:href="@{/players/form(teamId=${team.id})}" class="btn-add" sec:authorize="hasRole('ADMIN')">+ Add player</a>
+        <a th:href="@{/teams/{id}/squad(id=${team.id})}" class="btn-goal"
+           th:if="${remainingSlots > 0}">+ Add squad</a>
+        <a th:href="@{/teams/{id}/form(id=${team.id})}" class="btn-edit" sec:authorize="hasRole('ADMIN')">Edit team</a>
+    </div>
+</div>
+
+<div th:if="${players.isEmpty()}" class="no-matches">No players registered yet.</div>
+
+<div class="table-wrapper" th:if="${!players.isEmpty()}">
+<table border="1" cellpadding="6">
+    <thead>
+    <tr>
+        <th>#</th>
+        <th>First name</th>
+        <th>Last name</th>
+        <th sec:authorize="hasRole('ADMIN')">Actions</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr th:each="p : ${players}">
+        <td th:text="${p.shirtNumber}"></td>
+        <td th:text="${p.firstName}"></td>
+        <td th:text="${p.lastName}"></td>
+        <td sec:authorize="hasRole('ADMIN')">
+            <a th:href="@{/players/{id}/form(id=${p.id})}">Edit</a>
+            <form th:action="@{/players/{id}(id=${p.id})}" th:method="delete" style="display:inline">
+                <button type="submit">Delete</button>
+            </form>
+        </td>
+    </tr>
+    </tbody>
+</table>
+</div>
+
+<p><a th:href="@{/teams}" class="back-link">&#8592; Back to teams</a></p>
+</main>
+</body>
+</html>

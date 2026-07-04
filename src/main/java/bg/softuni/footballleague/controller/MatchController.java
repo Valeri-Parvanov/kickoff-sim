@@ -64,6 +64,7 @@ public class MatchController {
         return "matches/list";
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/form")
     public String createForm(@RequestParam(required = false) UUID fromRequest, Model model,
                               Authentication authentication) {
@@ -75,6 +76,7 @@ public class MatchController {
         return "matches/form";
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public String create(@Valid @ModelAttribute("matchDto") MatchDto matchDto, BindingResult bindingResult,
                           Model model, Authentication authentication, RedirectAttributes redirectAttributes) {

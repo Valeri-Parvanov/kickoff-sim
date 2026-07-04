@@ -682,11 +682,12 @@ span[style*="color: red"] {
     letter-spacing: 0.03em;
 }
 
-.half-section {
+.goal-timeline {
     margin-top: 0.75rem;
     padding-top: 0.65rem;
     border-top: 1px dashed #d8eddd;
 }
+
 
 .half-label {
     text-align: center;
@@ -695,23 +696,45 @@ span[style*="color: red"] {
     text-transform: uppercase;
     letter-spacing: 0.1em;
     color: #a8c4b0;
-    margin-bottom: 0.35rem;
+    margin: 6px 0 4px;
 }
 
-.match-goals {
+.half-score {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--bg-mid);
+    background: #ddeee3;
+    border-radius: 4px;
+    padding: 1px 6px;
+    margin-left: 6px;
+    letter-spacing: 0;
+    text-transform: none;
+    vertical-align: middle;
+}
+
+.timeline-row {
     display: flex;
-    gap: 0.5rem;
+    gap: 12px;
+    margin-bottom: 3px;
+    align-items: center;
 }
 
-.goals-col {
+.tl-home {
     flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
+    text-align: right;
+    font-size: 0.82rem;
+    color: var(--bg-mid);
+    line-height: 1.5;
 }
 
-.goals-col.home-goals { text-align: right; }
-.goals-col.away-goals { text-align: left; }
+.tl-away {
+    flex: 1;
+    text-align: left;
+    font-size: 0.82rem;
+    color: var(--bg-mid);
+    line-height: 1.5;
+}
+
 
 .goal-event {
     font-size: 0.82rem;
@@ -731,6 +754,16 @@ span[style*="color: red"] {
 .goal-assist {
     font-size: 0.75rem;
     color: var(--muted);
+}
+
+.running-score {
+    font-size: 0.72rem;
+    font-weight: 700;
+    background: var(--pitch);
+    color: #fff;
+    border-radius: 4px;
+    padding: 1px 5px;
+    margin-left: 4px;
 }
 
 .match-actions {
@@ -779,6 +812,74 @@ span[style*="color: red"] {
     text-align: center;
     color: var(--muted);
     padding: 2rem 0;
+}
+
+.entity-link {
+    color: var(--pitch);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.entity-link:hover {
+    text-decoration: underline;
+}
+
+.team-detail-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.team-detail-header h1 {
+    margin: 0 0 0.25rem;
+}
+
+.team-detail-meta {
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.team-detail-sep {
+    margin: 0 0.4em;
+}
+
+.team-detail-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    padding-top: 0.25rem;
+}
+
+.error-page {
+    text-align: center;
+    padding: 3rem 1rem;
+}
+
+.error-code {
+    font-size: 5rem;
+    font-weight: 800;
+    color: var(--pitch);
+    line-height: 1;
+    margin-bottom: 0.25rem;
+    font-family: 'Poppins', sans-serif;
+}
+
+.error-desc {
+    color: var(--muted);
+    font-size: 1rem;
+    margin: 0.5rem 0 1.75rem;
+}
+
+.error-nav {
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
 }
 
 /* ── Add-goal form banner ── */
