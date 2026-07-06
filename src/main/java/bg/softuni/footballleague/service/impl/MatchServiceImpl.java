@@ -156,13 +156,27 @@ public class MatchServiceImpl implements MatchService {
         log.info("Deleted goal {}", goalId);
     }
 
+    @Override
+    public List<MatchDto> findByLeague(UUID leagueId) {
+        return matchRepository.findByLeagueId(leagueId).stream()
+                .map(this::toDto)
+                .toList();
+    }
+
+    private static Half rawMinuteToHalf(int rawMinute) {
+        return rawMinute <= 20 ? Half.FIRST : Half.SECOND;
+    }
+
+    private static int rawMinuteToStored(int rawMinute) {
+        return rawMinute <= 20 ? rawMinute : rawMinute - 20;
+    }
+
     private void validateMinuteUnique(Match match, Integer rawMinute, UUID excludeGoalId) {
         if (rawMinute == null) {
             return;
         }
-        Half half = rawMinute <= 20 ? Half.FIRST : Half.SECOND;
-        int storedMinute = rawMinute <= 20 ? rawMinute : rawMinute - 20;
-        if (goalRepository.countByMatchAndHalfAndMinuteExcluding(match, half, storedMinute, excludeGoalId) > 0) {
+        if (goalRepository.countByMatchAndHalfAndMinuteExcluding(
+                match, rawMinuteToHalf(rawMinute), rawMinuteToStored(rawMinute), excludeGoalId) > 0) {
             throw new InvalidGoalException("A goal has already been recorded at minute " + rawMinute + ".");
         }
     }
@@ -193,8 +207,8 @@ public class MatchServiceImpl implements MatchService {
     }
 
     private void applyHalfAndMinute(Goal goal, Integer rawMinute) {
-        goal.setHalf(rawMinute == null || rawMinute <= 20 ? Half.FIRST : Half.SECOND);
-        goal.setMinute(rawMinute != null && rawMinute > 20 ? Integer.valueOf(rawMinute - 20) : rawMinute);
+        goal.setHalf(rawMinute == null ? Half.FIRST : rawMinuteToHalf(rawMinute));
+        goal.setMinute(rawMinute == null ? null : rawMinuteToStored(rawMinute));
     }
 
     private Player getPlayerOrThrow(UUID id) {
@@ -229,11 +243,18 @@ public class MatchServiceImpl implements MatchService {
         matchDto.setId(match.getId());
         matchDto.setHomeTeamId(match.getHomeTeam().getId());
         matchDto.setHomeTeamName(match.getHomeTeam().getName());
+        matchDto.setHomeTeamCity(match.getHomeTeam().getCity());
         matchDto.setAwayTeamId(match.getAwayTeam().getId());
         matchDto.setAwayTeamName(match.getAwayTeam().getName());
+        matchDto.setAwayTeamCity(match.getAwayTeam().getCity());
         matchDto.setHomeScore(match.getHomeScore());
         matchDto.setAwayScore(match.getAwayScore());
         matchDto.setPlayedAt(match.getPlayedAt());
+        matchDto.setRoundNumber(match.getRoundNumber());
+        if (match.getHomeTeam().getLeague() != null) {
+            matchDto.setLeagueId(match.getHomeTeam().getLeague().getId());
+            matchDto.setLeagueName(match.getHomeTeam().getLeague().getName());
+        }
 
         UUID homeTeamId = match.getHomeTeam().getId();
 

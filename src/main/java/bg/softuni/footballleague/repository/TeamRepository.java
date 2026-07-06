@@ -19,4 +19,8 @@ public interface TeamRepository extends JpaRepository<Team, UUID> {
     List<Team> findAllByLeague(League league);
 
     boolean existsByName(String name);
+
+    boolean existsByNameAndCity(String name, String city);
+
+    List<Team> findAllByLeagueIsNull();
 }

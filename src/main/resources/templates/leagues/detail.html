@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${league.name}">League</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"/>
+    <link rel="stylesheet" th:href="@{/css/style.css}"/>
+</head>
+<body>
+<div th:replace="~{fragments/topbar :: topbar}"></div>
+
+<main class="page">
+
+<div class="team-detail-header">
+    <div>
+        <h1>&#127942; <span th:text="${league.name}"></span></h1>
+    </div>
+    <div class="team-detail-actions" sec:authorize="hasRole('ADMIN')">
+        <a th:href="@{/leagues/{id}/form(id=${league.id})}" class="btn-edit">Edit</a>
+        <form th:action="@{/leagues/{id}(id=${league.id})}" th:method="delete" style="display:inline">
+            <button type="submit" class="btn-del">Delete</button>
+        </form>
+    </div>
+</div>
+
+<div th:replace="~{fragments/topbar :: messages}"></div>
+
+<section>
+    <h2>Format &amp; Rules</h2>
+
+    <div th:if="${league.format != null}">
+        <p>
+            <strong th:text="${league.format.cycleName}"></strong>
+            &mdash;
+            <span th:text="${league.format.totalRounds}"></span> rounds,
+            <span th:text="${league.format.matchesPerRound}"></span> matches per round,
+            <span th:text="${league.format.totalMatches}"></span> total matches.
+        </p>
+    </div>
+    <div th:if="${league.format == null}" class="no-matches">
+        &#9888; League must have exactly 6, 8, 10, or 16 teams to generate a schedule.
+        Currently: <strong th:text="${league.teams.size()}"></strong> team(s).
+    </div>
+
+    <div class="rules-box">
+        <p><strong>Tiebreakers (in order):</strong></p>
+        <ol>
+            <li>Points</li>
+            <li>Goal difference (all league matches)</li>
+            <li>Goals scored (all league matches)</li>
+            <li>Head-to-head points (only between tied teams)</li>
+            <li>Head-to-head goal difference</li>
+            <li>Head-to-head goals scored</li>
+            <li>Alphabetical order</li>
+        </ol>
+        <p><strong>Points:</strong> Win = 3 pts &nbsp;|&nbsp; Draw = 1 pt &nbsp;|&nbsp; Loss = 0 pts</p>
+    </div>
+
+    <div sec:authorize="hasRole('ADMIN')" th:if="${league.format != null and league.matches.isEmpty()}">
+        <h3>Generate Schedule</h3>
+        <p th:if="${scheduleError}" th:text="${scheduleError}" class="error-msg"></p>
+        <form th:action="@{/leagues/{id}/schedule(id=${league.id})}" method="post"
+              th:object="${scheduleForm}" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <div>
+                <label for="startDate">Round 1 date</label><br/>
+                <input type="date" id="startDate" th:field="*{startDate}" required/>
+                <p th:if="${#fields.hasErrors('startDate')}" th:errors="*{startDate}" class="error-msg"></p>
+            </div>
+            <div>
+                <label for="startTime">First match kick-off</label><br/>
+                <input type="hidden" th:field="*{startTime}"/>
+                <select id="startTimeSelect" style="height:2.2rem;font-size:1rem;border:1px solid #ccc;border-radius:6px;padding:0 0.5rem;" required></select>
+                <p th:if="${#fields.hasErrors('startTime')}" th:errors="*{startTime}" class="error-msg"></p>
+            </div>
+            <button type="submit" class="btn-add">Generate</button>
+        </form>
+        <p style="margin-top:6px;font-size:0.85rem;color:#666;">
+            Each round is played on a separate day. Matches in the same round kick off 1 hour apart.
+            All <span th:text="${league.format.totalRounds}"></span> rounds will be created
+            (<span th:text="${league.format.matchesPerRound}"></span> matches per round).
+        </p>
+    </div>
+
+    <div sec:authorize="hasRole('ADMIN')" th:if="${league.format != null and !league.matches.isEmpty()}">
+        <p class="status-message">Schedule is active (<span th:text="${league.matches.size()}"></span> matches generated).</p>
+    </div>
+</section>
+
+<section>
+    <h2>Teams</h2>
+    <div th:if="${league.teams.isEmpty()}" class="no-matches">No teams in this league yet.</div>
+    <div class="table-wrapper" th:if="${!league.teams.isEmpty()}">
+        <table border="1" cellpadding="6">
+            <thead>
+            <tr>
+                <th>Name</th>
+                <th>City</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="team : ${league.teams}">
+                <td><a th:href="@{/teams/{id}(id=${team.id})}" th:text="${team.name}"></a></td>
+                <td th:text="${team.city}"></td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section>
+    <h2>Standings</h2>
+    <div th:if="${#lists.isEmpty(league.standings.?[played > 0])}" class="no-matches">No results recorded yet.</div>
+    <div class="table-wrapper" th:if="${!#lists.isEmpty(league.standings.?[played > 0])}">
+        <table border="1" cellpadding="6">
+            <thead>
+            <tr>
+                <th>#</th>
+                <th>Team</th>
+                <th>P</th>
+                <th>W</th>
+                <th>D</th>
+                <th>L</th>
+                <th>GF</th>
+                <th>GA</th>
+                <th>GD</th>
+                <th>Pts</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="row, stat : ${league.standings}">
+                <td th:text="${stat.index + 1}"></td>
+                <td><a th:href="@{/teams/{id}(id=${row.teamId})}"
+                       th:text="${row.teamName + (row.teamCity != null ? ' (' + row.teamCity + ')' : '')}"></a></td>
+                <td th:text="${row.played}"></td>
+                <td th:text="${row.wins}"></td>
+                <td th:text="${row.draws}"></td>
+                <td th:text="${row.losses}"></td>
+                <td th:text="${row.goalsFor}"></td>
+                <td th:text="${row.goalsAgainst}"></td>
+                <td th:text="${row.goalDiff}"></td>
+                <td><strong th:text="${row.points}"></strong></td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section>
+    <h2>Matches</h2>
+
+    <div th:if="${availableRounds == null or availableRounds.isEmpty()}" class="no-matches">No matches recorded yet.</div>
+
+    <div th:if="${availableRounds != null and !availableRounds.isEmpty()}">
+
+        <div class="ls-filter-bar" style="margin-bottom:1rem;padding-bottom:0.75rem;">
+            <span class="ls-filter-label">Round</span>
+            <form method="get" th:action="@{/leagues/{id}(id=${league.id})}" style="display:flex;align-items:center;gap:0.5rem;">
+                <select name="round" class="ls-filter-select" onchange="this.form.submit()">
+                    <option th:each="r : ${availableRounds}"
+                            th:value="${r}"
+                            th:text="'Round ' + ${r}"
+                            th:selected="${r == selectedRound}"></option>
+                </select>
+            </form>
+        </div>
+
+        <div class="match-list" th:if="${roundMatches != null and !roundMatches.isEmpty()}">
+            <div class="match-card" th:each="match : ${roundMatches}">
+
+                <div class="match-meta">
+                    <span class="match-date" th:text="${#temporals.format(match.playedAt, 'dd MMM yyyy, HH:mm')}"></span>
+                </div>
+
+                <div class="match-scoreline">
+                    <span class="team-name home">
+                        <a th:href="@{/teams/{id}(id=${match.homeTeamId})}"
+                           th:text="${match.homeTeamName + (match.homeTeamCity != null ? ' (' + match.homeTeamCity + ')' : '')}"
+                           class="entity-link"></a>
+                    </span>
+                    <div class="score-block" th:if="${!match.playedAt.isAfter(liveThreshold)}">
+                        <div class="score-main"
+                             th:text="${match.homeScore != null ? match.homeScore : '-'} + ' : ' + ${match.awayScore != null ? match.awayScore : '-'}"></div>
+                        <div class="score-ht"
+                             th:if="${match.homeHalfScore != null}"
+                             th:text="'HT ' + ${match.homeHalfScore} + ' – ' + ${match.awayHalfScore}"></div>
+                    </div>
+                    <div class="score-block"
+                         th:if="${match.playedAt.isBefore(now) and match.playedAt.isAfter(liveThreshold)}"
+                         th:attr="data-kickoff=${#temporals.format(match.playedAt, 'yyyy-MM-dd HH:mm:ss')}">
+                        <div class="live-badge">LIVE</div>
+                        <div class="live-minute"></div>
+                    </div>
+                    <div class="score-block" th:unless="${match.playedAt.isBefore(now)}">
+                        <div class="upcoming-time" th:text="${#temporals.format(match.playedAt, 'HH:mm')}"></div>
+                        <div class="upcoming-date" th:text="${#temporals.format(match.playedAt, 'dd MMM yyyy')}"></div>
+                    </div>
+                    <span class="team-name away">
+                        <a th:href="@{/teams/{id}(id=${match.awayTeamId})}"
+                           th:text="${match.awayTeamName + (match.awayTeamCity != null ? ' (' + match.awayTeamCity + ')' : '')}"
+                           class="entity-link"></a>
+                    </span>
+                </div>
+
+                <div class="goal-timeline" th:if="${!match.goalTimeline.isEmpty()}">
+                    <th:block th:each="g : ${match.goalTimeline}">
+
+                        <div class="half-label" th:if="${g.firstInHalf}">
+                            <span th:text="${g.half.name() == 'FIRST' ? '1st Half' : '2nd Half'}"></span>
+                            <span class="half-score" th:if="${g.half.name() == 'FIRST'}"
+                                  th:text="${match.homeHalfScore} + ':' + ${match.awayHalfScore}"></span>
+                            <span class="half-score" th:unless="${g.half.name() == 'FIRST'}"
+                                  th:text="${match.homeScore - match.homeHalfScore} + ':' + ${match.awayScore - match.awayHalfScore}"></span>
+                        </div>
+
+                        <div class="timeline-row">
+                            <div class="tl-home">
+                                <th:block th:if="${g.homeGoal}">
+                                    <span class="goal-icon">&#9917;</span>
+                                    <span class="goal-minute" th:if="${g.minute != null}"
+                                          th:text="${(g.half.name() == 'FIRST' ? g.minute : g.minute + 20)} + '\'' + ' '"></span>
+                                    <span th:text="${g.scorerName}"></span>
+                                    <span class="goal-assist" th:if="${g.assistantName != null}"
+                                          th:text="' (' + ${g.assistantName} + ')'"></span>
+                                    <span class="running-score"
+                                          th:text="${g.runningHomeScore} + ':' + ${g.runningAwayScore}"></span>
+                                </th:block>
+                            </div>
+                            <div class="tl-away">
+                                <th:block th:unless="${g.homeGoal}">
+                                    <span class="running-score"
+                                          th:text="${g.runningHomeScore} + ':' + ${g.runningAwayScore}"></span>
+                                    <span class="goal-assist" th:if="${g.assistantName != null}"
+                                          th:text="'(' + ${g.assistantName} + ') '"></span>
+                                    <span th:text="${g.scorerName}"></span>
+                                    <span class="goal-minute" th:if="${g.minute != null}"
+                                          th:text="' ' + ${(g.half.name() == 'FIRST' ? g.minute : g.minute + 20)} + '\''"></span>
+                                    <span class="goal-icon">&#9917;</span>
+                                </th:block>
+                            </div>
+                        </div>
+
+                    </th:block>
+                </div>
+
+                <div class="match-actions-mini" sec:authorize="hasRole('ADMIN')">
+                    <a th:href="@{/matches/{id}/form(id=${match.id})}" class="btn-edit">Edit</a>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<p><a th:href="@{/leagues}" class="back-link">&#8592; Back to leagues</a></p>
+
+</main>
+<script>
+function updateLiveMinutes() {
+    document.querySelectorAll('[data-kickoff]').forEach(function(el) {
+        var raw = el.getAttribute('data-kickoff').replace(' ', 'T');
+        var kickoff = new Date(raw);
+        var minute = Math.floor((Date.now() - kickoff.getTime()) / 60000);
+        var minEl = el.querySelector('.live-minute');
+        if (minEl) minEl.textContent = minute + "'";
+    });
+}
+updateLiveMinutes();
+setInterval(updateLiveMinutes, 30000);
+
+(function() {
+    var hidden = document.getElementById('startTime');
+    var sel = document.getElementById('startTimeSelect');
+    if (!hidden || !sel) return;
+    for (var t = 8*60; t <= 23*60+30; t += 30) {
+        var h = Math.floor(t/60), m = t%60;
+        var lbl = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+        var opt = document.createElement('option');
+        opt.value = lbl; opt.textContent = lbl;
+        sel.appendChild(opt);
+    }
+    var cur = hidden.value ? hidden.value.substring(0,5) : '11:00';
+    sel.value = cur;
+    if (!sel.value) sel.value = '11:00';
+    hidden.value = sel.value;
+    sel.addEventListener('change', function() { hidden.value = sel.value; });
+})();
+</script>
+</body>
+</html>

@@ -47,9 +47,19 @@ public class MatchDto {
                 && (minute == 0 || minute == 30);
     }
 
+    private Integer roundNumber;
+
+    private String leagueName;
+
+    private UUID leagueId;
+
     private String homeTeamName;
 
+    private String homeTeamCity;
+
     private String awayTeamName;
+
+    private String awayTeamCity;
 
     private Integer homeHalfScore;
 

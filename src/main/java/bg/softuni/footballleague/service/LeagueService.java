@@ -1,5 +1,6 @@
 package bg.softuni.footballleague.service;
 
+import bg.softuni.footballleague.dto.LeagueDetailView;
 import bg.softuni.footballleague.dto.LeagueDto;
 import org.springframework.data.domain.Sort;
 
@@ -14,9 +15,13 @@ public interface LeagueService {
 
     LeagueDto findById(UUID id);
 
+    LeagueDetailView findDetail(UUID id);
+
     LeagueDto create(LeagueDto leagueDto);
 
     LeagueDto update(UUID id, LeagueDto leagueDto);
 
     void delete(UUID id);
+
+    boolean hasLeagueStarted(UUID leagueId);
 }

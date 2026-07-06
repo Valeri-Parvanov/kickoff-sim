@@ -29,4 +29,6 @@ public interface MatchService {
     void updateGoal(UUID goalId, GoalEventDto dto);
 
     void deleteGoal(UUID goalId);
+
+    List<MatchDto> findByLeague(UUID leagueId);
 }
