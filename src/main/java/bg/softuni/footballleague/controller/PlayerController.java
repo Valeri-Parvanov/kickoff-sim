@@ -69,14 +69,17 @@ public class PlayerController {
         }
         model.addAttribute("playerDto", playerDto);
         model.addAttribute("teams", teamService.findAll());
+        if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
         return "players/form";
     }
 
     @PostMapping
     public String create(@Valid @ModelAttribute("playerDto") PlayerDto playerDto, BindingResult bindingResult,
+                          @RequestParam(required = false) UUID fromRequest,
                           Model model, Authentication authentication, RedirectAttributes redirectAttributes) {
         if (bindingResult.hasErrors()) {
             model.addAttribute("teams", teamService.findAll());
+            if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
             return "players/form";
         }
 
@@ -87,13 +90,16 @@ public class PlayerController {
         } catch (SquadLimitExceededException e) {
             bindingResult.rejectValue("teamId", "team.full", e.getMessage());
             model.addAttribute("teams", teamService.findAll());
+            if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
             return "players/form";
         } catch (DuplicateShirtNumberException e) {
             bindingResult.rejectValue("shirtNumber", "shirtNumber.taken", e.getMessage());
             model.addAttribute("teams", teamService.findAll());
+            if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
             return "players/form";
         }
 
+        if (fromRequest != null) changeRequestService.cancelIfPending(fromRequest, authentication);
         redirectAttributes.addFlashAttribute("statusMessage",
                 executed ? "Player created." : "Submitted for admin approval.");
         return "redirect:/teams/" + playerDto.getTeamId();
@@ -108,15 +114,19 @@ public class PlayerController {
         playerDto.setId(id);
         model.addAttribute("playerDto", playerDto);
         model.addAttribute("teams", teamService.findAll());
+        if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
         return "players/form";
     }
 
     @PutMapping("/{id}")
     public String edit(@PathVariable UUID id, @Valid @ModelAttribute("playerDto") PlayerDto playerDto,
-                        BindingResult bindingResult, Model model, Authentication authentication,
+                        BindingResult bindingResult,
+                        @RequestParam(required = false) UUID fromRequest,
+                        Model model, Authentication authentication,
                         RedirectAttributes redirectAttributes) {
         if (bindingResult.hasErrors()) {
             model.addAttribute("teams", teamService.findAll());
+            if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
             return "players/form";
         }
 
@@ -127,26 +137,31 @@ public class PlayerController {
         } catch (SquadLimitExceededException e) {
             bindingResult.rejectValue("teamId", "team.full", e.getMessage());
             model.addAttribute("teams", teamService.findAll());
+            if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
             return "players/form";
         } catch (DuplicateShirtNumberException e) {
             bindingResult.rejectValue("shirtNumber", "shirtNumber.taken", e.getMessage());
             model.addAttribute("teams", teamService.findAll());
+            if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
             return "players/form";
         }
 
+        if (fromRequest != null) changeRequestService.cancelIfPending(fromRequest, authentication);
+        UUID redirectTeamId = executed ? playerDto.getTeamId() : playerService.findById(id).getTeamId();
         redirectAttributes.addFlashAttribute("statusMessage",
                 executed ? "Player updated." : "Submitted for admin approval.");
-        return "redirect:/teams/" + playerDto.getTeamId();
+        return "redirect:/teams/" + redirectTeamId;
     }
 
     @DeleteMapping("/{id}")
-    public String delete(@PathVariable UUID id, Authentication authentication,
+    public String delete(@PathVariable UUID id,
+                          @RequestParam(required = false) UUID returnTeam,
+                          Authentication authentication,
                           RedirectAttributes redirectAttributes) {
-        UUID teamId = playerService.findById(id).getTeamId();
         boolean executed = changeRequestService.submitOrExecute(
                 EntityType.PLAYER, ChangeAction.DELETE, null, id, authentication);
         redirectAttributes.addFlashAttribute("statusMessage",
                 executed ? "Player deleted." : "Submitted for admin approval.");
-        return "redirect:/teams/" + teamId;
+        return returnTeam != null ? "redirect:/teams/" + returnTeam : "redirect:/teams";
     }
 }

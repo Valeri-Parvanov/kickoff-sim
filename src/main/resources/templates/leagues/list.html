@@ -14,9 +14,8 @@
 <div th:replace="~{fragments/topbar :: topbar}"></div>
 
 <main class="page">
+<div th:replace="~{fragments/topbar :: messages}"></div>
 <h1>&#127942; Leagues</h1>
-
-<p th:if="${statusMessage}" th:text="${statusMessage}" class="status-message"></p>
 
 <div class="add-new-bar" sec:authorize="isAuthenticated()">
     <a th:href="@{/leagues/form}" class="btn-add">Add new league</a>
@@ -27,14 +26,12 @@
     <thead>
     <tr>
         <th th:replace="~{fragments/sortable :: sortTh('/leagues', 'name', 'Name')}"></th>
-        <th th:replace="~{fragments/sortable :: sortTh('/leagues', 'country', 'Country')}"></th>
         <th sec:authorize="hasRole('ADMIN')">Actions</th>
     </tr>
     </thead>
     <tbody>
     <tr th:each="league : ${leagues}">
-        <td th:text="${league.name}"></td>
-        <td th:text="${league.country}"></td>
+        <td><a th:href="@{/leagues/{id}(id=${league.id})}" th:text="${league.name}"></a></td>
         <td sec:authorize="hasRole('ADMIN')">
             <a th:href="@{/leagues/{id}/form(id=${league.id})}">Edit</a>
             <form th:action="@{/leagues/{id}(id=${league.id})}" th:method="delete" style="display:inline">

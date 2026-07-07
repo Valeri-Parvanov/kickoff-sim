@@ -14,9 +14,8 @@
 <div th:replace="~{fragments/topbar :: topbar}"></div>
 
 <main class="page">
+<div th:replace="~{fragments/topbar :: messages}"></div>
 <h1>&#129489; Players</h1>
-
-<p th:if="${statusMessage}" th:text="${statusMessage}" class="status-message"></p>
 
 <div class="add-new-bar" sec:authorize="isAuthenticated()">
     <a th:href="@{/players/form}" class="btn-add">Add new player</a>

@@ -13,9 +13,10 @@
 <div th:replace="~{fragments/topbar :: topbar}"></div>
 
 <main class="page">
+<div th:replace="~{fragments/topbar :: messages}"></div>
 <h1 th:text="${matchDto.id} ? 'Edit match' : 'Add match'"></h1>
 
-<form th:action="${matchDto.id} ? @{/matches/{id}(id=${matchDto.id})} : @{/matches}"
+<form th:action="${matchDto.id} ? @{/matches/{id}(id=${matchDto.id},fromRequest=${fromRequest})} : @{/matches(fromRequest=${fromRequest})}"
       th:object="${matchDto}" th:method="${matchDto.id} ? 'put' : 'post'" class="card-form">
 
     <div>

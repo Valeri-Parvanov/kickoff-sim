@@ -13,10 +13,12 @@
 <div th:replace="~{fragments/topbar :: topbar}"></div>
 
 <main class="page">
+<div th:replace="~{fragments/topbar :: messages}"></div>
 <h1>&#128737; Add team</h1>
 <p>Create the team and, optionally, fill in its squad right away. Leave player rows empty to skip them.</p>
 
-<form th:action="@{/teams}" th:object="${teamCreateForm}" method="post" class="card-form" style="max-width:760px">
+<form th:action="@{/teams(fromRequest=${fromRequest})}" th:object="${teamCreateForm}" method="post" class="card-form" style="max-width:760px">
+    <input type="hidden" th:field="*{teamId}"/>
 
     <div th:if="${#fields.hasGlobalErrors()}" style="color:red; margin-bottom:12px; font-weight:600">
         <div th:each="err : ${#fields.globalErrors()}" th:text="${err}"></div>
@@ -41,9 +43,9 @@
     </div>
 
     <div>
-        <label for="leagueId">League</label>
+        <label for="leagueId">League <span style="font-weight:400;font-size:0.85rem;">(optional)</span></label>
         <select id="leagueId" th:field="*{leagueId}">
-            <option value="">-- select league --</option>
+            <option value="">-- no league --</option>
             <option th:each="league : ${leagues}" th:value="${league.id}" th:text="${league.name}"></option>
         </select>
         <span style="color:red" th:if="${#fields.hasErrors('leagueId')}" th:errors="*{leagueId}"></span>
@@ -51,8 +53,11 @@
 
     <div>
         <label>Squad <span class="field-hint" style="display:inline">(optional, up to 12 players)</span></label>
-        <button type="button" class="btn-add" onclick="randomizeAllSquad()"
-                style="margin:0.3rem 0 0.8rem">&#127922; Randomize all names</button>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin:0.3rem 0 0.8rem">
+            <button type="button" class="btn-add" onclick="randomizeAllSquad()">&#127922; Full squad (12)</button>
+            <button type="button" class="btn-goal" onclick="randomizeMinSquad()" th:unless="${teamCreateForm.teamId != null}">&#127922; Min squad (6)</button>
+            <button type="button" class="btn-add" onclick="randomizeOneRow()" th:if="${teamCreateForm.teamId != null}">&#127922; + 1 player</button>
+        </div>
 
         <div class="table-wrapper">
         <table border="1" cellpadding="6">

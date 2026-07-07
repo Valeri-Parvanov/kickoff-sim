@@ -21,7 +21,7 @@
     <span class="goal-team" th:text="${match.awayTeamName}"></span>
 </div>
 
-<div th:if="${errorMessage}" style="color:red; margin-bottom:12px; font-weight:600" th:text="${errorMessage}"></div>
+<div th:replace="~{fragments/topbar :: messages}"></div>
 
 <form th:action="@{/matches/{id}/goals/{goalId}(id=${match.id}, goalId=${goalId})}"
       th:object="${goalEventDto}" th:method="put" class="card-form">

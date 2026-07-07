@@ -51,7 +51,9 @@ public class SquadController {
             List<Integer> freeNumbers = freeShirtNumbers(teamId, remaining);
             for (int i = 0; i < remaining; i++) {
                 PlayerRowDto row = new PlayerRowDto();
-                row.setShirtNumber(freeNumbers.get(i));
+                if (i < freeNumbers.size()) {
+                    row.setShirtNumber(freeNumbers.get(i));
+                }
                 squadForm.getRows().add(row);
             }
             model.addAttribute("squadForm", squadForm);

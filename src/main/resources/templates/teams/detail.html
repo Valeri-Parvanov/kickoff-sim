@@ -15,7 +15,7 @@
 
 <main class="page">
 
-<p th:if="${statusMessage}" th:text="${statusMessage}" class="status-message"></p>
+<div th:replace="~{fragments/topbar :: messages}"></div>
 
 <div class="team-detail-header">
     <div>
@@ -29,7 +29,7 @@
     <div class="team-detail-actions" sec:authorize="isAuthenticated()">
         <a th:href="@{/players/form(teamId=${team.id})}" class="btn-add" sec:authorize="hasRole('ADMIN')">+ Add player</a>
         <a th:href="@{/teams/{id}/squad(id=${team.id})}" class="btn-goal"
-           th:if="${remainingSlots > 0}">+ Add squad</a>
+           th:if="${remainingSlots > 0}" sec:authorize="isAuthenticated()">+ Propose players</a>
         <a th:href="@{/teams/{id}/form(id=${team.id})}" class="btn-edit" sec:authorize="hasRole('ADMIN')">Edit team</a>
     </div>
 </div>
@@ -53,7 +53,7 @@
         <td th:text="${p.lastName}"></td>
         <td sec:authorize="hasRole('ADMIN')">
             <a th:href="@{/players/{id}/form(id=${p.id})}">Edit</a>
-            <form th:action="@{/players/{id}(id=${p.id})}" th:method="delete" style="display:inline">
+            <form th:action="@{/players/{id}(id=${p.id},returnTeam=${team.id})}" th:method="delete" style="display:inline">
                 <button type="submit">Delete</button>
             </form>
         </td>

@@ -13,6 +13,7 @@
 <div th:replace="~{fragments/topbar :: topbar}"></div>
 
 <main class="page">
+<div th:replace="~{fragments/topbar :: messages}"></div>
 <h1>&#128101; Add squad</h1>
 <p>Fill in players for <strong th:text="${team.name}"></strong>. You can add up to
     <strong th:text="${remaining}"></strong> more player(s). Leave rows empty to skip them.</p>
@@ -24,12 +25,14 @@
 
 <div th:if="${remaining > 0}">
     <form th:action="@{/teams/{id}/squad(id=${team.id})}" th:object="${squadForm}" method="post">
-        <div th:if="${#fields.hasGlobalErrors()}" style="color:red; margin-bottom:12px; font-weight:600">
-            <div th:each="err : ${#fields.globalErrors()}" th:text="${err}"></div>
+        <div th:if="${#fields.hasGlobalErrors()}">
+            <div class="error-message" th:each="err : ${#fields.globalErrors()}" th:text="${err}"></div>
         </div>
 
-        <button type="button" class="btn-add" onclick="randomizeAllSquad()"
-                style="margin-bottom:1rem">&#127922; Randomize all names</button>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem">
+            <button type="button" class="btn-add" onclick="randomizeAllSquad()">&#127922; Randomize all</button>
+            <button type="button" class="btn-add" onclick="randomizeOneRow()">&#127922; + 1 player</button>
+        </div>
 
         <div class="table-wrapper">
         <table border="1" cellpadding="6">
@@ -39,6 +42,7 @@
                 <th>Shirt no.</th>
                 <th>First name</th>
                 <th>Last name</th>
+                <th></th>
             </tr>
             </thead>
             <tbody>
@@ -64,6 +68,9 @@
                     <span style="color:red"
                           th:if="${#fields.hasErrors('rows[__${stat.index}__].lastName')}"
                           th:errors="*{rows[__${stat.index}__].lastName}"></span>
+                </td>
+                <td>
+                    <button type="button" class="dice-btn" onclick="randomizeRow(this)" title="Random player">&#127922;</button>
                 </td>
             </tr>
             </tbody>

@@ -13,10 +13,16 @@
 <div th:replace="~{fragments/topbar :: topbar}"></div>
 
 <main class="page">
+<div th:replace="~{fragments/topbar :: messages}"></div>
 <h1 th:text="${leagueDto.id} ? 'Edit league' : 'Add league'"></h1>
 
-<form th:action="${leagueDto.id} ? @{/leagues/{id}(id=${leagueDto.id})} : @{/leagues}"
-      th:object="${leagueDto}" th:method="${leagueDto.id} ? 'put' : 'post'" class="card-form">
+<form th:action="${leagueDto.id} ? @{/leagues/{id}(id=${leagueDto.id},fromRequest=${fromRequest})} : @{/leagues(fromRequest=${fromRequest})}"
+      th:object="${leagueDto}" th:method="${leagueDto.id} ? 'put' : 'post'"
+      class="card-form" th:classappend="${leagueDto.id == null} ? ' league-create-form' : ''">
+
+    <div th:if="${#fields.hasGlobalErrors()}" style="margin-bottom:12px;">
+        <div class="error-message" th:each="err : ${#fields.globalErrors()}" th:text="${err}"></div>
+    </div>
 
     <div>
         <label for="name">Name</label>
@@ -27,13 +33,51 @@
         <span style="color:red" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></span>
     </div>
 
-    <div>
-        <label for="country">Country</label>
-        <div class="input-row">
-            <input type="text" id="country" th:field="*{country}"/>
-            <button type="button" class="dice-btn" onclick="fillRandomCountry('country')" title="Generate random country">&#127922;</button>
+    <fieldset style="margin-top:16px;padding:12px;border:1px solid #ccc;border-radius:6px;">
+        <legend style="font-weight:600;padding:0 6px;">Auto-generate schedule (optional)</legend>
+        <p style="font-size:0.85rem;color:#555;margin:0 0 10px;">
+            When the team count reaches 6, 8, 10, or 16, the schedule is created automatically.
+            Leave blank to generate manually later.
+        </p>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;">
+            <div>
+                <label for="scheduleStartDate">Round 1 date</label><br/>
+                <input type="date" id="scheduleStartDate" th:field="*{scheduleStartDate}"/>
+            </div>
+            <div>
+                <label for="scheduleStartTimeSelect">First kick-off (default 11:00)</label><br/>
+                <input type="hidden" th:field="*{scheduleStartTime}"/>
+                <select id="scheduleStartTimeSelect" style="height:2.2rem;font-size:1rem;border:1px solid #ccc;border-radius:6px;padding:0 0.5rem;"></select>
+                <span style="color:red" th:if="${#fields.hasErrors('scheduleStartTime')}" th:errors="*{scheduleStartTime}"></span>
+            </div>
         </div>
-        <span style="color:red" th:if="${#fields.hasErrors('country')}" th:errors="*{country}"></span>
+    </fieldset>
+
+    <div th:if="${leagueDto.id == null}" style="margin-top:24px;">
+        <label>Teams <span style="font-weight:400;font-size:0.82rem;text-transform:none;letter-spacing:0;">(select exactly 6, 8, 10, or 16 teams — each must have at least 6 players)</span></label>
+
+        <div th:if="${#lists.isEmpty(availableTeams)}" class="team-picker-empty">
+            No teams available. Create teams with at least 6 players first, then come back to create a league.
+        </div>
+
+        <div class="team-picker-grid" th:unless="${#lists.isEmpty(availableTeams)}">
+            <label class="team-pick-card" th:each="team : ${availableTeams}"
+                   th:classappend="${team.playerCount < 6} ? ' ineligible' : ''">
+                <input type="checkbox" name="teamIds" th:value="${team.id}"
+                       th:disabled="${team.playerCount < 6}"
+                       th:checked="${leagueDto.teamIds != null and leagueDto.teamIds.contains(team.id)}"/>
+                <span class="team-pick-checkmark">&#10003;</span>
+                <span class="team-pick-icon">&#9917;</span>
+                <span class="team-pick-name" th:text="${team.name} + ' (' + ${team.city} + ')'"></span>
+                <span class="team-pick-count team-pick-ok"
+                      th:if="${team.playerCount >= 6}"
+                      th:text="${team.playerCount} + ' players'"></span>
+                <span class="team-pick-count team-pick-no"
+                      th:if="${team.playerCount < 6}"
+                      th:text="${team.playerCount} + '/6 — not eligible'"></span>
+            </label>
+        </div>
+
     </div>
 
     <button type="submit">Save</button>
@@ -42,5 +86,24 @@
 <p><a th:href="@{/leagues}" class="back-link">&#8592; Back to leagues</a></p>
 </main>
 <script th:src="@{/js/random-names.js}"></script>
+<script>
+(function() {
+    var hidden = document.getElementById('scheduleStartTime');
+    var sel = document.getElementById('scheduleStartTimeSelect');
+    if (!hidden || !sel) return;
+    for (var t = 8*60; t <= 23*60+30; t += 30) {
+        var h = Math.floor(t/60), m = t%60;
+        var lbl = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+        var opt = document.createElement('option');
+        opt.value = lbl; opt.textContent = lbl;
+        sel.appendChild(opt);
+    }
+    var cur = hidden.value ? hidden.value.substring(0,5) : '11:00';
+    sel.value = cur;
+    if (!sel.value) sel.value = '11:00';
+    hidden.value = sel.value;
+    sel.addEventListener('change', function() { hidden.value = sel.value; });
+})();
+</script>
 </body>
 </html>
