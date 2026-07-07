@@ -7,10 +7,13 @@ import bg.softuni.footballleague.model.Match;
 import bg.softuni.footballleague.model.Team;
 import bg.softuni.footballleague.repository.LeagueRepository;
 import bg.softuni.footballleague.repository.MatchRepository;
+import bg.softuni.footballleague.repository.PlayerRepository;
 import bg.softuni.footballleague.repository.TeamRepository;
+import bg.softuni.footballleague.scheduling.TeamCreatedEvent;
 import bg.softuni.footballleague.service.TeamService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +32,8 @@ public class TeamServiceImpl implements TeamService {
     private final TeamRepository teamRepository;
     private final LeagueRepository leagueRepository;
     private final MatchRepository matchRepository;
+    private final PlayerRepository playerRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public List<TeamDto> findAll() {
@@ -39,6 +44,17 @@ public class TeamServiceImpl implements TeamService {
     public List<TeamDto> findAll(Sort sort) {
         return teamRepository.findAll(sort).stream()
                 .map(this::toDto)
+                .toList();
+    }
+
+    @Override
+    public List<TeamDto> findAllFree() {
+        return teamRepository.findAllByLeagueIsNull().stream()
+                .map(t -> {
+                    TeamDto dto = toDto(t);
+                    dto.setPlayerCount(playerRepository.countByTeam(t));
+                    return dto;
+                })
                 .toList();
     }
 
@@ -56,6 +72,11 @@ public class TeamServiceImpl implements TeamService {
     }
 
     @Override
+    public boolean existsByNameAndCity(String name, String city) {
+        return teamRepository.existsByNameAndCity(name, city);
+    }
+
+    @Override
     public TeamDto findById(UUID id) {
         return toDto(getTeamOrThrow(id));
     }
@@ -65,9 +86,12 @@ public class TeamServiceImpl implements TeamService {
     public TeamDto create(TeamDto teamDto) {
         Team team = new Team();
         mapToEntity(teamDto, team);
-        TeamDto saved = toDto(teamRepository.save(team));
+        Team saved = teamRepository.save(team);
+        if (saved.getLeague() != null) {
+            eventPublisher.publishEvent(new TeamCreatedEvent(saved.getLeague().getId()));
+        }
         log.info("Created team '{}'", saved.getName());
-        return saved;
+        return toDto(saved);
     }
 
     @Override
@@ -103,7 +127,7 @@ public class TeamServiceImpl implements TeamService {
     private void mapToEntity(TeamDto teamDto, Team team) {
         team.setName(teamDto.getName());
         team.setCity(teamDto.getCity());
-        team.setLeague(getLeagueOrThrow(teamDto.getLeagueId()));
+        team.setLeague(teamDto.getLeagueId() != null ? getLeagueOrThrow(teamDto.getLeagueId()) : null);
     }
 
     private TeamDto toDto(Team team) {
@@ -113,6 +137,7 @@ public class TeamServiceImpl implements TeamService {
         teamDto.setCity(team.getCity());
         teamDto.setLeagueId(team.getLeague() != null ? team.getLeague().getId() : null);
         teamDto.setLeagueName(team.getLeague() != null ? team.getLeague().getName() : null);
+        teamDto.setPlayerCount(playerRepository.countByTeam(team));
         return teamDto;
     }
 }

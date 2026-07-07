@@ -96,6 +96,12 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
     }
 
     @Override
+    public long countMyPending(Authentication authentication) {
+        User requester = userService.findByUsername(authentication.getName());
+        return changeRequestRepository.countByStatusAndRequestedBy(ChangeRequestStatus.PENDING, requester);
+    }
+
+    @Override
     public List<ChangeRequestView> findMine(Authentication authentication) {
         User requester = userService.findByUsername(authentication.getName());
         return changeRequestRepository.findAllByRequestedByOrderByRequestedAtDesc(requester).stream()
@@ -104,13 +110,15 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
     }
 
     @Override
+    @Transactional
     public Object getPayloadForResubmit(UUID id, Authentication authentication) {
         ChangeRequest changeRequest = getOrThrow(id);
         User requester = userService.findByUsername(authentication.getName());
 
         boolean ownedByRequester = changeRequest.getRequestedBy().getId().equals(requester.getId());
-        boolean eligible = changeRequest.getStatus() == ChangeRequestStatus.REJECTED
-                && changeRequest.getAction() != ChangeAction.DELETE;
+        boolean eligible = changeRequest.getAction() != ChangeAction.DELETE
+                && (changeRequest.getStatus() == ChangeRequestStatus.REJECTED
+                    || changeRequest.getStatus() == ChangeRequestStatus.PENDING);
         if (!ownedByRequester || !eligible) {
             throw new EntityNotFoundException("Change request with id %s not found".formatted(id));
         }
@@ -144,6 +152,10 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
 
         try {
             applyChange(changeRequest.getEntityType(), changeRequest.getAction(), dto, changeRequest.getTargetId());
+            changeRequest.setStatus(ChangeRequestStatus.APPROVED);
+            changeRequest.setReviewedBy(reviewer);
+            changeRequest.setReviewedAt(LocalDateTime.now());
+            changeRequestRepository.save(changeRequest);
         } catch (ChangeRequestApprovalException e) {
             throw e;
         } catch (DataIntegrityViolationException e) {
@@ -151,11 +163,6 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
         } catch (RuntimeException e) {
             throw new ChangeRequestApprovalException(e.getMessage());
         }
-
-        changeRequest.setStatus(ChangeRequestStatus.APPROVED);
-        changeRequest.setReviewedBy(reviewer);
-        changeRequest.setReviewedAt(LocalDateTime.now());
-        changeRequestRepository.save(changeRequest);
         log.info("Change request {} approved by {}", id, reviewer.getUsername());
     }
 
@@ -339,6 +346,33 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
         };
     }
 
+    @Override
+    @Transactional
+    public void cancelIfPending(UUID id, Authentication authentication) {
+        changeRequestRepository.findById(id).ifPresent(cr -> {
+            if (cr.getStatus() == ChangeRequestStatus.PENDING
+                    && cr.getRequestedBy().getUsername().equals(authentication.getName())) {
+                changeRequestRepository.deleteById(id);
+                log.info("User {} cancelled PENDING change request {} on resubmit", authentication.getName(), id);
+            }
+        });
+    }
+
+    @Override
+    @Transactional
+    public void cancelMine(UUID id, Authentication authentication) {
+        ChangeRequest cr = getOrThrow(id);
+        User requester = userService.findByUsername(authentication.getName());
+        if (!cr.getRequestedBy().getId().equals(requester.getId())) {
+            throw new ChangeRequestApprovalException("You can only cancel your own requests.");
+        }
+        if (cr.getStatus() != ChangeRequestStatus.PENDING) {
+            throw new ChangeRequestApprovalException("Only pending requests can be cancelled.");
+        }
+        changeRequestRepository.deleteById(id);
+        log.info("User {} cancelled change request {}", requester.getUsername(), id);
+    }
+
     private ChangeRequest getOrThrow(UUID id) {
         return changeRequestRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Change request with id %s not found".formatted(id)));
@@ -365,7 +399,7 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
             return switch (changeRequest.getEntityType()) {
                 case LEAGUE -> {
                     LeagueDto d = (LeagueDto) dto;
-                    yield List.of("Name: " + d.getName(), "Country: " + d.getCountry());
+                    yield List.of("Name: " + d.getName());
                 }
                 case TEAM -> {
                     TeamDto d = (TeamDto) dto;

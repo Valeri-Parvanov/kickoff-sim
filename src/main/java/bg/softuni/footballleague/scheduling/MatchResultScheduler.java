@@ -11,7 +11,7 @@ public class MatchResultScheduler {
 
     private final ScheduleService scheduleService;
 
-    @Scheduled(fixedRate = 120_000)
+    @Scheduled(cron = "*/30 * * * * *")
     public void simulatePastMatches() {
         scheduleService.simulatePastMatches();
     }

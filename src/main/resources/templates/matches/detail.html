@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${match.homeTeamName + ' vs ' + match.awayTeamName}">Match</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"/>
+    <link rel="stylesheet" th:href="@{/css/style.css}"/>
+</head>
+<body>
+<div th:replace="~{fragments/topbar :: topbar}"></div>
+
+<main class="page">
+<div th:replace="~{fragments/topbar :: messages}"></div>
+<div class="match-detail-wrap">
+
+    <div class="match-detail-nav">
+        <a th:href="@{/matches}" class="back-link">&#8592; All matches</a>
+        <div class="match-detail-tags">
+            <span class="match-league-tag" th:if="${match.leagueName}" th:text="${match.leagueName}"></span>
+            <span class="match-round-tag" th:if="${match.roundNumber != null}" th:text="'Round ' + ${match.roundNumber}"></span>
+        </div>
+    </div>
+
+    <div class="match-card">
+
+        <div class="match-meta">
+            <span class="match-date" th:text="${#temporals.format(match.playedAt, 'dd MMM yyyy, HH:mm')}"></span>
+        </div>
+
+        <div class="match-scoreline">
+            <span class="team-name home" th:text="${match.homeTeamName}"></span>
+            <div class="score-block">
+                <div class="score-main"
+                     th:text="${match.homeScore != null ? match.homeScore : '-'} + ' : ' + ${match.awayScore != null ? match.awayScore : '-'}"></div>
+                <div class="score-ht"
+                     th:if="${match.homeHalfScore != null}"
+                     th:text="'HT ' + ${match.homeHalfScore} + ' – ' + ${match.awayHalfScore}"></div>
+            </div>
+            <span class="team-name away" th:text="${match.awayTeamName}"></span>
+        </div>
+
+        <div class="goal-timeline" th:if="${!match.goalTimeline.isEmpty()}">
+            <th:block th:each="g : ${match.goalTimeline}">
+
+                <div class="half-label" th:if="${g.firstInHalf}">
+                    <span th:text="${g.half.name() == 'FIRST' ? '1st Half' : '2nd Half'}"></span>
+                    <span class="half-score" th:if="${g.half.name() == 'FIRST'}"
+                          th:text="${match.homeHalfScore} + ':' + ${match.awayHalfScore}"></span>
+                    <span class="half-score" th:unless="${g.half.name() == 'FIRST'}"
+                          th:text="${match.homeScore - match.homeHalfScore} + ':' + ${match.awayScore - match.awayHalfScore}"></span>
+                </div>
+
+                <div class="timeline-row">
+                    <div class="tl-home">
+                        <th:block th:if="${g.homeGoal}">
+                            <span class="goal-icon">&#9917;</span>
+                            <span class="goal-minute" th:if="${g.minute != null}"
+                                  th:text="${(g.half.name() == 'FIRST' ? g.minute : g.minute + 20)} + '\'' + ' '"></span>
+                            <span th:text="${g.scorerName}"></span>
+                            <span class="goal-assist" th:if="${g.assistantName != null}"
+                                  th:text="' (' + ${g.assistantName} + ')'"></span>
+                            <span class="running-score"
+                                  th:text="${g.runningHomeScore} + ':' + ${g.runningAwayScore}"></span>
+                            <span sec:authorize="hasRole('ADMIN')" style="margin-left:4px">
+                                <a th:href="@{/matches/{mid}/goals/{gid}/form(mid=${match.id},gid=${g.id})}" class="btn-edit" style="font-size:0.75rem;padding:2px 8px">&#9998;</a>
+                                <form th:action="@{/matches/{mid}/goals/{gid}(mid=${match.id},gid=${g.id})}" th:method="delete" style="display:inline">
+                                    <button type="submit" class="btn-del" style="font-size:0.75rem;padding:2px 8px">&#10005;</button>
+                                </form>
+                            </span>
+                        </th:block>
+                    </div>
+                    <div class="tl-away">
+                        <th:block th:unless="${g.homeGoal}">
+                            <span sec:authorize="hasRole('ADMIN')" style="margin-right:4px">
+                                <a th:href="@{/matches/{mid}/goals/{gid}/form(mid=${match.id},gid=${g.id})}" class="btn-edit" style="font-size:0.75rem;padding:2px 8px">&#9998;</a>
+                                <form th:action="@{/matches/{mid}/goals/{gid}(mid=${match.id},gid=${g.id})}" th:method="delete" style="display:inline">
+                                    <button type="submit" class="btn-del" style="font-size:0.75rem;padding:2px 8px">&#10005;</button>
+                                </form>
+                            </span>
+                            <span class="running-score"
+                                  th:text="${g.runningHomeScore} + ':' + ${g.runningAwayScore}"></span>
+                            <span class="goal-assist" th:if="${g.assistantName != null}"
+                                  th:text="'(' + ${g.assistantName} + ') '"></span>
+                            <span th:text="${g.scorerName}"></span>
+                            <span class="goal-minute" th:if="${g.minute != null}"
+                                  th:text="' ' + ${(g.half.name() == 'FIRST' ? g.minute : g.minute + 20)} + '\''"></span>
+                            <span class="goal-icon">&#9917;</span>
+                        </th:block>
+                    </div>
+                </div>
+
+            </th:block>
+        </div>
+
+        <p th:if="${match.goalTimeline.isEmpty() and match.homeScore != null}"
+           class="no-matches" style="margin:0.75rem 0 0;font-size:0.85rem;">
+            No goals recorded for this match.
+        </p>
+
+        <div class="match-actions" sec:authorize="isAuthenticated()">
+            <a th:href="@{/matches/{id}/goals/form(id=${match.id})}" class="btn-goal" sec:authorize="hasRole('ADMIN')">+ Goal</a>
+            <a th:href="@{/matches/{id}/form(id=${match.id})}" class="btn-edit">Edit</a>
+            <form th:action="@{/matches/{id}(id=${match.id})}" th:method="delete" style="display:inline"
+                  sec:authorize="hasRole('ADMIN')">
+                <button type="submit" class="btn-del">Delete</button>
+            </form>
+        </div>
+
+    </div>
+
+</div>
+</main>
+</body>
+</html>

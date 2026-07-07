@@ -1,7 +1,6 @@
 package bg.softuni.footballleague.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
@@ -21,8 +20,9 @@ public class TeamCreateForm {
     @Size(max = 100, message = "City must be at most 100 characters")
     private String city;
 
-    @NotNull(message = "Please select a league")
     private UUID leagueId;
+
+    private UUID teamId;
 
     private List<PlayerRowDto> players = new ArrayList<>();
 }

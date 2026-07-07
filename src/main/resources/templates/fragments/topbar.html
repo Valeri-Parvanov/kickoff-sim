@@ -12,7 +12,9 @@
         <a th:href="@{/admin/change-requests}" sec:authorize="hasRole('ADMIN')">&#128203; Pending changes<span
                 th:if="${pendingChangeCount != null and pendingChangeCount > 0}"
                 class="nav-badge" th:text="${pendingChangeCount}"></span></a>
-        <a th:href="@{/my-change-requests}" sec:authorize="isAuthenticated() and !hasRole('ADMIN')">&#128221; My proposals</a>
+        <a th:href="@{/my-change-requests}" sec:authorize="isAuthenticated() and !hasRole('ADMIN')">&#128221; My proposals<span
+                th:if="${myPendingCount != null and myPendingCount > 0}"
+                class="nav-badge" th:text="${myPendingCount}"></span></a>
     </nav>
 
     <div class="auth-box" sec:authorize="isAnonymous()">
@@ -27,5 +29,11 @@
         </form>
     </div>
 </header>
+
+<th:block th:fragment="messages">
+    <div th:if="${statusMessage}" class="status-message" th:text="${statusMessage}"></div>
+    <div th:if="${errorMessage}" class="error-message" th:text="${errorMessage}"></div>
+    <div th:if="${scheduleError}" class="error-message" th:text="${scheduleError}"></div>
+</th:block>
 </body>
 </html>

@@ -3,6 +3,7 @@ package bg.softuni.footballleague.controller;
 import bg.softuni.footballleague.exception.ChangeRequestApprovalException;
 import bg.softuni.footballleague.service.ChangeRequestService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
@@ -41,6 +42,11 @@ public class ChangeRequestController {
                     "Could not approve change request: %s".formatted(e.getMessage()));
             redirectAttributes.addFlashAttribute("failedRequestId", id);
             redirectAttributes.addFlashAttribute("suggestedReason", e.getMessage());
+        } catch (DataIntegrityViolationException e) {
+            redirectAttributes.addFlashAttribute("errorMessage",
+                    "This request cannot be approved — a record with that name already exists. Please reject it instead.");
+            redirectAttributes.addFlashAttribute("failedRequestId", id);
+            redirectAttributes.addFlashAttribute("suggestedReason", "A record with that name already exists");
         }
         return "redirect:/admin/change-requests";
     }

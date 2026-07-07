@@ -14,9 +14,41 @@
 <div th:replace="~{fragments/topbar :: topbar}"></div>
 
 <main class="page">
+<div th:replace="~{fragments/topbar :: messages}"></div>
 <h1>&#128221; My proposals</h1>
 
-<p th:if="${#lists.isEmpty(changeRequests)}">You haven't proposed any changes yet.</p>
+<div class="cr-status-tabs">
+    <a th:href="@{/my-change-requests(type=${selectedType})}" th:classappend="${selectedStatus == 'ALL'} ? ' active' : ''">
+        All <span class="cr-tab-count" th:text="${totalCount}"></span>
+    </a>
+    <a th:href="@{/my-change-requests(status='PENDING', type=${selectedType})}" th:classappend="${selectedStatus == 'PENDING'} ? ' active' : ''">
+        Pending <span class="cr-tab-count" th:text="${pendingCount}"></span>
+    </a>
+    <a th:href="@{/my-change-requests(status='REJECTED', type=${selectedType})}" th:classappend="${selectedStatus == 'REJECTED'} ? ' active' : ''">
+        Rejected <span class="cr-tab-count" th:text="${rejectedCount}"></span>
+    </a>
+    <a th:href="@{/my-change-requests(status='APPROVED', type=${selectedType})}" th:classappend="${selectedStatus == 'APPROVED'} ? ' active' : ''">
+        Approved <span class="cr-tab-count" th:text="${approvedCount}"></span>
+    </a>
+</div>
+
+<form method="get" th:action="@{/my-change-requests}" style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;">
+    <input type="hidden" name="status" th:value="${selectedStatus}"/>
+    <span class="ls-filter-label">Type</span>
+    <select name="type" class="ls-filter-select" onchange="this.form.submit()">
+        <option value="ALL" th:selected="${selectedType == 'ALL'}">All types</option>
+        <option value="LEAGUE" th:selected="${selectedType == 'LEAGUE'}">&#127942; League</option>
+        <option value="TEAM" th:selected="${selectedType == 'TEAM'}">&#128737; Team</option>
+        <option value="PLAYER" th:selected="${selectedType == 'PLAYER'}">&#129489; Player</option>
+        <option value="MATCH" th:selected="${selectedType == 'MATCH'}">&#9917; Match</option>
+        <option value="TEAM_SQUAD" th:selected="${selectedType == 'TEAM_SQUAD'}">&#128101; Team &amp; squad</option>
+    </select>
+</form>
+
+<p th:if="${truncated}" class="status-message"
+   th:text="'Showing 50 most recent of ' + ${filteredCount} + ' requests. Use filters to narrow down.'"></p>
+
+<p th:if="${#lists.isEmpty(changeRequests)}">No proposals in this category yet.</p>
 
 <div class="cr-list" th:unless="${#lists.isEmpty(changeRequests)}">
     <div class="cr-card" th:each="cr : ${changeRequests}">
@@ -50,10 +82,32 @@
             Reason: <span th:text="${cr.rejectionReason}"></span>
         </p>
 
+        <div class="cr-actions" th:if="${cr.status.name() == 'PENDING'}">
+            <span th:if="${cr.action.name() != 'DELETE'}">
+                <span th:if="${cr.action.name() == 'CREATE'}" th:switch="${cr.entityType.name()}">
+                    <a th:case="'LEAGUE'" th:href="@{/leagues/form(fromRequest=${cr.id})}" class="btn-edit">Edit</a>
+                    <a th:case="'TEAM'" th:href="@{/teams/form(fromRequest=${cr.id})}" class="btn-edit">Edit</a>
+                    <a th:case="'TEAM_SQUAD'" th:href="@{/teams/form(fromRequest=${cr.id})}" class="btn-edit">Edit</a>
+                    <a th:case="'PLAYER'" th:href="@{/players/form(fromRequest=${cr.id})}" class="btn-edit">Edit</a>
+                    <a th:case="'MATCH'" th:href="@{/matches/form(fromRequest=${cr.id})}" class="btn-edit">Edit</a>
+                </span>
+                <span th:if="${cr.action.name() == 'UPDATE'}" th:switch="${cr.entityType.name()}">
+                    <a th:case="'LEAGUE'" th:href="@{/leagues/{id}/form(id=${cr.targetId},fromRequest=${cr.id})}" class="btn-edit">Edit</a>
+                    <a th:case="'TEAM'" th:href="@{/teams/{id}/form(id=${cr.targetId},fromRequest=${cr.id})}" class="btn-edit">Edit</a>
+                    <a th:case="'PLAYER'" th:href="@{/players/{id}/form(id=${cr.targetId},fromRequest=${cr.id})}" class="btn-edit">Edit</a>
+                    <a th:case="'MATCH'" th:href="@{/matches/{id}/form(id=${cr.targetId},fromRequest=${cr.id})}" class="btn-edit">Edit</a>
+                </span>
+            </span>
+            <form th:action="@{/my-change-requests/{id}(id=${cr.id})}" th:method="delete" style="display:inline">
+                <button type="submit" class="btn-del">Cancel request</button>
+            </form>
+        </div>
+
         <div class="cr-actions" th:if="${cr.status.name() == 'REJECTED' and cr.action.name() != 'DELETE'}">
             <span th:if="${cr.action.name() == 'CREATE'}" th:switch="${cr.entityType.name()}">
                 <a th:case="'LEAGUE'" th:href="@{/leagues/form(fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
                 <a th:case="'TEAM'" th:href="@{/teams/form(fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
+                <a th:case="'TEAM_SQUAD'" th:href="@{/teams/form(fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
                 <a th:case="'PLAYER'" th:href="@{/players/form(fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
                 <a th:case="'MATCH'" th:href="@{/matches/form(fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
             </span>

@@ -31,8 +31,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 
@@ -78,10 +80,40 @@ public class TeamController {
                               Authentication authentication) {
         TeamCreateForm form = new TeamCreateForm();
         if (fromRequest != null) {
-            TeamDto payload = (TeamDto) changeRequestService.getPayloadForResubmit(fromRequest, authentication);
-            form.setName(payload.getName());
-            form.setCity(payload.getCity());
-            form.setLeagueId(payload.getLeagueId());
+            Object payload = changeRequestService.getPayloadForResubmit(fromRequest, authentication);
+            if (payload instanceof TeamSquadPayload squadPayload) {
+                TeamDto team = squadPayload.getTeam();
+                form.setName(team.getName());
+                form.setCity(team.getCity());
+                form.setLeagueId(team.getLeagueId());
+                form.setTeamId(team.getId());
+                for (PlayerDto p : squadPayload.getPlayers()) {
+                    PlayerRowDto row = new PlayerRowDto();
+                    row.setShirtNumber(p.getShirtNumber());
+                    row.setFirstName(p.getFirstName());
+                    row.setLastName(p.getLastName());
+                    form.getPlayers().add(row);
+                }
+                int remaining = playerService.squadRemainingSlots(form.getTeamId());
+                Set<Integer> taken = new HashSet<>();
+                playerService.findAllByTeam(form.getTeamId())
+                        .forEach(p -> { if (p.getShirtNumber() != null) taken.add(p.getShirtNumber()); });
+                squadPayload.getPlayers()
+                        .forEach(p -> { if (p.getShirtNumber() != null) taken.add(p.getShirtNumber()); });
+                int next = 1;
+                while (form.getPlayers().size() < remaining) {
+                    PlayerRowDto row = new PlayerRowDto();
+                    while (next <= 99 && taken.contains(next)) next++;
+                    if (next <= 99) { row.setShirtNumber(next); taken.add(next++); }
+                    form.getPlayers().add(row);
+                }
+            } else {
+                TeamDto team = (TeamDto) payload;
+                form.setName(team.getName());
+                form.setCity(team.getCity());
+                form.setLeagueId(team.getLeagueId());
+            }
+            model.addAttribute("fromRequest", fromRequest);
         }
         prefillSquadRows(form);
         model.addAttribute("teamCreateForm", form);
@@ -91,18 +123,27 @@ public class TeamController {
 
     @PostMapping
     public String create(@Valid @ModelAttribute("teamCreateForm") TeamCreateForm form, BindingResult bindingResult,
+                          @RequestParam(required = false) UUID fromRequest,
                           Model model, Authentication authentication, RedirectAttributes redirectAttributes) {
         List<Integer> filledRows =
                 SquadRowValidator.validate(form.getPlayers(), "players", Collections.emptySet(), bindingResult);
         if (filledRows.size() > MAX_SQUAD_SIZE) {
             bindingResult.reject("squad.capacity", "A team can have at most " + MAX_SQUAD_SIZE + " players.");
         }
-        if (form.getName() != null && !form.getName().isBlank() && teamService.existsByName(form.getName())) {
-            bindingResult.rejectValue("name", "team.name.taken", "A team with this name already exists");
+        if (form.getTeamId() == null
+                && form.getName() != null && !form.getName().isBlank()
+                && teamService.existsByNameAndCity(form.getName(), form.getCity())) {
+            bindingResult.rejectValue("name", "team.name.taken",
+                    "A team with this name and city already exists");
+        }
+        if (form.getLeagueId() != null && leagueService.hasLeagueStarted(form.getLeagueId())) {
+            bindingResult.rejectValue("leagueId", "league.started",
+                    "Cannot add a team to a league that has already started.");
         }
 
         if (bindingResult.hasErrors()) {
             model.addAttribute("leagues", leagueService.findAll());
+            if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
             return "teams/create";
         }
 
@@ -110,6 +151,7 @@ public class TeamController {
         teamDto.setName(form.getName());
         teamDto.setCity(form.getCity());
         teamDto.setLeagueId(form.getLeagueId());
+        teamDto.setId(form.getTeamId());
 
         boolean executed;
         if (filledRows.isEmpty()) {
@@ -123,6 +165,7 @@ public class TeamController {
                     EntityType.TEAM_SQUAD, ChangeAction.CREATE, payload, null, authentication);
         }
 
+        if (fromRequest != null) changeRequestService.cancelIfPending(fromRequest, authentication);
         redirectAttributes.addFlashAttribute("statusMessage",
                 executed ? "Team created." : "Submitted for admin approval.");
         return "redirect:/teams";
@@ -148,20 +191,33 @@ public class TeamController {
         teamDto.setId(id);
         model.addAttribute("teamDto", teamDto);
         model.addAttribute("leagues", leagueService.findAll());
+        if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
         return "teams/form";
     }
 
     @PutMapping("/{id}")
     public String edit(@PathVariable UUID id, @Valid @ModelAttribute("teamDto") TeamDto teamDto,
-                        BindingResult bindingResult, Model model, Authentication authentication,
+                        BindingResult bindingResult,
+                        @RequestParam(required = false) UUID fromRequest,
+                        Model model, Authentication authentication,
                         RedirectAttributes redirectAttributes) {
+        UUID newLeagueId = teamDto.getLeagueId();
+        if (newLeagueId != null) {
+            UUID currentLeagueId = teamService.findById(id).getLeagueId();
+            if (!newLeagueId.equals(currentLeagueId) && leagueService.hasLeagueStarted(newLeagueId)) {
+                bindingResult.rejectValue("leagueId", "league.started",
+                        "Cannot add a team to a league that has already started.");
+            }
+        }
         if (bindingResult.hasErrors()) {
             model.addAttribute("leagues", leagueService.findAll());
+            if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
             return "teams/form";
         }
 
         boolean executed = changeRequestService.submitOrExecute(
                 EntityType.TEAM, ChangeAction.UPDATE, teamDto, id, authentication);
+        if (fromRequest != null) changeRequestService.cancelIfPending(fromRequest, authentication);
         redirectAttributes.addFlashAttribute("statusMessage",
                 executed ? "Team updated." : "Submitted for admin approval.");
         return "redirect:/teams";

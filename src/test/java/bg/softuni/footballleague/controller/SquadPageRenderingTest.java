@@ -36,7 +36,6 @@ class SquadPageRenderingTest {
     void squadPage_rendersWithoutError() throws Exception {
         League league = new League();
         league.setName("Test League " + UUID.randomUUID());
-        league.setCountry("Bulgaria");
         league = leagueRepository.save(league);
 
         Team team = new Team();

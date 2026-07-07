@@ -14,7 +14,11 @@ public interface TeamService {
 
     List<TeamDto> findAllByLeague(UUID leagueId);
 
+    List<TeamDto> findAllFree();
+
     boolean existsByName(String name);
+
+    boolean existsByNameAndCity(String name, String city);
 
     TeamDto findById(UUID id);
 

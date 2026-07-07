@@ -16,8 +16,7 @@
 <main class="page">
 <h1>&#128203; Pending changes</h1>
 
-<p th:if="${statusMessage}" th:text="${statusMessage}" class="status-message"></p>
-<p th:if="${errorMessage}" th:text="${errorMessage}" class="error-message"></p>
+<div th:replace="~{fragments/topbar :: messages}"></div>
 
 <p th:if="${#lists.isEmpty(changeRequests)}">No pending changes.</p>
 
@@ -57,7 +56,6 @@
                 <datalist th:id="${'reasons-' + cr.id}" th:switch="${cr.entityType.name()}">
                     <th:block th:case="'LEAGUE'">
                         <option value="League name already exists"></option>
-                        <option value="Invalid or unrecognized country"></option>
                     </th:block>
                     <th:block th:case="'TEAM'">
                         <option value="Team name already exists in this league"></option>

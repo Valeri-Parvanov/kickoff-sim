@@ -13,9 +13,10 @@
 <div th:replace="~{fragments/topbar :: topbar}"></div>
 
 <main class="page">
+<div th:replace="~{fragments/topbar :: messages}"></div>
 <h1 th:text="${teamDto.id} ? 'Edit team' : 'Add team'"></h1>
 
-<form th:action="${teamDto.id} ? @{/teams/{id}(id=${teamDto.id})} : @{/teams}"
+<form th:action="${teamDto.id} ? @{/teams/{id}(id=${teamDto.id},fromRequest=${fromRequest})} : @{/teams(fromRequest=${fromRequest})}"
       th:object="${teamDto}" th:method="${teamDto.id} ? 'put' : 'post'" class="card-form">
 
     <div>
@@ -37,9 +38,9 @@
     </div>
 
     <div>
-        <label for="leagueId">League</label>
+        <label for="leagueId">League <span style="font-weight:400;font-size:0.85rem;">(optional)</span></label>
         <select id="leagueId" th:field="*{leagueId}">
-            <option value="">-- select league --</option>
+            <option value="">-- no league --</option>
             <option th:each="league : ${leagues}" th:value="${league.id}" th:text="${league.name}"></option>
         </select>
         <span style="color:red" th:if="${#fields.hasErrors('leagueId')}" th:errors="*{leagueId}"></span>

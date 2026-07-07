@@ -21,4 +21,14 @@ public class GlobalModelAttributes {
                 .anyMatch(authority -> authority.getAuthority().equals("ROLE_ADMIN"));
         return admin ? changeRequestService.countPending() : null;
     }
+
+    @ModelAttribute("myPendingCount")
+    public Long myPendingCount(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return null;
+        }
+        boolean admin = authentication.getAuthorities().stream()
+                .anyMatch(authority -> authority.getAuthority().equals("ROLE_ADMIN"));
+        return admin ? null : changeRequestService.countMyPending(authentication);
+    }
 }

@@ -18,6 +18,8 @@ public interface ChangeRequestRepository extends JpaRepository<ChangeRequest, UU
 
     long countByStatus(ChangeRequestStatus status);
 
+    long countByStatusAndRequestedBy(ChangeRequestStatus status, User requestedBy);
+
     List<ChangeRequest> findAllByStatusAndRequestedAtBefore(ChangeRequestStatus status, LocalDateTime cutoff);
 
     long deleteByStatusInAndReviewedAtBefore(Collection<ChangeRequestStatus> statuses, LocalDateTime cutoff);

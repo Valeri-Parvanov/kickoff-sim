@@ -9,13 +9,14 @@ import bg.softuni.footballleague.model.ChangeAction;
 import bg.softuni.footballleague.model.EntityType;
 import bg.softuni.footballleague.model.Half;
 import bg.softuni.footballleague.service.ChangeRequestService;
+import bg.softuni.footballleague.service.LeagueService;
 import bg.softuni.footballleague.service.MatchService;
 import bg.softuni.footballleague.service.PlayerService;
 import bg.softuni.footballleague.service.TeamService;
-import bg.softuni.footballleague.web.SortSupport;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
@@ -31,7 +32,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import java.util.Map;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Comparator;
+import java.util.List;
 import java.util.UUID;
 
 @Controller
@@ -39,28 +43,52 @@ import java.util.UUID;
 @RequestMapping("/matches")
 public class MatchController {
 
-    private static final Sort DEFAULT_SORT = Sort.by(Sort.Direction.DESC, "playedAt");
-    private static final Map<String, String> SORTABLE_FIELDS = Map.of(
-            "homeTeam", "homeTeam.name",
-            "awayTeam", "awayTeam.name",
-            "homeScore", "homeScore",
-            "awayScore", "awayScore",
-            "playedAt", "playedAt"
-    );
-
     private final MatchService matchService;
     private final TeamService teamService;
     private final PlayerService playerService;
+    private final LeagueService leagueService;
     private final ChangeRequestService changeRequestService;
 
+    @GetMapping("/{id}")
+    public String detail(@PathVariable UUID id, Model model) {
+        model.addAttribute("match", matchService.findById(id));
+        return "matches/detail";
+    }
+
     @GetMapping
-    public String list(@RequestParam(required = false) String sort,
-                        @RequestParam(required = false) String dir,
-                        Model model) {
-        Sort resolvedSort = SortSupport.resolve(sort, dir, SORTABLE_FIELDS, DEFAULT_SORT);
-        model.addAttribute("matches", matchService.findAll(resolvedSort));
-        model.addAttribute("currentSort", sort);
-        model.addAttribute("currentDir", dir == null ? "asc" : dir);
+    public String list(@RequestParam(required = false) UUID league,
+                       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+                       Model model) {
+        LocalDateTime now = LocalDateTime.now();
+        List<MatchDto> all = matchService.findAll(Sort.by(Sort.Direction.ASC, "playedAt"));
+
+        List<LocalDate> matchDates = all.stream()
+                .map(m -> m.getPlayedAt().toLocalDate())
+                .distinct()
+                .sorted()
+                .toList();
+
+        List<MatchDto> upcoming = all.stream()
+                .filter(m -> m.getPlayedAt().isAfter(now))
+                .filter(m -> league == null || league.equals(m.getLeagueId()))
+                .filter(m -> date == null || m.getPlayedAt().toLocalDate().equals(date))
+                .toList();
+
+        List<MatchDto> results = all.stream()
+                .filter(m -> !m.getPlayedAt().isAfter(now))
+                .filter(m -> league == null || league.equals(m.getLeagueId()))
+                .filter(m -> date == null || m.getPlayedAt().toLocalDate().equals(date))
+                .sorted(Comparator.comparing(MatchDto::getPlayedAt).reversed())
+                .toList();
+
+        model.addAttribute("upcomingMatches", upcoming);
+        model.addAttribute("recentMatches", results);
+        model.addAttribute("leagues", leagueService.findAll());
+        model.addAttribute("matchDates", matchDates);
+        model.addAttribute("selectedLeague", league);
+        model.addAttribute("selectedDate", date);
+        model.addAttribute("now", now);
+        model.addAttribute("liveThreshold", now.minusMinutes(50));
         return "matches/list";
     }
 
@@ -73,21 +101,25 @@ public class MatchController {
                 : new MatchDto();
         model.addAttribute("matchDto", matchDto);
         model.addAttribute("teams", teamService.findAll());
+        if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
         return "matches/form";
     }
 
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public String create(@Valid @ModelAttribute("matchDto") MatchDto matchDto, BindingResult bindingResult,
+                          @RequestParam(required = false) UUID fromRequest,
                           Model model, Authentication authentication, RedirectAttributes redirectAttributes) {
         validateTeams(matchDto, bindingResult);
         if (bindingResult.hasErrors()) {
             model.addAttribute("teams", teamService.findAll());
+            if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
             return "matches/form";
         }
 
         boolean executed = changeRequestService.submitOrExecute(
                 EntityType.MATCH, ChangeAction.CREATE, matchDto, null, authentication);
+        if (fromRequest != null) changeRequestService.cancelIfPending(fromRequest, authentication);
         redirectAttributes.addFlashAttribute("statusMessage",
                 executed ? "Match created." : "Submitted for admin approval.");
         return "redirect:/matches";
@@ -102,21 +134,26 @@ public class MatchController {
         matchDto.setId(id);
         model.addAttribute("matchDto", matchDto);
         model.addAttribute("teams", teamService.findAll());
+        if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
         return "matches/form";
     }
 
     @PutMapping("/{id}")
     public String edit(@PathVariable UUID id, @Valid @ModelAttribute("matchDto") MatchDto matchDto,
-                        BindingResult bindingResult, Model model, Authentication authentication,
+                        BindingResult bindingResult,
+                        @RequestParam(required = false) UUID fromRequest,
+                        Model model, Authentication authentication,
                         RedirectAttributes redirectAttributes) {
         validateTeams(matchDto, bindingResult);
         if (bindingResult.hasErrors()) {
             model.addAttribute("teams", teamService.findAll());
+            if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
             return "matches/form";
         }
 
         boolean executed = changeRequestService.submitOrExecute(
                 EntityType.MATCH, ChangeAction.UPDATE, matchDto, id, authentication);
+        if (fromRequest != null) changeRequestService.cancelIfPending(fromRequest, authentication);
         redirectAttributes.addFlashAttribute("statusMessage",
                 executed ? "Match updated." : "Submitted for admin approval.");
         return "redirect:/matches";

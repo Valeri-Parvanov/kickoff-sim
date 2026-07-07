@@ -17,9 +17,15 @@ public interface ChangeRequestService {
 
     long countPending();
 
+    long countMyPending(Authentication authentication);
+
     List<ChangeRequestView> findMine(Authentication authentication);
 
     Object getPayloadForResubmit(UUID id, Authentication authentication);
+
+    void cancelIfPending(UUID id, Authentication authentication);
+
+    void cancelMine(UUID id, Authentication authentication);
 
     void approve(UUID id, Authentication authentication);
 
