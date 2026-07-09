@@ -1,5 +1,7 @@
 package bg.softuni.footballleague.controller;
 
+import bg.softuni.footballleague.dto.LeagueDetailView;
+import bg.softuni.footballleague.dto.MatchDto;
 import bg.softuni.footballleague.dto.PlayerDto;
 import bg.softuni.footballleague.dto.PlayerRowDto;
 import bg.softuni.footballleague.dto.TeamCreateForm;
@@ -9,13 +11,17 @@ import bg.softuni.footballleague.model.ChangeAction;
 import bg.softuni.footballleague.model.EntityType;
 import bg.softuni.footballleague.service.ChangeRequestService;
 import bg.softuni.footballleague.service.LeagueService;
+import bg.softuni.footballleague.service.MatchService;
 import bg.softuni.footballleague.service.PlayerService;
 import bg.softuni.footballleague.service.TeamService;
 import bg.softuni.footballleague.web.SortSupport;
 import bg.softuni.footballleague.web.SquadRowValidator;
+import bg.softuni.footballleague.web.LogoGenerator;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -28,9 +34,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -55,12 +64,44 @@ public class TeamController {
     private final LeagueService leagueService;
     private final ChangeRequestService changeRequestService;
     private final PlayerService playerService;
+    private final MatchService matchService;
+
+    @GetMapping("/{id}/logo")
+    @ResponseBody
+    public ResponseEntity<String> logo(@PathVariable UUID id) {
+        TeamDto team = teamService.findById(id);
+        String svg = LogoGenerator.generate(team.getName(), id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.valueOf("image/svg+xml"))
+                .header("Cache-Control", "public, max-age=86400")
+                .body(svg);
+    }
 
     @GetMapping("/{id}")
     public String detail(@PathVariable UUID id, Model model) {
-        model.addAttribute("team", teamService.findById(id));
+        TeamDto team = teamService.findById(id);
+        model.addAttribute("team", team);
         model.addAttribute("players", playerService.findAllByTeam(id));
         model.addAttribute("remainingSlots", playerService.squadRemainingSlots(id));
+
+        if (team.getLeagueId() != null) {
+            LeagueDetailView league = leagueService.findDetail(team.getLeagueId());
+            model.addAttribute("leagueStandings", league.getStandings());
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        List<MatchDto> all = matchService.findAll(Sort.by(Sort.Direction.ASC, "playedAt"));
+        model.addAttribute("teamResults", all.stream()
+                .filter(m -> id.equals(m.getHomeTeamId()) || id.equals(m.getAwayTeamId()))
+                .filter(m -> !m.getPlayedAt().isAfter(now))
+                .sorted(Comparator.comparing(MatchDto::getPlayedAt).reversed())
+                .limit(10)
+                .toList());
+        model.addAttribute("teamUpcoming", all.stream()
+                .filter(m -> id.equals(m.getHomeTeamId()) || id.equals(m.getAwayTeamId()))
+                .filter(m -> m.getPlayedAt().isAfter(now))
+                .limit(5)
+                .toList());
         return "teams/detail";
     }
 

@@ -16,6 +16,14 @@ public interface GoalRepository extends JpaRepository<Goal, UUID> {
                                               @Param("teamId") UUID teamId,
                                               @Param("excludeId") UUID excludeId);
 
+    @Query("SELECT COUNT(g) FROM Goal g WHERE g.match = :match " +
+           "AND ((g.ownGoal = false AND g.scorer.team.id = :teamId) " +
+           "  OR (g.ownGoal = true  AND g.scorer.team.id <> :teamId)) " +
+           "AND (:excludeId IS NULL OR g.id <> :excludeId)")
+    long countGoalsBenefitingTeam(@Param("match") Match match,
+                                   @Param("teamId") UUID teamId,
+                                   @Param("excludeId") UUID excludeId);
+
     @Query("SELECT COUNT(g) FROM Goal g WHERE g.match = :match AND g.half = :half AND g.minute = :minute AND (:excludeId IS NULL OR g.id != :excludeId)")
     long countByMatchAndHalfAndMinuteExcluding(@Param("match") Match match,
                                                @Param("half") Half half,

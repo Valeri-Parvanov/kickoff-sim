@@ -97,15 +97,21 @@ public class MatchServiceImpl implements MatchService {
                     .formatted(scorer.getFirstName(), scorer.getLastName()));
         }
 
-        validateGoalCountLimit(match, scorerIsHome, null);
+        boolean creditedToHome = dto.isOwnGoal() ? scorerIsAway : scorerIsHome;
+        validateGoalCountLimit(match, creditedToHome, null);
         validateMinuteUnique(match, dto.getMinute(), null);
 
-        Player assistant = resolveAssistant(dto.getAssistantId(), scorer);
+        if (dto.isOwnGoal() && dto.getAssistantId() != null) {
+            throw new InvalidGoalException("Own goals cannot have an assist.");
+        }
+        Player assistant = dto.isOwnGoal() ? null : resolveAssistant(dto.getAssistantId(), scorer);
 
         Goal goal = new Goal();
         goal.setMatch(match);
         goal.setScorer(scorer);
         goal.setAssistant(assistant);
+        goal.setOwnGoal(dto.isOwnGoal());
+        goal.setPenalty(dto.isPenalty());
         applyHalfAndMinute(goal, dto.getMinute());
         goalRepository.save(goal);
         log.info("Recorded goal for match {} by player {}", matchId, dto.getScorerId());
@@ -135,14 +141,14 @@ public class MatchServiceImpl implements MatchService {
                     .formatted(scorer.getFirstName(), scorer.getLastName()));
         }
 
-        validateGoalCountLimit(match, scorerIsHome, goalId);
-        validateMinuteUnique(match, dto.getMinute(), goalId);
+        boolean creditedToHome = goal.isOwnGoal() ? !scorerIsHome : scorerIsHome;
+        validateGoalCountLimit(match, creditedToHome, goalId);
 
-        Player assistant = resolveAssistant(dto.getAssistantId(), scorer);
+        Player assistant = goal.isOwnGoal() ? null : resolveAssistant(dto.getAssistantId(), scorer);
 
         goal.setScorer(scorer);
         goal.setAssistant(assistant);
-        applyHalfAndMinute(goal, dto.getMinute());
+        goal.setPenalty(dto.isPenalty());
         goalRepository.save(goal);
         log.info("Updated goal {}", goalId);
     }
@@ -195,12 +201,12 @@ public class MatchServiceImpl implements MatchService {
         return assistant;
     }
 
-    private void validateGoalCountLimit(Match match, boolean scorerIsHome, UUID excludeGoalId) {
-        UUID teamId = scorerIsHome ? match.getHomeTeam().getId() : match.getAwayTeam().getId();
-        int declared = scorerIsHome ? match.getHomeScore() : match.getAwayScore();
-        long current = goalRepository.countByMatchAndScorerTeamIdExcluding(match, teamId, excludeGoalId);
+    private void validateGoalCountLimit(Match match, boolean creditedToHome, UUID excludeGoalId) {
+        UUID benefitingTeamId = creditedToHome ? match.getHomeTeam().getId() : match.getAwayTeam().getId();
+        int declared = creditedToHome ? match.getHomeScore() : match.getAwayScore();
+        long current = goalRepository.countGoalsBenefitingTeam(match, benefitingTeamId, excludeGoalId);
         if (current >= declared) {
-            String side = scorerIsHome ? "home" : "away";
+            String side = creditedToHome ? "home" : "away";
             throw new InvalidGoalException(
                     "Cannot add more " + side + " goals — declared " + side + " score is " + declared + ".");
         }
@@ -268,7 +274,8 @@ public class MatchServiceImpl implements MatchService {
         int runningHome = 0, runningAway = 0, homeHalf = 0, awayHalf = 0;
         Half currentHalf = null;
         for (GoalDto dto : sorted) {
-            boolean isHome = homeTeamId.equals(dto.getTeamId());
+            boolean scorerIsHome = homeTeamId.equals(dto.getTeamId());
+            boolean isHome = dto.isOwnGoal() ? !scorerIsHome : scorerIsHome;
             dto.setHomeGoal(isHome);
 
             if (!dto.getHalf().equals(currentHalf)) {
@@ -308,6 +315,8 @@ public class MatchServiceImpl implements MatchService {
             dto.setAssistantId(goal.getAssistant().getId());
             dto.setAssistantName(goal.getAssistant().getFirstName() + " " + goal.getAssistant().getLastName());
         }
+        dto.setOwnGoal(goal.isOwnGoal());
+        dto.setPenalty(goal.isPenalty());
         return dto;
     }
 }

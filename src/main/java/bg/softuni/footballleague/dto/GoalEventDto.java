@@ -21,4 +21,7 @@ public class GoalEventDto {
     @Min(value = 1, message = "Minute must be at least 1")
     @Max(value = 40, message = "Minute must be at most 40")
     private Integer minute;
+
+    private boolean ownGoal;
+    private boolean penalty;
 }

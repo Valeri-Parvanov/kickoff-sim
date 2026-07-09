@@ -2,6 +2,7 @@ package bg.softuni.footballleague.controller;
 
 import bg.softuni.footballleague.dto.GoalDto;
 import bg.softuni.footballleague.dto.GoalEventDto;
+import bg.softuni.footballleague.dto.LeagueDetailView;
 import bg.softuni.footballleague.dto.MatchDto;
 import bg.softuni.footballleague.dto.TeamDto;
 import bg.softuni.footballleague.exception.InvalidGoalException;
@@ -58,6 +59,7 @@ public class MatchController {
     @GetMapping
     public String list(@RequestParam(required = false) UUID league,
                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+                       @RequestParam(required = false) UUID team,
                        Model model) {
         LocalDateTime now = LocalDateTime.now();
         List<MatchDto> all = matchService.findAll(Sort.by(Sort.Direction.ASC, "playedAt"));
@@ -72,12 +74,14 @@ public class MatchController {
                 .filter(m -> m.getPlayedAt().isAfter(now))
                 .filter(m -> league == null || league.equals(m.getLeagueId()))
                 .filter(m -> date == null || m.getPlayedAt().toLocalDate().equals(date))
+                .filter(m -> team == null || team.equals(m.getHomeTeamId()) || team.equals(m.getAwayTeamId()))
                 .toList();
 
         List<MatchDto> results = all.stream()
                 .filter(m -> !m.getPlayedAt().isAfter(now))
                 .filter(m -> league == null || league.equals(m.getLeagueId()))
                 .filter(m -> date == null || m.getPlayedAt().toLocalDate().equals(date))
+                .filter(m -> team == null || team.equals(m.getHomeTeamId()) || team.equals(m.getAwayTeamId()))
                 .sorted(Comparator.comparing(MatchDto::getPlayedAt).reversed())
                 .toList();
 
@@ -87,6 +91,18 @@ public class MatchController {
         model.addAttribute("matchDates", matchDates);
         model.addAttribute("selectedLeague", league);
         model.addAttribute("selectedDate", date);
+        model.addAttribute("selectedTeam", team);
+        if (team != null) {
+            TeamDto t = teamService.findById(team);
+            model.addAttribute("selectedTeamName",
+                    t.getName() + (t.getCity() != null ? " (" + t.getCity() + ")" : ""));
+            if (t.getLeagueId() != null) {
+                LeagueDetailView detail = leagueService.findDetail(t.getLeagueId());
+                model.addAttribute("teamStandings", detail.getStandings());
+                model.addAttribute("teamLeagueName", detail.getName());
+                model.addAttribute("teamLeagueId", t.getLeagueId());
+            }
+        }
         model.addAttribute("now", now);
         model.addAttribute("liveThreshold", now.minusMinutes(50));
         return "matches/list";

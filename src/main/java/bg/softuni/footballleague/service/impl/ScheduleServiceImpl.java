@@ -151,8 +151,7 @@ public class ScheduleServiceImpl implements ScheduleService {
     @CacheEvict(value = "leagues", allEntries = true)
     public void simulatePastMatches() {
         LocalDateTime to = LocalDateTime.now().minusMinutes(50);
-        LocalDateTime from = to.minusHours(3);
-        List<Match> candidates = matchRepository.findZeroZeroMatchesInWindow(from, to);
+        List<Match> candidates = matchRepository.findZeroZeroMatchesBefore(to);
         int count = 0;
         for (Match match : candidates) {
             if (!match.getGoals().isEmpty()) continue;

@@ -42,4 +42,10 @@ public class Goal {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Half half;
+
+    @Column(nullable = false)
+    private boolean ownGoal = false;
+
+    @Column(nullable = false)
+    private boolean penalty = false;
 }

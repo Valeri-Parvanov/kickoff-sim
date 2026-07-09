@@ -22,4 +22,6 @@ public class GoalDto {
     private Integer runningAwayScore;
     private boolean homeGoal;
     private boolean firstInHalf;
+    private boolean ownGoal;
+    private boolean penalty;
 }

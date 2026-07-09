@@ -32,8 +32,8 @@ public interface MatchRepository extends JpaRepository<Match, UUID> {
     boolean existsByLeagueId(@Param("leagueId") UUID leagueId);
 
     @EntityGraph(attributePaths = {"homeTeam", "awayTeam", "goals"})
-    @Query("SELECT m FROM Match m WHERE m.playedAt BETWEEN :from AND :to AND m.homeScore = 0 AND m.awayScore = 0")
-    List<Match> findZeroZeroMatchesInWindow(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+    @Query("SELECT m FROM Match m WHERE m.playedAt <= :to AND m.homeScore = 0 AND m.awayScore = 0")
+    List<Match> findZeroZeroMatchesBefore(@Param("to") LocalDateTime to);
 
     @Query("SELECT COUNT(m) > 0 FROM Match m WHERE (m.homeTeam.league.id = :leagueId OR m.awayTeam.league.id = :leagueId) AND m.playedAt < :now")
     boolean hasPlayedMatchesForLeague(@Param("leagueId") UUID leagueId, @Param("now") LocalDateTime now);

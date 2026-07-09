@@ -23,14 +23,15 @@ import java.util.UUID;
 @RequestMapping("/my-change-requests")
 public class MyChangeRequestController {
 
-    private static final int MAX_DISPLAY = 50;
+    private static final int PAGE_SIZE = 10;
 
     private final ChangeRequestService changeRequestService;
 
     @GetMapping
     public String myProposals(Authentication authentication, Model model,
                               @RequestParam(required = false, defaultValue = "ALL") String status,
-                              @RequestParam(required = false, defaultValue = "ALL") String type) {
+                              @RequestParam(required = false, defaultValue = "ALL") String type,
+                              @RequestParam(required = false, defaultValue = "0") int page) {
         List<ChangeRequestView> all = changeRequestService.findMine(authentication);
 
         long pendingCount = all.stream().filter(cr -> cr.getStatus() == ChangeRequestStatus.PENDING).count();
@@ -42,8 +43,11 @@ public class MyChangeRequestController {
                 .filter(cr -> "ALL".equals(type) || cr.getEntityType().name().equals(type))
                 .toList();
 
-        boolean truncated = filtered.size() > MAX_DISPLAY;
-        List<ChangeRequestView> displayed = truncated ? filtered.subList(0, MAX_DISPLAY) : filtered;
+        int totalPages = filtered.isEmpty() ? 1 : (int) Math.ceil((double) filtered.size() / PAGE_SIZE);
+        int safePage = Math.max(0, Math.min(page, totalPages - 1));
+        int fromIdx = safePage * PAGE_SIZE;
+        int toIdx = Math.min(fromIdx + PAGE_SIZE, filtered.size());
+        List<ChangeRequestView> displayed = filtered.isEmpty() ? filtered : filtered.subList(fromIdx, toIdx);
 
         model.addAttribute("changeRequests", displayed);
         model.addAttribute("selectedStatus", status);
@@ -52,7 +56,8 @@ public class MyChangeRequestController {
         model.addAttribute("pendingCount", pendingCount);
         model.addAttribute("approvedCount", approvedCount);
         model.addAttribute("rejectedCount", rejectedCount);
-        model.addAttribute("truncated", truncated);
+        model.addAttribute("currentPage", safePage);
+        model.addAttribute("totalPages", totalPages);
         model.addAttribute("filteredCount", filtered.size());
         return "my-change-requests";
     }
