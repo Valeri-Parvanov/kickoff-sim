@@ -5,6 +5,7 @@ import bg.softuni.footballleague.dto.GoalEventDto;
 import bg.softuni.footballleague.dto.MatchDto;
 import org.springframework.data.domain.Sort;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -31,4 +32,8 @@ public interface MatchService {
     void deleteGoal(UUID goalId);
 
     List<MatchDto> findByLeague(UUID leagueId);
+
+    List<LocalDate> findAllMatchDates();
+
+    List<MatchDto> findByDate(LocalDate date);
 }

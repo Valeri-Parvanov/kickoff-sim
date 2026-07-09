@@ -32,9 +32,18 @@ public interface MatchRepository extends JpaRepository<Match, UUID> {
     boolean existsByLeagueId(@Param("leagueId") UUID leagueId);
 
     @EntityGraph(attributePaths = {"homeTeam", "awayTeam", "goals"})
-    @Query("SELECT m FROM Match m WHERE m.playedAt <= :to AND m.homeScore = 0 AND m.awayScore = 0")
-    List<Match> findZeroZeroMatchesBefore(@Param("to") LocalDateTime to);
+    @Query("SELECT m FROM Match m WHERE m.playedAt <= :to AND SIZE(m.goals) = 0")
+    List<Match> findGoallessBefore(@Param("to") LocalDateTime to);
 
     @Query("SELECT COUNT(m) > 0 FROM Match m WHERE (m.homeTeam.league.id = :leagueId OR m.awayTeam.league.id = :leagueId) AND m.playedAt < :now")
     boolean hasPlayedMatchesForLeague(@Param("leagueId") UUID leagueId, @Param("now") LocalDateTime now);
+
+    @Query("SELECT m.playedAt FROM Match m ORDER BY m.playedAt ASC")
+    List<LocalDateTime> findAllPlayedAtTimes();
+
+    @EntityGraph(attributePaths = {
+            "homeTeam", "awayTeam",
+            "goals", "goals.scorer", "goals.scorer.team", "goals.assistant"})
+    @Query("SELECT m FROM Match m WHERE m.playedAt >= :start AND m.playedAt < :end ORDER BY m.playedAt ASC")
+    List<Match> findByDateRange(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }

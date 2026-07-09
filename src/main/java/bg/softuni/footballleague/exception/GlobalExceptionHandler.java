@@ -1,6 +1,7 @@
 package bg.softuni.footballleague.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -9,7 +10,11 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.servlet.FlashMap;
+import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.web.servlet.support.RequestContextUtils;
+import org.springframework.web.servlet.view.RedirectView;
 
 @ControllerAdvice
 public class GlobalExceptionHandler {
@@ -68,9 +73,23 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
-    public String handleDuplicateEntry(Model model) {
-        model.addAttribute("errorMessage", "A record with that name already exists. Please choose a different name.");
-        return "error";
+    public ModelAndView handleDuplicateEntry(HttpServletRequest request, HttpServletResponse response) {
+        String referer = request.getHeader("Referer");
+        String targetUrl = (referer != null && !referer.isEmpty()) ? referer : "/";
+
+        FlashMap flashMap = new FlashMap();
+        flashMap.put("errorMessage", "A record with this name already exists. Please choose a different name or add a city.");
+        try {
+            String path = new java.net.URI(targetUrl).getPath();
+            flashMap.setTargetRequestPath(path);
+        } catch (Exception ignored) {}
+
+        var mgr = RequestContextUtils.getFlashMapManager(request);
+        if (mgr != null) {
+            mgr.saveOutputFlashMap(flashMap, request, response);
+        }
+
+        return new ModelAndView(new RedirectView(targetUrl, false));
     }
 
     @ExceptionHandler(Exception.class)

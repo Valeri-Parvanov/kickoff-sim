@@ -32,13 +32,17 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import bg.softuni.footballleague.dto.LeagueDetailView;
 import bg.softuni.footballleague.dto.MatchDto;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.OptionalInt;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 @Controller
 @RequiredArgsConstructor
@@ -66,6 +70,8 @@ public class LeagueController {
             model.addAttribute("scheduleForm", scheduleForm);
         }
 
+        model.addAttribute("liveMatchesForJs", List.of());
+
         if (!league.getMatches().isEmpty()) {
             LocalDateTime now = LocalDateTime.now();
 
@@ -76,11 +82,22 @@ public class LeagueController {
                     .sorted(Comparator.reverseOrder())
                     .toList();
 
-            int lastActiveRound = league.getMatches().stream()
-                    .filter(m -> m.getRoundNumber() != null && !m.getPlayedAt().isAfter(now))
+            LocalDate today = now.toLocalDate();
+            OptionalInt todayRoundOpt = league.getMatches().stream()
+                    .filter(m -> m.getRoundNumber() != null && m.getPlayedAt().toLocalDate().equals(today))
                     .mapToInt(MatchDto::getRoundNumber)
-                    .max()
-                    .orElse(availableRounds.isEmpty() ? 1 : availableRounds.get(availableRounds.size() - 1));
+                    .findFirst();
+
+            int lastActiveRound;
+            if (todayRoundOpt.isPresent()) {
+                lastActiveRound = todayRoundOpt.getAsInt();
+            } else {
+                lastActiveRound = league.getMatches().stream()
+                        .filter(m -> m.getRoundNumber() != null && !m.getPlayedAt().isAfter(now))
+                        .mapToInt(MatchDto::getRoundNumber)
+                        .max()
+                        .orElse(availableRounds.isEmpty() ? 1 : availableRounds.get(availableRounds.size() - 1));
+            }
 
             int selectedRound = round != null ? round : lastActiveRound;
 
@@ -91,8 +108,36 @@ public class LeagueController {
             model.addAttribute("availableRounds", availableRounds);
             model.addAttribute("selectedRound", selectedRound);
             model.addAttribute("roundMatches", roundMatches);
+            LocalDateTime liveThreshold = now.minusMinutes(46);
             model.addAttribute("now", now);
-            model.addAttribute("liveThreshold", now.minusMinutes(50));
+            model.addAttribute("liveThreshold", liveThreshold);
+
+            Set<UUID> liveTeamIds = league.getMatches().stream()
+                    .filter(m -> m.getPlayedAt().isBefore(now) && m.getPlayedAt().isAfter(liveThreshold))
+                    .flatMap(m -> Stream.of(m.getHomeTeamId(), m.getAwayTeamId()))
+                    .collect(java.util.stream.Collectors.toSet());
+            model.addAttribute("liveTeamIds", liveTeamIds);
+
+            List<Map<String, Object>> liveMatchesForJs = league.getMatches().stream()
+                    .filter(m -> m.getPlayedAt().isBefore(now) && m.getPlayedAt().isAfter(liveThreshold))
+                    .map(m -> {
+                        List<Map<String, Object>> goals = m.getGoalTimeline().stream()
+                                .map(g -> Map.<String, Object>of(
+                                        "minute", g.getMinute() != null ? g.getMinute() : 0,
+                                        "half", g.getHalf() != null ? g.getHalf().name() : "FIRST",
+                                        "homeGoal", g.isHomeGoal(),
+                                        "rh", g.getRunningHomeScore() != null ? g.getRunningHomeScore() : 0,
+                                        "ra", g.getRunningAwayScore() != null ? g.getRunningAwayScore() : 0))
+                                .toList();
+                        return Map.<String, Object>of(
+                                "id", m.getId().toString(),
+                                "homeTeamId", m.getHomeTeamId().toString(),
+                                "awayTeamId", m.getAwayTeamId().toString(),
+                                "kickoff", m.getPlayedAt().toString(),
+                                "goals", goals);
+                    })
+                    .toList();
+            model.addAttribute("liveMatchesForJs", liveMatchesForJs);
         }
 
         return "leagues/detail";

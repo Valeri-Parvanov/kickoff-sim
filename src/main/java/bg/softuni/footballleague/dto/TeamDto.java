@@ -17,6 +17,7 @@ public class TeamDto {
     @Size(max = 100, message = "Team name must be at most 100 characters")
     private String name;
 
+    @NotBlank(message = "City is required")
     @Size(max = 100, message = "City must be at most 100 characters")
     private String city;
 

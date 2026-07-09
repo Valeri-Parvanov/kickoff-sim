@@ -37,6 +37,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Controller
@@ -52,7 +53,27 @@ public class MatchController {
 
     @GetMapping("/{id}")
     public String detail(@PathVariable UUID id, Model model) {
-        model.addAttribute("match", matchService.findById(id));
+        MatchDto match = matchService.findById(id);
+        model.addAttribute("match", match);
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime liveThreshold = now.minusMinutes(46);
+        model.addAttribute("now", now);
+        model.addAttribute("liveThreshold", liveThreshold);
+        boolean isLive = match.getPlayedAt().isBefore(now) && match.getPlayedAt().isAfter(liveThreshold);
+        if (isLive) {
+            List<Map<String, Object>> goals = match.getGoalTimeline().stream()
+                    .map(g -> Map.<String, Object>of(
+                            "minute", g.getMinute() != null ? g.getMinute() : 0,
+                            "half", g.getHalf() != null ? g.getHalf().name() : "FIRST",
+                            "homeGoal", g.isHomeGoal(),
+                            "rh", g.getRunningHomeScore() != null ? g.getRunningHomeScore() : 0,
+                            "ra", g.getRunningAwayScore() != null ? g.getRunningAwayScore() : 0))
+                    .toList();
+            model.addAttribute("liveMatchForJs", Map.of(
+                    "id", match.getId().toString(),
+                    "kickoff", match.getPlayedAt().toString(),
+                    "goals", goals));
+        }
         return "matches/detail";
     }
 
@@ -62,35 +83,60 @@ public class MatchController {
                        @RequestParam(required = false) UUID team,
                        Model model) {
         LocalDateTime now = LocalDateTime.now();
-        List<MatchDto> all = matchService.findAll(Sort.by(Sort.Direction.ASC, "playedAt"));
+        LocalDate today = now.toLocalDate();
+        LocalDateTime liveThreshold = now.minusMinutes(46);
 
-        List<LocalDate> matchDates = all.stream()
-                .map(m -> m.getPlayedAt().toLocalDate())
-                .distinct()
-                .sorted()
-                .toList();
+        List<LocalDate> matchDates;
+        List<MatchDto> dateMatches;
+        LocalDate selectedDate;
 
-        List<MatchDto> upcoming = all.stream()
-                .filter(m -> m.getPlayedAt().isAfter(now))
-                .filter(m -> league == null || league.equals(m.getLeagueId()))
-                .filter(m -> date == null || m.getPlayedAt().toLocalDate().equals(date))
-                .filter(m -> team == null || team.equals(m.getHomeTeamId()) || team.equals(m.getAwayTeamId()))
-                .toList();
+        if (league == null && team == null) {
+            matchDates = matchService.findAllMatchDates();
+            selectedDate = resolveDate(date, matchDates, today);
+            dateMatches = selectedDate != null
+                    ? sortByStatus(matchService.findByDate(selectedDate), now, liveThreshold)
+                    : null;
+        } else {
+            List<MatchDto> filtered = league != null
+                    ? matchService.findByLeague(league)
+                    : matchService.findAll(Sort.by(Sort.Direction.ASC, "playedAt"));
+            if (team != null) {
+                final UUID t = team;
+                filtered = filtered.stream()
+                        .filter(m -> t.equals(m.getHomeTeamId()) || t.equals(m.getAwayTeamId()))
+                        .toList();
+            }
+            matchDates = filtered.stream()
+                    .map(m -> m.getPlayedAt().toLocalDate())
+                    .distinct()
+                    .sorted()
+                    .toList();
+            selectedDate = resolveDate(date, matchDates, today);
+            if (selectedDate != null) {
+                final LocalDate d = selectedDate;
+                List<MatchDto> dayFiltered = filtered.stream()
+                        .filter(m -> m.getPlayedAt().toLocalDate().equals(d))
+                        .toList();
+                dateMatches = sortByStatus(dayFiltered, now, liveThreshold);
+            } else {
+                dateMatches = null;
+            }
+        }
 
-        List<MatchDto> results = all.stream()
-                .filter(m -> !m.getPlayedAt().isAfter(now))
-                .filter(m -> league == null || league.equals(m.getLeagueId()))
-                .filter(m -> date == null || m.getPlayedAt().toLocalDate().equals(date))
-                .filter(m -> team == null || team.equals(m.getHomeTeamId()) || team.equals(m.getAwayTeamId()))
-                .sorted(Comparator.comparing(MatchDto::getPlayedAt).reversed())
-                .toList();
+        List<String> matchDateStrings = matchDates.stream().map(LocalDate::toString).toList();
 
-        model.addAttribute("upcomingMatches", upcoming);
-        model.addAttribute("recentMatches", results);
+        model.addAttribute("upcomingMatches", List.of());
+        model.addAttribute("recentMatches", List.of());
+        model.addAttribute("dateMatches", dateMatches);
         model.addAttribute("leagues", leagueService.findAll());
         model.addAttribute("matchDates", matchDates);
+        model.addAttribute("matchDateStrings", matchDateStrings);
+        if (!matchDates.isEmpty()) {
+            model.addAttribute("firstMatchDate", matchDates.get(0));
+            model.addAttribute("lastMatchDate", matchDates.get(matchDates.size() - 1));
+        }
         model.addAttribute("selectedLeague", league);
-        model.addAttribute("selectedDate", date);
+        model.addAttribute("selectedDate", selectedDate);
         model.addAttribute("selectedTeam", team);
         if (team != null) {
             TeamDto t = teamService.findById(team);
@@ -103,9 +149,59 @@ public class MatchController {
                 model.addAttribute("teamLeagueId", t.getLeagueId());
             }
         }
+        List<Map<String, Object>> liveMatchesForJs = (dateMatches == null ? List.<MatchDto>of() : dateMatches)
+                .stream()
+                .filter(m -> m.getPlayedAt().isBefore(now) && m.getPlayedAt().isAfter(liveThreshold))
+                .map(m -> {
+                    List<Map<String, Object>> goals = m.getGoalTimeline().stream()
+                            .map(g -> Map.<String, Object>of(
+                                    "minute", g.getMinute() != null ? g.getMinute() : 0,
+                                    "half", g.getHalf() != null ? g.getHalf().name() : "FIRST",
+                                    "homeGoal", g.isHomeGoal(),
+                                    "rh", g.getRunningHomeScore() != null ? g.getRunningHomeScore() : 0,
+                                    "ra", g.getRunningAwayScore() != null ? g.getRunningAwayScore() : 0))
+                            .toList();
+                    return Map.<String, Object>of(
+                            "id", m.getId().toString(),
+                            "kickoff", m.getPlayedAt().toString(),
+                            "goals", goals);
+                })
+                .toList();
+        model.addAttribute("liveMatchesForJs", liveMatchesForJs);
         model.addAttribute("now", now);
-        model.addAttribute("liveThreshold", now.minusMinutes(50));
+        model.addAttribute("liveThreshold", liveThreshold);
+        model.addAttribute("today", today);
+        model.addAttribute("todayStr", today.toString());
+        model.addAttribute("selectedDateStr", selectedDate != null ? selectedDate.toString() : "");
         return "matches/list";
+    }
+
+    private List<MatchDto> sortByStatus(List<MatchDto> matches, LocalDateTime now, LocalDateTime liveThreshold) {
+        return matches.stream()
+                .sorted((a, b) -> {
+                    int pa = statusPriority(a, now, liveThreshold);
+                    int pb = statusPriority(b, now, liveThreshold);
+                    if (pa != pb) return Integer.compare(pa, pb);
+                    if (pa == 2) return b.getPlayedAt().compareTo(a.getPlayedAt());
+                    return a.getPlayedAt().compareTo(b.getPlayedAt());
+                })
+                .toList();
+    }
+
+    private int statusPriority(MatchDto m, LocalDateTime now, LocalDateTime liveThreshold) {
+        if (m.getPlayedAt().isBefore(now) && m.getPlayedAt().isAfter(liveThreshold)) return 0;
+        if (!m.getPlayedAt().isBefore(now)) return 1;
+        return 2;
+    }
+
+    private LocalDate resolveDate(LocalDate requested, List<LocalDate> matchDates, LocalDate today) {
+        if (requested != null) return requested;
+        if (matchDates.isEmpty()) return null;
+        if (matchDates.contains(today)) return today;
+        return matchDates.stream()
+                .filter(d -> !d.isAfter(today))
+                .max(Comparator.naturalOrder())
+                .orElse(matchDates.get(0));
     }
 
     @PreAuthorize("hasRole('ADMIN')")
@@ -206,7 +302,7 @@ public class MatchController {
         try {
             matchService.addGoal(id, goalEventDto);
             redirectAttributes.addFlashAttribute("statusMessage", "Goal recorded.");
-            return "redirect:/matches";
+            return "redirect:/matches/" + id;
         } catch (InvalidGoalException e) {
             populateGoalFormModel(id, model);
             model.addAttribute("errorMessage", e.getMessage());
@@ -247,7 +343,7 @@ public class MatchController {
         try {
             matchService.updateGoal(goalId, goalEventDto);
             redirectAttributes.addFlashAttribute("statusMessage", "Goal updated.");
-            return "redirect:/matches";
+            return "redirect:/matches/" + id;
         } catch (InvalidGoalException e) {
             populateGoalFormModel(id, model);
             model.addAttribute("goalId", goalId);
@@ -262,7 +358,7 @@ public class MatchController {
                              RedirectAttributes redirectAttributes) {
         matchService.deleteGoal(goalId);
         redirectAttributes.addFlashAttribute("statusMessage", "Goal removed.");
-        return "redirect:/matches";
+        return "redirect:/matches/" + id;
     }
 
     private void populateGoalFormModel(UUID matchId, Model model) {

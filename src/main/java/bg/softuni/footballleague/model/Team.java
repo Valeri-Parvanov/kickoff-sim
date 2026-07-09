@@ -31,7 +31,7 @@ public class Team {
 
     @NotBlank
     @Size(max = 100)
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String name;
 
     @Size(max = 100)

@@ -9,6 +9,7 @@ import bg.softuni.footballleague.dto.TeamDto;
 import bg.softuni.footballleague.dto.TeamSquadPayload;
 import bg.softuni.footballleague.model.ChangeAction;
 import bg.softuni.footballleague.model.EntityType;
+import org.springframework.dao.DataIntegrityViolationException;
 import bg.softuni.footballleague.service.ChangeRequestService;
 import bg.softuni.footballleague.service.LeagueService;
 import bg.softuni.footballleague.service.MatchService;
@@ -195,15 +196,23 @@ public class TeamController {
         teamDto.setId(form.getTeamId());
 
         boolean executed;
-        if (filledRows.isEmpty()) {
-            executed = changeRequestService.submitOrExecute(
-                    EntityType.TEAM, ChangeAction.CREATE, teamDto, null, authentication);
-        } else {
-            TeamSquadPayload payload = new TeamSquadPayload();
-            payload.setTeam(teamDto);
-            payload.setPlayers(SquadRowValidator.toPlayers(form.getPlayers(), filledRows));
-            executed = changeRequestService.submitOrExecute(
-                    EntityType.TEAM_SQUAD, ChangeAction.CREATE, payload, null, authentication);
+        try {
+            if (filledRows.isEmpty()) {
+                executed = changeRequestService.submitOrExecute(
+                        EntityType.TEAM, ChangeAction.CREATE, teamDto, null, authentication);
+            } else {
+                TeamSquadPayload payload = new TeamSquadPayload();
+                payload.setTeam(teamDto);
+                payload.setPlayers(SquadRowValidator.toPlayers(form.getPlayers(), filledRows));
+                executed = changeRequestService.submitOrExecute(
+                        EntityType.TEAM_SQUAD, ChangeAction.CREATE, payload, null, authentication);
+            }
+        } catch (DataIntegrityViolationException e) {
+            bindingResult.rejectValue("name", "team.name.taken",
+                    "A team with this name already exists");
+            model.addAttribute("leagues", leagueService.findAll());
+            if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
+            return "teams/create";
         }
 
         if (fromRequest != null) changeRequestService.cancelIfPending(fromRequest, authentication);

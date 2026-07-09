@@ -22,6 +22,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
@@ -242,6 +244,23 @@ public class MatchServiceImpl implements MatchService {
         match.setPlayedAt(matchDto.getPlayedAt());
         match.setHomeScore(matchDto.getHomeScore() != null ? matchDto.getHomeScore() : 0);
         match.setAwayScore(matchDto.getAwayScore() != null ? matchDto.getAwayScore() : 0);
+    }
+
+    @Override
+    public List<LocalDate> findAllMatchDates() {
+        return matchRepository.findAllPlayedAtTimes().stream()
+                .map(LocalDateTime::toLocalDate)
+                .distinct()
+                .sorted()
+                .toList();
+    }
+
+    @Override
+    public List<MatchDto> findByDate(LocalDate date) {
+        return matchRepository.findByDateRange(
+                date.atStartOfDay(),
+                date.plusDays(1).atStartOfDay()
+        ).stream().map(this::toDto).toList();
     }
 
     private MatchDto toDto(Match match) {

@@ -9,6 +9,7 @@ import bg.softuni.footballleague.model.LeagueFormat;
 import bg.softuni.footballleague.model.Match;
 import bg.softuni.footballleague.model.Player;
 import bg.softuni.footballleague.model.Team;
+import bg.softuni.footballleague.repository.GoalRepository;
 import bg.softuni.footballleague.repository.LeagueRepository;
 import bg.softuni.footballleague.repository.MatchRepository;
 import bg.softuni.footballleague.repository.PlayerRepository;
@@ -47,6 +48,7 @@ public class ScheduleServiceImpl implements ScheduleService {
     private final LeagueRepository leagueRepository;
     private final MatchRepository matchRepository;
     private final PlayerRepository playerRepository;
+    private final GoalRepository goalRepository;
 
     @Override
     public void generate(UUID leagueId, LocalDate startDate, LocalTime startTime) {
@@ -127,11 +129,9 @@ public class ScheduleServiceImpl implements ScheduleService {
                     match.setAwayScore(0);
                     match.setRoundNumber(roundNumber);
 
-                    if (match.getPlayedAt().isBefore(LocalDateTime.now().minusMinutes(50))) {
-                        simulateResult(match,
-                                playersByTeam.getOrDefault(home.getId(), List.of()),
-                                playersByTeam.getOrDefault(away.getId(), List.of()));
-                    }
+                    simulateResult(match,
+                            playersByTeam.getOrDefault(home.getId(), List.of()),
+                            playersByTeam.getOrDefault(away.getId(), List.of()));
 
                     allMatches.add(match);
                 }
@@ -142,6 +142,12 @@ public class ScheduleServiceImpl implements ScheduleService {
         }
 
         matchRepository.saveAll(allMatches);
+        List<Goal> allGoals = allMatches.stream()
+                .flatMap(m -> m.getGoals().stream())
+                .toList();
+        if (!allGoals.isEmpty()) {
+            goalRepository.saveAll(allGoals);
+        }
         log.info("Generated {} matches ({} rounds) for league '{}'",
                 allMatches.size(), format.getTotalRounds(), league.getName());
     }
@@ -151,15 +157,19 @@ public class ScheduleServiceImpl implements ScheduleService {
     @CacheEvict(value = "leagues", allEntries = true)
     public void simulatePastMatches() {
         LocalDateTime to = LocalDateTime.now().minusMinutes(50);
-        List<Match> candidates = matchRepository.findZeroZeroMatchesBefore(to);
+        List<Match> candidates = matchRepository.findGoallessBefore(to);
         int count = 0;
+        List<Goal> allNewGoals = new ArrayList<>();
         for (Match match : candidates) {
-            if (!match.getGoals().isEmpty()) continue;
             List<Player> homePlayers = playerRepository.findAllByTeam(match.getHomeTeam());
             List<Player> awayPlayers = playerRepository.findAllByTeam(match.getAwayTeam());
             simulateResult(match, homePlayers, awayPlayers);
             matchRepository.save(match);
+            allNewGoals.addAll(match.getGoals());
             count++;
+        }
+        if (!allNewGoals.isEmpty()) {
+            goalRepository.saveAll(allNewGoals);
         }
         if (count > 0) {
             log.info("Auto-simulated {} match result(s)", count);
@@ -176,29 +186,39 @@ public class ScheduleServiceImpl implements ScheduleService {
         int awayGoals = total - homeGoals;
         match.setHomeScore(homeGoals);
         match.setAwayScore(awayGoals);
-        addGoals(match, homePlayers, homeGoals);
-        addGoals(match, awayPlayers, awayGoals);
+        addGoals(match, homePlayers, awayPlayers, homeGoals);
+        addGoals(match, awayPlayers, homePlayers, awayGoals);
     }
 
-    private void addGoals(Match match, List<Player> players, int count) {
-        if (count == 0 || players.isEmpty()) return;
+    private void addGoals(Match match, List<Player> scoringPlayers, List<Player> concedingPlayers, int count) {
+        if (count == 0 || scoringPlayers.isEmpty()) return;
         ThreadLocalRandom rng = ThreadLocalRandom.current();
         for (int i = 0; i < count; i++) {
             boolean firstHalf = rng.nextBoolean();
             int minute = rng.nextInt(1, 21);
-            Player scorer = players.get(rng.nextInt(players.size()));
+
+            boolean isOwnGoal = !concedingPlayers.isEmpty() && rng.nextInt(100) < 8;
+            boolean isPenalty = !isOwnGoal && rng.nextInt(100) < 12;
+
+            Player scorer = isOwnGoal
+                    ? concedingPlayers.get(rng.nextInt(concedingPlayers.size()))
+                    : scoringPlayers.get(rng.nextInt(scoringPlayers.size()));
+
             Player assistant = null;
-            if (players.size() > 1 && rng.nextInt(10) < 6) {
+            if (!isOwnGoal && !isPenalty && scoringPlayers.size() > 1 && rng.nextInt(10) < 6) {
                 do {
-                    assistant = players.get(rng.nextInt(players.size()));
+                    assistant = scoringPlayers.get(rng.nextInt(scoringPlayers.size()));
                 } while (assistant.getId().equals(scorer.getId()));
             }
+
             Goal goal = new Goal();
             goal.setMatch(match);
             goal.setScorer(scorer);
             goal.setAssistant(assistant);
             goal.setMinute(minute);
             goal.setHalf(firstHalf ? Half.FIRST : Half.SECOND);
+            goal.setOwnGoal(isOwnGoal);
+            goal.setPenalty(isPenalty);
             match.getGoals().add(goal);
         }
     }
