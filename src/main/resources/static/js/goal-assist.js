@@ -1,6 +1,9 @@
 (function () {
     var scorer = document.getElementById('scorerId');
     var assist = document.getElementById('assistantId');
+    var ownGoalCb = document.getElementById('ownGoal');
+    var penaltyCb = document.getElementById('penalty');
+    var assistWrap = document.getElementById('assistWrap');
     if (!scorer || !assist) {
         return;
     }
@@ -12,8 +15,16 @@
     }
 
     function refresh() {
-        var team = selectedTeam(scorer);
+        var isOwnGoal = ownGoalCb && ownGoalCb.checked;
+        var isPenalty = penaltyCb && penaltyCb.checked;
+        if (isOwnGoal || isPenalty) {
+            if (assistWrap) assistWrap.style.display = 'none';
+            assist.value = '';
+            return;
+        }
+        if (assistWrap) assistWrap.style.display = '';
 
+        var team = selectedTeam(scorer);
         for (var i = 0; i < assist.options.length; i++) {
             var opt = assist.options[i];
             var optTeam = opt.getAttribute('data-team');
@@ -39,5 +50,7 @@
     }
 
     scorer.addEventListener('change', refresh);
+    if (ownGoalCb) ownGoalCb.addEventListener('change', refresh);
+    if (penaltyCb) penaltyCb.addEventListener('change', refresh);
     refresh();
 })();

@@ -50,7 +50,7 @@
         <span style="color:red" th:if="${#fields.hasErrors('scorerId')}" th:errors="*{scorerId}"></span>
     </div>
 
-    <div>
+    <div id="assistWrap">
         <label for="assistantId">Assist <span class="field-hint" style="display:inline">(optional, same team as scorer)</span></label>
         <select id="assistantId" th:field="*{assistantId}">
             <option value="">-- no assist --</option>
@@ -65,6 +65,17 @@
                         th:text="${p.shirtNumber} + '. ' + ${p.firstName} + ' ' + ${p.lastName}"></option>
             </optgroup>
         </select>
+    </div>
+
+    <div class="goal-flags">
+        <label class="goal-flag-label">
+            <input type="checkbox" id="ownGoal" th:field="*{ownGoal}"/>
+            Own goal (автогол)
+        </label>
+        <label class="goal-flag-label">
+            <input type="checkbox" th:field="*{penalty}"/>
+            Penalty (дузпа)
+        </label>
     </div>
 
     <button type="submit">Save Goal</button>

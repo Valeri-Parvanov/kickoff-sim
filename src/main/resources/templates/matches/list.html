@@ -32,9 +32,46 @@
                     th:selected="${d.equals(selectedDate)}"></option>
         </select>
     </form>
-    <a th:href="@{/matches}" th:if="${selectedLeague != null or selectedDate != null}" class="ls-clear-filter">&#10005; Clear filters</a>
+    <span th:if="${selectedTeam != null}" class="ls-team-chip">
+        <span th:text="${selectedTeamName}"></span>
+        <a th:href="@{/matches(league=${selectedLeague},date=${selectedDate})}" class="ls-chip-clear">&#10005;</a>
+    </span>
+    <a th:href="@{/matches}" th:if="${selectedLeague != null or selectedDate != null or selectedTeam != null}" class="ls-clear-filter">&#10005; Clear filters</a>
     <div style="margin-left:auto;" sec:authorize="hasRole('ADMIN')">
         <a th:href="@{/matches/form}" class="btn-add">Add new match</a>
+    </div>
+</div>
+
+<!-- ── TEAM STANDINGS PANEL ── -->
+<div th:if="${teamStandings != null and not #lists.isEmpty(teamStandings.?[played > 0])}"
+     class="team-standings-panel">
+    <div class="standings-panel-header">
+        Standings &mdash;
+        <a th:href="@{/leagues/{id}(id=${teamLeagueId})}" th:text="${teamLeagueName}"></a>
+    </div>
+    <div class="table-wrapper">
+        <table border="1" cellpadding="6">
+            <thead>
+                <tr><th>#</th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GD</th><th>Pts</th></tr>
+            </thead>
+            <tbody>
+                <tr th:each="row, stat : ${teamStandings}"
+                    th:classappend="${row.teamId != null and row.teamId == selectedTeam} ? 'standings-highlight' : ''">
+                    <td th:text="${stat.index + 1}"></td>
+                    <td>
+                        <img th:src="@{/teams/{id}/logo(id=${row.teamId})}" class="team-logo-sm" alt=""/>
+                        <a th:href="@{/teams/{id}(id=${row.teamId})}"
+                           th:text="${row.teamName + (row.teamCity != null ? ' (' + row.teamCity + ')' : '')}"></a>
+                    </td>
+                    <td th:text="${row.played}"></td>
+                    <td th:text="${row.wins}"></td>
+                    <td th:text="${row.draws}"></td>
+                    <td th:text="${row.losses}"></td>
+                    <td th:text="${row.goalDiff}"></td>
+                    <td><strong th:text="${row.points}"></strong></td>
+                </tr>
+            </tbody>
+        </table>
     </div>
 </div>
 
@@ -51,12 +88,16 @@
             <details class="match-card">
                 <summary class="match-card-summary">
                     <div class="match-meta">
-                        <span class="match-league-tag" th:if="${match.leagueName}" th:text="${match.leagueName}"></span>
+                        <a class="match-league-tag" th:if="${match.leagueId != null}"
+                           th:href="@{/leagues/{id}(id=${match.leagueId})}"
+                           th:text="${match.leagueName}"></a>
                         <span class="match-date" th:text="${#temporals.format(match.playedAt, 'dd MMM yyyy, HH:mm')}"></span>
                     </div>
                     <div class="match-scoreline">
-                        <span class="team-name home"
-                              th:text="${match.homeTeamName + (match.homeTeamCity != null ? ' (' + match.homeTeamCity + ')' : '')}"></span>
+                        <a class="team-name home" th:href="@{/teams/{id}(id=${match.homeTeamId})}">
+                            <span th:text="${match.homeTeamName + (match.homeTeamCity != null ? ' (' + match.homeTeamCity + ')' : '')}"></span>
+                            <img th:src="@{/teams/{id}/logo(id=${match.homeTeamId})}" class="match-logo" alt=""/>
+                        </a>
                         <div class="score-block" th:if="${!match.playedAt.isAfter(liveThreshold)}">
                             <div class="score-main"
                                  th:text="${match.homeScore != null ? match.homeScore : '-'} + ' : ' + ${match.awayScore != null ? match.awayScore : '-'}"></div>
@@ -70,8 +111,10 @@
                             <div class="live-badge">LIVE</div>
                             <div class="live-minute"></div>
                         </div>
-                        <span class="team-name away"
-                              th:text="${match.awayTeamName + (match.awayTeamCity != null ? ' (' + match.awayTeamCity + ')' : '')}"></span>
+                        <a class="team-name away" th:href="@{/teams/{id}(id=${match.awayTeamId})}">
+                            <img th:src="@{/teams/{id}/logo(id=${match.awayTeamId})}" class="match-logo" alt=""/>
+                            <span th:text="${match.awayTeamName + (match.awayTeamCity != null ? ' (' + match.awayTeamCity + ')' : '')}"></span>
+                        </a>
                     </div>
                     <div class="match-expand-hint">&#9662; details</div>
                 </summary>
@@ -96,6 +139,8 @@
                                         <span class="goal-minute" th:if="${g.minute != null}"
                                               th:text="${(g.half.name() == 'FIRST' ? g.minute : g.minute + 20)} + '\'' + ' '"></span>
                                         <span th:text="${g.scorerName}"></span>
+                                        <span class="goal-type-badge og" th:if="${g.ownGoal}">OG</span>
+                                        <span class="goal-type-badge pen" th:if="${g.penalty}">pen.</span>
                                         <span class="goal-assist" th:if="${g.assistantName != null}"
                                               th:text="' (' + ${g.assistantName} + ')'"></span>
                                         <span class="running-score"
@@ -121,6 +166,8 @@
                                         <span class="goal-assist" th:if="${g.assistantName != null}"
                                               th:text="'(' + ${g.assistantName} + ') '"></span>
                                         <span th:text="${g.scorerName}"></span>
+                                        <span class="goal-type-badge og" th:if="${g.ownGoal}">OG</span>
+                                        <span class="goal-type-badge pen" th:if="${g.penalty}">pen.</span>
                                         <span class="goal-minute" th:if="${g.minute != null}"
                                               th:text="' ' + ${(g.half.name() == 'FIRST' ? g.minute : g.minute + 20)} + '\''"></span>
                                         <span class="goal-icon">&#9917;</span>
@@ -155,17 +202,23 @@
 
             <div class="match-card upcoming">
                 <div class="match-meta">
-                    <span class="match-league-tag" th:if="${match.leagueName}" th:text="${match.leagueName}"></span>
+                    <a class="match-league-tag" th:if="${match.leagueId != null}"
+                       th:href="@{/leagues/{id}(id=${match.leagueId})}"
+                       th:text="${match.leagueName}"></a>
                 </div>
                 <div class="match-scoreline">
-                    <span class="team-name home"
-                          th:text="${match.homeTeamName + (match.homeTeamCity != null ? ' (' + match.homeTeamCity + ')' : '')}"></span>
+                    <a class="team-name home" th:href="@{/teams/{id}(id=${match.homeTeamId})}">
+                        <span th:text="${match.homeTeamName + (match.homeTeamCity != null ? ' (' + match.homeTeamCity + ')' : '')}"></span>
+                        <img th:src="@{/teams/{id}/logo(id=${match.homeTeamId})}" class="match-logo" alt=""/>
+                    </a>
                     <div class="score-block">
                         <div class="upcoming-time" th:text="${#temporals.format(match.playedAt, 'HH:mm')}"></div>
                         <div class="upcoming-date" th:text="${#temporals.format(match.playedAt, 'dd MMM yyyy')}"></div>
                     </div>
-                    <span class="team-name away"
-                          th:text="${match.awayTeamName + (match.awayTeamCity != null ? ' (' + match.awayTeamCity + ')' : '')}"></span>
+                    <a class="team-name away" th:href="@{/teams/{id}(id=${match.awayTeamId})}">
+                        <img th:src="@{/teams/{id}/logo(id=${match.awayTeamId})}" class="match-logo" alt=""/>
+                        <span th:text="${match.awayTeamName + (match.awayTeamCity != null ? ' (' + match.awayTeamCity + ')' : '')}"></span>
+                    </a>
                 </div>
             </div>
 
@@ -174,7 +227,7 @@
 </div>
 
 <p th:if="${upcomingMatches.isEmpty() and recentMatches.isEmpty()}" class="no-matches">
-    No matches found<span th:if="${selectedLeague != null or selectedDate != null}"> for the selected filters</span>.
+    No matches found<span th:if="${selectedLeague != null or selectedDate != null or selectedTeam != null}"> for the selected filters</span>.
 </p>
 
 </main>

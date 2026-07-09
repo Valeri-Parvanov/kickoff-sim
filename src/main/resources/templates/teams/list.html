@@ -14,9 +14,8 @@
 <div th:replace="~{fragments/topbar :: topbar}"></div>
 
 <main class="page">
+<div th:replace="~{fragments/topbar :: messages}"></div>
 <h1>&#128737; Teams</h1>
-
-<p th:if="${statusMessage}" th:text="${statusMessage}" class="status-message"></p>
 
 <div class="add-new-bar" sec:authorize="isAuthenticated()">
     <a th:href="@{/teams/form}" class="btn-add">Add new team</a>
@@ -29,6 +28,7 @@
         <th th:replace="~{fragments/sortable :: sortTh('/teams', 'name', 'Name')}"></th>
         <th th:replace="~{fragments/sortable :: sortTh('/teams', 'city', 'City')}"></th>
         <th th:replace="~{fragments/sortable :: sortTh('/teams', 'league', 'League')}"></th>
+        <th>Players</th>
         <th sec:authorize="isAuthenticated()">Actions</th>
     </tr>
     </thead>
@@ -36,7 +36,13 @@
     <tr th:each="team : ${teams}">
         <td><a th:href="@{/teams/{id}(id=${team.id})}" th:text="${team.name}" class="entity-link"></a></td>
         <td th:text="${team.city}"></td>
-        <td th:text="${team.leagueName}"></td>
+        <td>
+            <a th:if="${team.leagueId != null}"
+               th:href="@{/leagues/{id}(id=${team.leagueId})}"
+               th:text="${team.leagueName}" class="entity-link"></a>
+            <span th:if="${team.leagueId == null}">—</span>
+        </td>
+        <td th:text="${team.playerCount}"></td>
         <td sec:authorize="isAuthenticated()">
             <a th:href="@{/teams/{id}/squad(id=${team.id})}">Add squad</a>
             <span sec:authorize="hasRole('ADMIN')">
