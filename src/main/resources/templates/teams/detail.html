@@ -93,12 +93,14 @@
             </thead>
             <tbody>
                 <tr th:each="row, stat : ${leagueStandings}"
-                    th:classappend="${row.teamId != null and row.teamId == team.id} ? 'standings-highlight' : ''">
+                    th:classappend="${row.teamId != null and row.teamId == team.id} ? 'standings-highlight' : ''"
+                    th:attr="data-team-id=${row.teamId}">
                     <td th:text="${stat.index + 1}"></td>
                     <td>
                         <img th:src="@{/teams/{id}/logo(id=${row.teamId})}" class="team-logo-sm" alt=""/>
                         <a th:href="@{/teams/{id}(id=${row.teamId})}"
                            th:text="${row.teamName + (row.teamCity != null ? ' (' + row.teamCity + ')' : '')}"></a>
+                        <span class="standings-live-badge" style="display:none"><span class="slb-label">LIVE</span><span class="slb-score"></span></span>
                     </td>
                     <td th:text="${row.played}"></td>
                     <td th:text="${row.wins}"></td>
@@ -138,7 +140,14 @@
                                 <span th:text="${m.homeTeamName + (m.homeTeamCity != null ? ' (' + m.homeTeamCity + ')' : '')}"></span>
                                 <img th:src="@{/teams/{id}/logo(id=${m.homeTeamId})}" class="match-logo" alt=""/>
                             </a>
-                            <div class="score-block">
+                            <div class="score-block"
+                                 th:if="${m.playedAt.isAfter(liveThreshold)}"
+                                 th:attr="data-kickoff=${#temporals.format(m.playedAt, 'yyyy-MM-dd HH:mm:ss')},data-match-id=${m.id}">
+                                <div class="ls-score-main"><span class="ls-h">-</span>&thinsp;:&thinsp;<span class="ls-a">-</span></div>
+                                <div class="live-badge">LIVE</div>
+                                <div class="live-minute"></div>
+                            </div>
+                            <div class="score-block" th:unless="${m.playedAt.isAfter(liveThreshold)}">
                                 <div class="score-main" th:text="${m.homeScore} + ' : ' + ${m.awayScore}"></div>
                                 <div class="score-ht"
                                      th:if="${m.homeHalfScore != null}"
@@ -262,6 +271,78 @@
         });
     });
 }());
+</script>
+<script th:inline="javascript">
+(function() {
+    var liveData = /*[[${liveMatchesForJs}]]*/ [];
+    if (!liveData.length) return;
+
+    function getLiveState(kickoffStr, goals) {
+        var kickoff = new Date(kickoffStr.replace(' ', 'T'));
+        var realMin = Math.floor((Date.now() - kickoff.getTime()) / 60000);
+        if (realMin < 0) return { phase: 'PRE', homeScore: 0, awayScore: 0, displayMin: '' };
+        var phase, maxMin, displayMin;
+        if      (realMin <= 20) { phase = 'FIRST';  maxMin = realMin;      displayMin = realMin + "'"; }
+        else if (realMin <= 25) { phase = 'HT';     maxMin = 20;           displayMin = 'HT'; }
+        else if (realMin <= 45) { phase = 'SECOND'; maxMin = realMin - 25; displayMin = (20 + (realMin - 25)) + "'"; }
+        else                    { phase = 'FT';     maxMin = 20;           displayMin = 'FT'; }
+        var hs = 0, as_ = 0;
+        for (var i = 0; i < goals.length; i++) {
+            var g = goals[i];
+            if (g.half === 'FIRST') {
+                if ((phase === 'FIRST' && g.minute <= maxMin) ||
+                    phase === 'HT' || phase === 'SECOND' || phase === 'FT') {
+                    hs = g.rh; as_ = g.ra;
+                }
+            } else if (g.half === 'SECOND') {
+                var secMax = (phase === 'SECOND') ? maxMin : (phase === 'FT' ? 20 : -1);
+                if (secMax >= 0 && g.minute <= secMax) { hs = g.rh; as_ = g.ra; }
+            }
+        }
+        return { phase: phase, homeScore: hs, awayScore: as_, displayMin: displayMin };
+    }
+
+    function updateLive() {
+        var stateById = {};
+        liveData.forEach(function(m) {
+            stateById[m.id] = { st: getLiveState(m.kickoff, m.goals), homeTeamId: m.homeTeamId, awayTeamId: m.awayTeamId };
+        });
+
+        Object.keys(stateById).forEach(function(mId) {
+            var entry = stateById[mId];
+            var st = entry.st;
+            [[entry.homeTeamId, true], [entry.awayTeamId, false]].forEach(function(pair) {
+                var tid = pair[0], isHome = pair[1];
+                var row = document.querySelector('tr[data-team-id="' + tid + '"]');
+                if (!row) return;
+                var badge = row.querySelector('.standings-live-badge');
+                if (!badge) return;
+                if (st.phase === 'PRE' || st.phase === 'FT') { badge.style.display = 'none'; return; }
+                var my = isHome ? st.homeScore : st.awayScore;
+                var opp = isHome ? st.awayScore : st.homeScore;
+                badge.querySelector('.slb-score').textContent = my + ':' + opp;
+                badge.style.display = '';
+                row.classList.remove('sl-winning', 'sl-drawing', 'sl-losing');
+                row.classList.add(my > opp ? 'sl-winning' : my < opp ? 'sl-losing' : 'sl-drawing');
+            });
+        });
+
+        document.querySelectorAll('[data-kickoff]').forEach(function(el) {
+            var mId = el.getAttribute('data-match-id');
+            if (!mId || !stateById[mId]) return;
+            var st = stateById[mId].st;
+            var hEl = el.querySelector('.ls-h');
+            var aEl = el.querySelector('.ls-a');
+            var minEl = el.querySelector('.live-minute');
+            if (hEl) hEl.textContent = st.homeScore;
+            if (aEl) aEl.textContent = st.awayScore;
+            if (minEl) minEl.textContent = st.displayMin;
+        });
+    }
+
+    updateLive();
+    setInterval(updateLive, 30000);
+})();
 </script>
 
 </main>

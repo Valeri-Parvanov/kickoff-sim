@@ -20,6 +20,7 @@
         .home-brand {
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 0.6rem;
             font-family: 'Poppins', sans-serif;
             font-size: 2.6rem;
@@ -117,6 +118,17 @@
             text-decoration: none;
         }
         .home-auth-row a:hover { text-decoration: underline; }
+        .home-account-hint {
+            background: rgba(234, 179, 8, 0.12);
+            border: 1px solid rgba(234, 179, 8, 0.45);
+            border-radius: 8px;
+            padding: 0.65rem 1.1rem;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--fg);
+            text-align: center;
+            width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -135,7 +147,14 @@
             </p>
         </div>
 
-        <div class="home-cta">
+        <div class="home-account-hint" sec:authorize="!isAuthenticated()">
+            &#128274; An account is required to use Kickoff Sim. Sign up — it's free.
+        </div>
+        <div class="home-cta" sec:authorize="!isAuthenticated()">
+            <a th:href="@{/login}" class="btn-hero btn-hero-primary">Login</a>
+            <a th:href="@{/register}" class="btn-hero btn-hero-secondary">Register</a>
+        </div>
+        <div class="home-cta" sec:authorize="isAuthenticated()">
             <a th:href="@{/leagues}" class="btn-hero btn-hero-primary">&#127942; Leagues</a>
             <a th:href="@{/matches}" class="btn-hero btn-hero-secondary">&#9917; Matches</a>
             <a th:href="@{/teams}" class="btn-hero btn-hero-secondary">&#128101; Teams</a>
@@ -159,23 +178,6 @@
                 <div class="home-feature-title">Live Scores</div>
                 <div class="home-feature-desc">Watch matches unfold in real time with minute-by-minute goal updates.</div>
             </a>
-        </div>
-
-        <hr class="home-divider"/>
-
-        <div sec:authorize="!isAuthenticated()" style="width:100%;max-width:340px;margin:0 auto;">
-            <form th:action="@{/login}" method="post" style="display:flex;flex-direction:column;gap:0.6rem;">
-                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-                <input type="text" name="username" placeholder="Username"
-                       style="padding:0.55rem 0.8rem;border:1px solid var(--border,#ddd);border-radius:7px;font-size:0.95rem;box-sizing:border-box;"/>
-                <input type="password" name="password" placeholder="Password"
-                       style="padding:0.55rem 0.8rem;border:1px solid var(--border,#ddd);border-radius:7px;font-size:0.95rem;box-sizing:border-box;"/>
-                <button type="submit" class="btn-hero btn-hero-primary"
-                        style="padding:0.6rem 1rem;font-size:0.95rem;border:none;cursor:pointer;border-radius:7px;">Login</button>
-            </form>
-            <p style="text-align:center;margin:0.75rem 0 0;font-size:0.87rem;color:var(--muted);">
-                Don't have an account? <a th:href="@{/register}" style="color:var(--pitch);font-weight:600;text-decoration:none;">Register</a>
-            </p>
         </div>
 
         <div class="home-auth-row" sec:authorize="isAuthenticated()">

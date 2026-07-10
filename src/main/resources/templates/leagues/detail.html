@@ -58,8 +58,8 @@
 
 <!-- ── STANDINGS ── -->
 <section id="standings" class="team-tab-section">
-    <div th:if="${#lists.isEmpty(league.standings.?[played > 0])}" class="no-matches">No results recorded yet.</div>
-    <div class="table-wrapper" th:if="${!#lists.isEmpty(league.standings.?[played > 0])}">
+    <div th:if="${#lists.isEmpty(league.standings)}" class="no-matches">No teams in this league yet.</div>
+    <div class="table-wrapper" th:if="${!#lists.isEmpty(league.standings)}">
         <table border="1" cellpadding="6">
             <thead>
             <tr>
@@ -394,7 +394,14 @@ function updateLive() {
                     if (show && rHalf === 'SECOND') anySecondVis = true;
                 });
                 details.querySelectorAll('.half-label').forEach(function(hl) {
-                    hl.style.display = (hl.getAttribute('data-half') === 'FIRST' ? anyFirstVis : anySecondVis) ? '' : 'none';
+                    var halfName = hl.getAttribute('data-half');
+                    hl.style.display = (halfName === 'FIRST' ? anyFirstVis : anySecondVis) ? '' : 'none';
+                    var scoreSpan = hl.querySelector('.half-score');
+                    if (scoreSpan) {
+                        var halfDone = (halfName === 'FIRST' && (st.phase === 'HT' || st.phase === 'SECOND' || st.phase === 'FT')) ||
+                                       (halfName === 'SECOND' && st.phase === 'FT');
+                        scoreSpan.style.display = halfDone ? '' : 'none';
+                    }
                 });
             }
         } else {

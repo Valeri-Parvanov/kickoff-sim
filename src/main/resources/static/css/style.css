@@ -394,6 +394,20 @@ td a {
     margin-bottom: 1rem;
 }
 
+.warn-message {
+    background: rgba(234, 179, 8, 0.12);
+    border: 2px solid rgba(234, 179, 8, 0.7);
+    color: #78540a;
+    padding: 1rem 1.25rem;
+    border-radius: var(--radius-md);
+    margin-bottom: 1.25rem;
+    font-size: 1.05rem;
+    font-weight: 600;
+    line-height: 1.45;
+}
+@media (prefers-color-scheme: dark) { .warn-message { color: #fde68a; } }
+:root[data-theme="dark"] .warn-message { color: #fde68a; }
+
 .error-message {
     background: #fdeaec;
     border: 1px solid #f3b8c0;

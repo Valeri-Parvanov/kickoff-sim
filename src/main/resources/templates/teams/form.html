@@ -37,15 +37,6 @@
         <span style="color:red" th:if="${#fields.hasErrors('city')}" th:errors="*{city}"></span>
     </div>
 
-    <div>
-        <label for="leagueId">League <span style="font-weight:400;font-size:0.85rem;">(optional)</span></label>
-        <select id="leagueId" th:field="*{leagueId}">
-            <option value="">-- no league --</option>
-            <option th:each="league : ${leagues}" th:value="${league.id}" th:text="${league.name}"></option>
-        </select>
-        <span style="color:red" th:if="${#fields.hasErrors('leagueId')}" th:errors="*{leagueId}"></span>
-    </div>
-
     <button type="submit">Save</button>
 </form>
 

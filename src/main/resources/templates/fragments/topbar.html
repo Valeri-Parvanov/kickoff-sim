@@ -32,6 +32,7 @@
 
 <th:block th:fragment="messages">
     <div th:if="${statusMessage}" class="status-message" th:text="${statusMessage}"></div>
+    <div th:if="${warnMessage}" class="warn-message" th:text="${warnMessage}"></div>
     <div th:if="${errorMessage}" class="error-message" th:text="${errorMessage}"></div>
     <div th:if="${scheduleError}" class="error-message" th:text="${scheduleError}"></div>
 </th:block>

@@ -188,12 +188,21 @@ public class LeagueController {
 
     @GetMapping("/form")
     public String createForm(@RequestParam(required = false) UUID fromRequest, Model model,
-                              Authentication authentication) {
+                              Authentication authentication, RedirectAttributes redirectAttributes) {
+        var freeTeams = teamService.findAllFree();
+        long eligibleCount = freeTeams.stream().filter(t -> t.getPlayerCount() >= 6).count();
+        if (fromRequest == null && eligibleCount < 6) {
+            redirectAttributes.addFlashAttribute("warnMessage",
+                    "A league requires at least 6 teams with 6+ players. " +
+                    "You currently have " + eligibleCount + " eligible team(s). Create teams first.");
+            return "redirect:/teams/form";
+        }
         LeagueDto leagueDto = fromRequest != null
                 ? (LeagueDto) changeRequestService.getPayloadForResubmit(fromRequest, authentication)
                 : new LeagueDto();
         model.addAttribute("leagueDto", leagueDto);
-        model.addAttribute("availableTeams", teamService.findAllFree());
+        model.addAttribute("availableTeams", freeTeams);
+        model.addAttribute("eligibleCount", eligibleCount);
         if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
         return "leagues/form";
     }
@@ -202,6 +211,9 @@ public class LeagueController {
     public String create(@Valid @ModelAttribute("leagueDto") LeagueDto leagueDto, BindingResult bindingResult,
                           @RequestParam(required = false) UUID fromRequest,
                           Authentication authentication, RedirectAttributes redirectAttributes, Model model) {
+        if (leagueDto.getName() == null || leagueDto.getName().isBlank()) {
+            bindingResult.rejectValue("name", "NotBlank", "League name is required.");
+        }
         if (leagueDto.getTeamIds() == null || leagueDto.getTeamIds().isEmpty()) {
             bindingResult.reject("league.teams.required", "Please select at least one team.");
         } else if (LeagueFormat.forTeamCount(leagueDto.getTeamIds().size()).isEmpty()) {
@@ -223,7 +235,9 @@ public class LeagueController {
             }
         }
         if (bindingResult.hasErrors()) {
-            model.addAttribute("availableTeams", teamService.findAllFree());
+            var freeTeams = teamService.findAllFree();
+            model.addAttribute("availableTeams", freeTeams);
+            model.addAttribute("eligibleCount", freeTeams.stream().filter(t -> t.getPlayerCount() >= 6).count());
             if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
             return "leagues/form";
         }
@@ -231,6 +245,23 @@ public class LeagueController {
         boolean executed = changeRequestService.submitOrExecute(
                 EntityType.LEAGUE, ChangeAction.CREATE, leagueDto, null, authentication);
         if (fromRequest != null) changeRequestService.cancelIfPending(fromRequest, authentication);
+
+        if (executed && leagueDto.getScheduleStartDate() != null && leagueDto.getScheduleStartTime() != null) {
+            UUID newId = leagueService.findAll().stream()
+                    .filter(l -> leagueDto.getName().equals(l.getName()))
+                    .map(LeagueDto::getId)
+                    .findFirst().orElse(null);
+            if (newId != null) {
+                try {
+                    scheduleService.generate(newId, leagueDto.getScheduleStartDate(), leagueDto.getScheduleStartTime());
+                    redirectAttributes.addFlashAttribute("statusMessage", "League created and schedule generated.");
+                } catch (InvalidLeagueOperationException ex) {
+                    redirectAttributes.addFlashAttribute("statusMessage", "League created. " + ex.getMessage());
+                }
+                return "redirect:/leagues/" + newId + "#schedule";
+            }
+        }
+
         redirectAttributes.addFlashAttribute("statusMessage",
                 executed ? "League created." : "Submitted for admin approval.");
         return "redirect:/leagues";

@@ -85,12 +85,38 @@ public class TeamController {
         model.addAttribute("players", playerService.findAllByTeam(id));
         model.addAttribute("remainingSlots", playerService.squadRemainingSlots(id));
 
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime liveThreshold = now.minusMinutes(46);
+        model.addAttribute("now", now);
+        model.addAttribute("liveThreshold", liveThreshold);
+        model.addAttribute("liveMatchesForJs", List.of());
+
         if (team.getLeagueId() != null) {
             LeagueDetailView league = leagueService.findDetail(team.getLeagueId());
             model.addAttribute("leagueStandings", league.getStandings());
+
+            List<Map<String, Object>> liveMatchesForJs = league.getMatches().stream()
+                    .filter(m -> m.getPlayedAt().isBefore(now) && m.getPlayedAt().isAfter(liveThreshold))
+                    .map(m -> {
+                        List<Map<String, Object>> goals = m.getGoalTimeline().stream()
+                                .map(g -> Map.<String, Object>of(
+                                        "minute", g.getMinute() != null ? g.getMinute() : 0,
+                                        "half", g.getHalf() != null ? g.getHalf().name() : "FIRST",
+                                        "homeGoal", g.isHomeGoal(),
+                                        "rh", g.getRunningHomeScore() != null ? g.getRunningHomeScore() : 0,
+                                        "ra", g.getRunningAwayScore() != null ? g.getRunningAwayScore() : 0))
+                                .toList();
+                        return Map.<String, Object>of(
+                                "id", m.getId().toString(),
+                                "homeTeamId", m.getHomeTeamId().toString(),
+                                "awayTeamId", m.getAwayTeamId().toString(),
+                                "kickoff", m.getPlayedAt().toString(),
+                                "goals", goals);
+                    })
+                    .toList();
+            model.addAttribute("liveMatchesForJs", liveMatchesForJs);
         }
 
-        LocalDateTime now = LocalDateTime.now();
         List<MatchDto> all = matchService.findAll(Sort.by(Sort.Direction.ASC, "playedAt"));
         model.addAttribute("teamResults", all.stream()
                 .filter(m -> id.equals(m.getHomeTeamId()) || id.equals(m.getAwayTeamId()))
@@ -169,6 +195,9 @@ public class TeamController {
                           Model model, Authentication authentication, RedirectAttributes redirectAttributes) {
         List<Integer> filledRows =
                 SquadRowValidator.validate(form.getPlayers(), "players", Collections.emptySet(), bindingResult);
+        if (form.getTeamId() == null && filledRows.size() < 6) {
+            bindingResult.reject("squad.minimum", "A team must have at least 6 players.");
+        }
         if (filledRows.size() > MAX_SQUAD_SIZE) {
             bindingResult.reject("squad.capacity", "A team can have at most " + MAX_SQUAD_SIZE + " players.");
         }

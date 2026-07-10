@@ -234,9 +234,9 @@ public class ScheduleServiceImpl implements ScheduleService {
     }
 
     private void validateStartTime(LocalTime startTime, int matchesPerRound) {
-        if (startTime.getMinute() != 0 && startTime.getMinute() != 30) {
+        if (startTime.getMinute() % 15 != 0) {
             throw new InvalidLeagueOperationException(
-                    "Start time must be on the hour or half hour (e.g. 11:00 or 11:30).");
+                    "Start time must be on a 15-minute mark (e.g. 11:00, 11:15, 11:30, 11:45).");
         }
         if (startTime.isBefore(EARLIEST)) {
             throw new InvalidLeagueOperationException("Start time cannot be before 08:00.");

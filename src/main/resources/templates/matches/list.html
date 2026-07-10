@@ -412,7 +412,14 @@ function updateLiveMinutes() {
                     if (show && rHalf === 'SECOND') anySecondVis = true;
                 });
                 details.querySelectorAll('.half-label').forEach(function(hl) {
-                    hl.style.display = (hl.getAttribute('data-half') === 'FIRST' ? anyFirstVis : anySecondVis) ? '' : 'none';
+                    var halfName = hl.getAttribute('data-half');
+                    hl.style.display = (halfName === 'FIRST' ? anyFirstVis : anySecondVis) ? '' : 'none';
+                    var scoreSpan = hl.querySelector('.half-score');
+                    if (scoreSpan) {
+                        var halfDone = (halfName === 'FIRST' && (state.phase === 'HT' || state.phase === 'SECOND' || state.phase === 'FT')) ||
+                                       (halfName === 'SECOND' && state.phase === 'FT');
+                        scoreSpan.style.display = halfDone ? '' : 'none';
+                    }
                 });
             }
         } else {
