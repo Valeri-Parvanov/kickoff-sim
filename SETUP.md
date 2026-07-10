@@ -44,11 +44,22 @@ Projects** (the circular-arrows icon).
 ### 2. Start the database
 
 ```
-docker-compose up -d mysql
+docker compose up -d mysql
 ```
 
-This starts only the MySQL container on `localhost:3306` (database `football_league_manager`,
-root password `12345`). Data persists in a named Docker volume across restarts.
+This starts only the MySQL container, mapped to **`localhost:3307`** on the host (database
+`football_league_manager`, root password `12345`). The port is 3307 (not 3306) to avoid
+conflicts with a locally installed MySQL instance. Data persists in a named Docker volume across
+restarts.
+
+Make sure `src/main/resources/application.properties` has the matching URL:
+
+```
+spring.datasource.url=jdbc:mysql://localhost:3307/football_league_manager
+```
+
+If you have a local MySQL running on 3306 and prefer to use that instead, point the URL at 3306
+and skip the Docker step above.
 
 ### 3. Run the app
 
@@ -71,10 +82,10 @@ Open `http://localhost:8080`, register a user (the first one becomes `ADMIN`), a
 
 ## Troubleshooting: port already in use
 
-If `localhost:8080` or `localhost:3306` is already taken by a previous run, stop it first:
+If `localhost:8080` or `localhost:3307` is already taken by a previous run, stop it first:
 
 ```
-docker-compose down
+docker compose down
 ```
 
 and/or stop any leftover local `spring-boot:run` process before starting again.
