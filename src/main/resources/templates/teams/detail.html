@@ -244,7 +244,7 @@
 <script>
 (function () {
     function activate(hash) {
-        var h = hash || '#squad';
+        var h = hash || (document.querySelector('.team-tab[href="#standings"]') ? '#standings' : '#squad');
         document.querySelectorAll('.team-tab').forEach(function (t) {
             t.classList.toggle('active', t.getAttribute('href') === h);
         });

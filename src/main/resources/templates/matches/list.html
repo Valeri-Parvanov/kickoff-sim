@@ -25,21 +25,19 @@
             <option th:each="l : ${leagues}" th:value="${l.id}" th:text="${l.name}"
                     th:selected="${l.id != null and l.id.equals(selectedLeague)}"></option>
         </select>
-        <span class="ls-filter-label" style="margin-left:0.5rem;">Date</span>
-        <select name="date" class="ls-filter-select" onchange="this.form.submit()">
-            <option value="" th:selected="${selectedDate == null}">All dates</option>
-            <option th:each="d : ${matchDates}" th:value="${d}" th:text="${#temporals.format(d, 'dd MMM yyyy')}"
-                    th:selected="${d.equals(selectedDate)}"></option>
-        </select>
     </form>
     <span th:if="${selectedTeam != null}" class="ls-team-chip">
         <span th:text="${selectedTeamName}"></span>
-        <a th:href="@{/matches(league=${selectedLeague},date=${selectedDate})}" class="ls-chip-clear">&#10005;</a>
+        <a th:href="@{/matches(league=${selectedLeague})}" class="ls-chip-clear">&#10005;</a>
     </span>
     <a th:href="@{/matches}" th:if="${selectedLeague != null or selectedDate != null or selectedTeam != null}" class="ls-clear-filter">&#10005; Clear filters</a>
     <div style="margin-left:auto;" sec:authorize="hasRole('ADMIN')">
         <a th:href="@{/matches/form}" class="btn-add">Add new match</a>
     </div>
+</div>
+
+<div class="cal-container" th:if="${!matchDates.isEmpty()}">
+    <div id="matchCalendar" class="match-calendar"></div>
 </div>
 
 <!-- ── TEAM STANDINGS PANEL ── -->
@@ -75,8 +73,127 @@
     </div>
 </div>
 
+<!-- ── DATE FILTER: unified section ── -->
+<div th:if="${dateMatches != null}">
+    <div class="ls-section-header ls-date-header"
+         th:text="${#temporals.format(selectedDate, 'dd MMMM yyyy')}"></div>
+    <div class="match-list" th:if="${!dateMatches.isEmpty()}">
+        <th:block th:each="match : ${dateMatches}">
+
+            <details class="match-card" th:if="${!match.playedAt.isAfter(now)}">
+                <summary class="match-card-summary">
+                    <div class="match-meta">
+                        <a class="match-league-tag" th:if="${match.leagueId != null}"
+                           th:href="@{/leagues/{id}(id=${match.leagueId})}"
+                           th:text="${match.leagueName}"></a>
+                        <span class="match-date" th:text="${#temporals.format(match.playedAt, 'HH:mm')}"></span>
+                    </div>
+                    <div class="match-scoreline">
+                        <a class="team-name home" th:href="@{/teams/{id}(id=${match.homeTeamId})}">
+                            <span th:text="${match.homeTeamName + (match.homeTeamCity != null ? ' (' + match.homeTeamCity + ')' : '')}"></span>
+                            <img th:src="@{/teams/{id}/logo(id=${match.homeTeamId})}" class="match-logo" alt=""/>
+                        </a>
+                        <div class="score-block" th:if="${!match.playedAt.isAfter(liveThreshold)}">
+                            <div class="score-main"
+                                 th:text="${match.homeScore != null ? match.homeScore : '-'} + ' : ' + ${match.awayScore != null ? match.awayScore : '-'}"></div>
+                            <div class="score-ht"
+                                 th:if="${match.homeHalfScore != null}"
+                                 th:text="'HT ' + ${match.homeHalfScore} + ' – ' + ${match.awayHalfScore}"></div>
+                        </div>
+                        <div class="score-block"
+                             th:unless="${!match.playedAt.isAfter(liveThreshold)}"
+                             th:attr="data-kickoff=${#temporals.format(match.playedAt, 'yyyy-MM-dd HH:mm:ss')},data-match-id=${match.id}">
+                            <div class="ls-score-main"><span class="ls-h">-</span>&thinsp;:&thinsp;<span class="ls-a">-</span></div>
+                            <div class="live-badge">LIVE</div>
+                            <div class="live-minute"></div>
+                        </div>
+                        <a class="team-name away" th:href="@{/teams/{id}(id=${match.awayTeamId})}">
+                            <img th:src="@{/teams/{id}/logo(id=${match.awayTeamId})}" class="match-logo" alt=""/>
+                            <span th:text="${match.awayTeamName + (match.awayTeamCity != null ? ' (' + match.awayTeamCity + ')' : '')}"></span>
+                        </a>
+                    </div>
+                    <div class="match-expand-hint">&#9662; details</div>
+                </summary>
+                <div class="match-card-expand">
+                    <p th:if="${match.playedAt.isBefore(now) and !match.playedAt.isBefore(liveThreshold) and match.goalTimeline.isEmpty()}"
+                       style="font-size:0.82rem;color:var(--muted);margin:0.4rem 0 0;text-align:center;">Match in progress.</p>
+                    <div class="goal-timeline" th:if="${!match.goalTimeline.isEmpty()}">
+                        <th:block th:each="g : ${match.goalTimeline}">
+                            <div class="half-label" th:if="${g.firstInHalf}" th:attr="data-half=${g.half.name()}">
+                                <span th:text="${g.half.name() == 'FIRST' ? '1st Half' : '2nd Half'}"></span>
+                                <span class="half-score" th:if="${g.half.name() == 'FIRST'}"
+                                      th:text="${match.homeHalfScore} + ':' + ${match.awayHalfScore}"></span>
+                                <span class="half-score" th:unless="${g.half.name() == 'FIRST'}"
+                                      th:text="${match.homeScore - match.homeHalfScore} + ':' + ${match.awayScore - match.awayHalfScore}"></span>
+                            </div>
+                            <div class="timeline-row" th:attr="data-half=${g.half.name()},data-minute=${g.minute != null ? g.minute : 0}">
+                                <div class="tl-home">
+                                    <th:block th:if="${g.homeGoal}">
+                                        <span class="goal-icon">&#9917;</span>
+                                        <span class="goal-minute" th:if="${g.minute != null}"
+                                              th:text="${(g.half.name() == 'FIRST' ? g.minute : g.minute + 20)} + '\'' + ' '"></span>
+                                        <span class="goal-scorer-name" th:text="${g.scorerName}"></span>
+                                        <span class="goal-type-badge og" th:if="${g.ownGoal}">OG</span>
+                                        <span class="goal-type-badge pen" th:if="${g.penalty}">pen.</span>
+                                        <span class="goal-assist" th:if="${g.assistantName != null}"
+                                              th:text="' (' + ${g.assistantName} + ')'"></span>
+                                        <span class="running-score"
+                                              th:text="${g.runningHomeScore} + ':' + ${g.runningAwayScore}"></span>
+                                    </th:block>
+                                </div>
+                                <div class="tl-away">
+                                    <th:block th:unless="${g.homeGoal}">
+                                        <span class="running-score"
+                                              th:text="${g.runningHomeScore} + ':' + ${g.runningAwayScore}"></span>
+                                        <span class="goal-assist" th:if="${g.assistantName != null}"
+                                              th:text="'(' + ${g.assistantName} + ') '"></span>
+                                        <span class="goal-scorer-name" th:text="${g.scorerName}"></span>
+                                        <span class="goal-type-badge og" th:if="${g.ownGoal}">OG</span>
+                                        <span class="goal-type-badge pen" th:if="${g.penalty}">pen.</span>
+                                        <span class="goal-minute" th:if="${g.minute != null}"
+                                              th:text="' ' + ${(g.half.name() == 'FIRST' ? g.minute : g.minute + 20)} + '\''"></span>
+                                        <span class="goal-icon">&#9917;</span>
+                                    </th:block>
+                                </div>
+                            </div>
+                        </th:block>
+                    </div>
+                    <p th:if="${match.goalTimeline.isEmpty() and match.playedAt.isBefore(liveThreshold)}" style="font-size:0.82rem;color:var(--muted);margin:0.4rem 0 0;text-align:center;">
+                        No goals recorded.
+                    </p>
+                </div>
+            </details>
+
+            <div class="match-card upcoming" th:unless="${!match.playedAt.isAfter(now)}">
+                <div class="match-meta">
+                    <a class="match-league-tag" th:if="${match.leagueId != null}"
+                       th:href="@{/leagues/{id}(id=${match.leagueId})}"
+                       th:text="${match.leagueName}"></a>
+                    <span class="match-date" th:text="${#temporals.format(match.playedAt, 'HH:mm')}"></span>
+                </div>
+                <div class="match-scoreline">
+                    <a class="team-name home" th:href="@{/teams/{id}(id=${match.homeTeamId})}">
+                        <span th:text="${match.homeTeamName + (match.homeTeamCity != null ? ' (' + match.homeTeamCity + ')' : '')}"></span>
+                        <img th:src="@{/teams/{id}/logo(id=${match.homeTeamId})}" class="match-logo" alt=""/>
+                    </a>
+                    <div class="score-block">
+                        <div class="upcoming-time" th:text="${#temporals.format(match.playedAt, 'HH:mm')}"></div>
+                        <div class="upcoming-date" th:text="'Upcoming'"></div>
+                    </div>
+                    <a class="team-name away" th:href="@{/teams/{id}(id=${match.awayTeamId})}">
+                        <img th:src="@{/teams/{id}/logo(id=${match.awayTeamId})}" class="match-logo" alt=""/>
+                        <span th:text="${match.awayTeamName + (match.awayTeamCity != null ? ' (' + match.awayTeamCity + ')' : '')}"></span>
+                    </a>
+                </div>
+            </div>
+
+        </th:block>
+    </div>
+    <p th:if="${dateMatches.isEmpty()}" class="no-matches">No matches on this date.</p>
+</div>
+
 <!-- ── RESULTS ── -->
-<div th:if="${!recentMatches.isEmpty()}">
+<div th:if="${selectedDate == null and !recentMatches.isEmpty()}">
     <div class="ls-section-header ls-results-header">&#127955; Results</div>
     <div class="match-list">
         <th:block th:each="match, stat : ${recentMatches}">
@@ -145,22 +262,10 @@
                                               th:text="' (' + ${g.assistantName} + ')'"></span>
                                         <span class="running-score"
                                               th:text="${g.runningHomeScore} + ':' + ${g.runningAwayScore}"></span>
-                                        <span sec:authorize="hasRole('ADMIN')" style="margin-left:4px">
-                                            <a th:href="@{/matches/{mid}/goals/{gid}/form(mid=${match.id},gid=${g.id})}" class="btn-edit" style="font-size:0.75rem;padding:2px 8px">&#9998;</a>
-                                            <form th:action="@{/matches/{mid}/goals/{gid}(mid=${match.id},gid=${g.id})}" th:method="delete" style="display:inline">
-                                                <button type="submit" class="btn-del" style="font-size:0.75rem;padding:2px 8px">&#10005;</button>
-                                            </form>
-                                        </span>
                                     </th:block>
                                 </div>
                                 <div class="tl-away">
                                     <th:block th:unless="${g.homeGoal}">
-                                        <span sec:authorize="hasRole('ADMIN')" style="margin-right:4px">
-                                            <a th:href="@{/matches/{mid}/goals/{gid}/form(mid=${match.id},gid=${g.id})}" class="btn-edit" style="font-size:0.75rem;padding:2px 8px">&#9998;</a>
-                                            <form th:action="@{/matches/{mid}/goals/{gid}(mid=${match.id},gid=${g.id})}" th:method="delete" style="display:inline">
-                                                <button type="submit" class="btn-del" style="font-size:0.75rem;padding:2px 8px">&#10005;</button>
-                                            </form>
-                                        </span>
                                         <span class="running-score"
                                               th:text="${g.runningHomeScore} + ':' + ${g.runningAwayScore}"></span>
                                         <span class="goal-assist" th:if="${g.assistantName != null}"
@@ -191,7 +296,7 @@
 </div>
 
 <!-- ── UPCOMING ── -->
-<div th:if="${!upcomingMatches.isEmpty()}" th:style="${!recentMatches.isEmpty()} ? 'margin-top:1rem' : ''">
+<div th:if="${selectedDate == null and !upcomingMatches.isEmpty()}" th:style="${!recentMatches.isEmpty()} ? 'margin-top:1rem' : ''">
     <div class="ls-section-header ls-upcoming-header">&#128197; Upcoming</div>
     <div class="match-list">
         <th:block th:each="match, stat : ${upcomingMatches}">
@@ -226,23 +331,177 @@
     </div>
 </div>
 
-<p th:if="${upcomingMatches.isEmpty() and recentMatches.isEmpty()}" class="no-matches">
+<p th:if="${selectedDate == null and upcomingMatches.isEmpty() and recentMatches.isEmpty()}" class="no-matches">
     No matches found<span th:if="${selectedLeague != null or selectedDate != null or selectedTeam != null}"> for the selected filters</span>.
 </p>
 
 </main>
+<script th:inline="javascript">
+var CAL_DATES    = /*[[${matchDateStrings}]]*/[];
+var CAL_TODAY    = /*[[${todayStr}]]*/'';
+var CAL_SELECTED = /*[[${selectedDateStr}]]*/'';
+var CAL_LEAGUE   = /*[[${selectedLeague != null ? selectedLeague.toString() : ''}]]*/'';
+var CAL_TEAM     = /*[[${selectedTeam != null ? selectedTeam.toString() : ''}]]*/'';
+var LIVE_MATCHES = /*[[${liveMatchesForJs}]]*/[];
+</script>
 <script>
+var _reloadScheduled = false;
+function getLiveState(kickoffStr, goals) {
+    var kickoff = new Date(kickoffStr.replace(' ', 'T'));
+    var realMin = Math.floor((Date.now() - kickoff.getTime()) / 60000);
+    if (realMin < 0) return { phase: 'PRE', displayMin: '', homeScore: 0, awayScore: 0, maxMin: 0 };
+    var phase, maxMin;
+    if (realMin <= 20)      { phase = 'FIRST';  maxMin = realMin; }
+    else if (realMin <= 25) { phase = 'HT';     maxMin = 20; }
+    else if (realMin <= 45) { phase = 'SECOND'; maxMin = realMin - 25; }
+    else                    { phase = 'FT';     maxMin = 20; }
+    var hs = 0, as = 0;
+    for (var i = 0; i < goals.length; i++) {
+        var g = goals[i];
+        if (g.half === 'FIRST') {
+            if ((phase === 'FIRST' && g.minute <= maxMin) ||
+                    phase === 'HT' || phase === 'SECOND' || phase === 'FT') {
+                hs = g.rh; as = g.ra;
+            }
+        } else if (g.half === 'SECOND') {
+            var secMax = phase === 'SECOND' ? maxMin : (phase === 'FT' ? 20 : -1);
+            if (secMax >= 0 && g.minute <= secMax) { hs = g.rh; as = g.ra; }
+        }
+    }
+    var d;
+    if (phase === 'FIRST')        d = realMin + "'";
+    else if (phase === 'HT')      d = 'HT';
+    else if (phase === 'SECOND')  d = (20 + (realMin - 25)) + "'";
+    else                          d = 'FT';
+    return { phase: phase, displayMin: d, homeScore: hs, awayScore: as, maxMin: maxMin };
+}
+
 function updateLiveMinutes() {
+    var liveById = {};
+    (LIVE_MATCHES || []).forEach(function(m) { liveById[m.id] = m; });
     document.querySelectorAll('[data-kickoff]').forEach(function(el) {
-        var raw = el.getAttribute('data-kickoff').replace(' ', 'T');
-        var kickoff = new Date(raw);
-        var minute = Math.floor((Date.now() - kickoff.getTime()) / 60000);
+        var raw = el.getAttribute('data-kickoff');
+        var mid = el.getAttribute('data-match-id');
         var minEl = el.querySelector('.live-minute');
-        if (minEl) minEl.textContent = minute + "'";
+        if (!minEl) return;
+        var lm = mid && liveById[mid];
+        if (lm) {
+            var state = getLiveState(raw, lm.goals);
+            minEl.textContent = state.displayMin;
+            var hsEl = el.querySelector('.ls-h');
+            var asEl = el.querySelector('.ls-a');
+            if (hsEl) hsEl.textContent = state.homeScore;
+            if (asEl) asEl.textContent = state.awayScore;
+            if (state.displayMin === 'FT' && !_reloadScheduled) {
+                _reloadScheduled = true;
+                setTimeout(function() { location.reload(); }, 3000);
+            }
+            var details = el.closest('details');
+            if (details) {
+                var anyFirstVis = false, anySecondVis = false;
+                details.querySelectorAll('.timeline-row').forEach(function(r) {
+                    var rHalf = r.getAttribute('data-half');
+                    var rMin  = parseInt(r.getAttribute('data-minute') || '0');
+                    var show;
+                    if      (state.phase === 'FT')     show = true;
+                    else if (state.phase === 'HT')     show = rHalf === 'FIRST';
+                    else if (state.phase === 'SECOND') show = rHalf === 'FIRST' || (rHalf === 'SECOND' && rMin <= state.maxMin);
+                    else                               show = rHalf === 'FIRST' && rMin <= state.maxMin;
+                    r.style.display = show ? '' : 'none';
+                    if (show && rHalf === 'FIRST')  anyFirstVis  = true;
+                    if (show && rHalf === 'SECOND') anySecondVis = true;
+                });
+                details.querySelectorAll('.half-label').forEach(function(hl) {
+                    hl.style.display = (hl.getAttribute('data-half') === 'FIRST' ? anyFirstVis : anySecondVis) ? '' : 'none';
+                });
+            }
+        } else {
+            var realMin = Math.floor((Date.now() - new Date(raw.replace(' ', 'T')).getTime()) / 60000);
+            var d;
+            if (realMin <= 20)      d = realMin + "'";
+            else if (realMin <= 25) d = 'HT';
+            else if (realMin <= 45) d = (20 + (realMin - 25)) + "'";
+            else                    d = 'FT';
+            minEl.textContent = d;
+        }
     });
 }
 updateLiveMinutes();
 setInterval(updateLiveMinutes, 30000);
+
+(function() {
+    if (!CAL_DATES || CAL_DATES.length === 0) return;
+
+    var BG_MONTHS = ['Януари','Февруари','Март','Април','Май','Юни',
+                     'Юли','Август','Септември','Октомври','Ноември','Декември'];
+    var BG_DAYS   = ['Пн','Вт','Ср','Чт','Пт','Сб','Нд'];
+
+    var active = {};
+    CAL_DATES.forEach(function(d) { active[d] = true; });
+
+    var months = [];
+    var seen   = {};
+    CAL_DATES.forEach(function(d) {
+        var m = d.substring(0, 7);
+        if (!seen[m]) { seen[m] = true; months.push(m); }
+    });
+    months.sort();
+
+    var cur = (CAL_SELECTED && CAL_SELECTED.length >= 7 && seen[CAL_SELECTED.substring(0,7)])
+        ? CAL_SELECTED.substring(0, 7)
+        : (CAL_TODAY && seen[CAL_TODAY.substring(0, 7)] ? CAL_TODAY.substring(0, 7) : months[0]);
+
+    function url(iso) {
+        var p = '?date=' + iso;
+        if (CAL_LEAGUE) p += '&league=' + CAL_LEAGUE;
+        if (CAL_TEAM)   p += '&team='   + CAL_TEAM;
+        return '/matches' + p;
+    }
+
+    function render() {
+        var cal = document.getElementById('matchCalendar');
+        if (!cal) return;
+        var p     = cur.split('-');
+        var year  = +p[0], month = +p[1];
+        var idx   = months.indexOf(cur);
+        var first = new Date(year, month - 1, 1);
+        var days  = new Date(year, month, 0).getDate();
+        var dow   = (first.getDay() + 6) % 7;
+
+        var h = '<div class="cal-nav">';
+        h += '<button class="cal-btn cal-prev"' + (idx > 0 ? '' : ' disabled') + '>&#8249;</button>';
+        h += '<span class="cal-month-title">' + BG_MONTHS[month-1] + ' ' + year + '</span>';
+        h += '<button class="cal-btn cal-next"' + (idx < months.length-1 ? '' : ' disabled') + '>&#8250;</button>';
+        h += '</div><div class="cal-grid">';
+        BG_DAYS.forEach(function(d) { h += '<div class="cal-dh">' + d + '</div>'; });
+        for (var i = 0; i < dow; i++) h += '<div class="cal-cell cal-empty"></div>';
+        for (var day = 1; day <= days; day++) {
+            var iso = year + '-' + String(month).padStart(2,'0') + '-' + String(day).padStart(2,'0');
+            var cls = 'cal-cell'
+                + (active[iso]        ? ' cal-active'   : '')
+                + (iso === CAL_TODAY  ? ' cal-today'    : '')
+                + (iso === CAL_SELECTED ? ' cal-selected' : '');
+            h += '<div class="' + cls + '">';
+            h += active[iso]
+                ? '<a href="' + url(iso) + '">' + day + '</a>'
+                : '<span>' + day + '</span>';
+            h += '</div>';
+        }
+        h += '</div>';
+        cal.innerHTML = h;
+
+        var prev = cal.querySelector('.cal-prev');
+        var next = cal.querySelector('.cal-next');
+        if (prev) prev.addEventListener('click', function() {
+            if (idx > 0) { cur = months[idx-1]; render(); }
+        });
+        if (next) next.addEventListener('click', function() {
+            if (idx < months.length-1) { cur = months[idx+1]; render(); }
+        });
+    }
+
+    render();
+})();
 </script>
 </body>
 </html>

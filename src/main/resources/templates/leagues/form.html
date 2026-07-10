@@ -41,8 +41,10 @@
         </p>
         <div style="display:flex;gap:16px;flex-wrap:wrap;">
             <div>
-                <label for="scheduleStartDate">Round 1 date</label><br/>
-                <input type="date" id="scheduleStartDate" th:field="*{scheduleStartDate}"/>
+                <label>Round 1 date</label>
+                <input type="hidden" id="scheduleStartDate" th:field="*{scheduleStartDate}"/>
+                <div id="lcSelLabel" class="cal-sel-label" style="min-height:1.4em;margin:4px 0 2px;"></div>
+                <div id="leagueCalendar" class="match-calendar"></div>
             </div>
             <div>
                 <label for="scheduleStartTimeSelect">First kick-off (default 11:00)</label><br/>
@@ -103,6 +105,77 @@
     if (!sel.value) sel.value = '11:00';
     hidden.value = sel.value;
     sel.addEventListener('change', function() { hidden.value = sel.value; });
+})();
+
+(function() {
+    var hiddenDate = document.getElementById('scheduleStartDate');
+    var cal = document.getElementById('leagueCalendar');
+    var label = document.getElementById('lcSelLabel');
+    if (!cal || !hiddenDate) return;
+
+    var BG_MONTHS = ['Януари','Февруари','Март','Април','Май','Юни',
+                     'Юли','Август','Септември','Октомври','Ноември','Декември'];
+    var BG_DAYS   = ['Пн','Вт','Ср','Чт','Пт','Сб','Нд'];
+
+    var now = new Date();
+    var todayIso = now.getFullYear() + '-'
+        + String(now.getMonth()+1).padStart(2,'0') + '-'
+        + String(now.getDate()).padStart(2,'0');
+
+    var selected = hiddenDate.value || '';
+    var cur = (selected && selected.length >= 7) ? selected.substring(0,7) : todayIso.substring(0,7);
+
+    function formatLabel(iso) {
+        var p = iso.split('-');
+        return p[2] + ' ' + BG_MONTHS[parseInt(p[1])-1] + ' ' + p[0];
+    }
+
+    function render() {
+        var p = cur.split('-');
+        var year = +p[0], month = +p[1];
+        var first = new Date(year, month-1, 1);
+        var days  = new Date(year, month, 0).getDate();
+        var dow   = (first.getDay() + 6) % 7;
+
+        var h = '<div class="cal-nav">';
+        h += '<button type="button" class="cal-btn cal-prev">&#8249;</button>';
+        h += '<span class="cal-month-title">' + BG_MONTHS[month-1] + ' ' + year + '</span>';
+        h += '<button type="button" class="cal-btn cal-next">&#8250;</button>';
+        h += '</div><div class="cal-grid">';
+        BG_DAYS.forEach(function(d) { h += '<div class="cal-dh">' + d + '</div>'; });
+        for (var i = 0; i < dow; i++) h += '<div class="cal-cell cal-empty"></div>';
+        for (var day = 1; day <= days; day++) {
+            var iso = year + '-' + String(month).padStart(2,'0') + '-' + String(day).padStart(2,'0');
+            var cls = 'cal-cell cal-active'
+                + (iso === todayIso  ? ' cal-today'    : '')
+                + (iso === selected  ? ' cal-selected' : '');
+            h += '<div class="' + cls + '"><a href="#" data-date="' + iso + '">' + day + '</a></div>';
+        }
+        h += '</div>';
+        cal.innerHTML = h;
+        label.textContent = selected ? formatLabel(selected) : '';
+
+        cal.querySelector('.cal-prev').addEventListener('click', function() {
+            var d = new Date(year, month-2, 1);
+            cur = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+            render();
+        });
+        cal.querySelector('.cal-next').addEventListener('click', function() {
+            var d = new Date(year, month, 1);
+            cur = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+            render();
+        });
+        cal.querySelectorAll('[data-date]').forEach(function(a) {
+            a.addEventListener('click', function(e) {
+                e.preventDefault();
+                selected = this.getAttribute('data-date');
+                hiddenDate.value = selected;
+                render();
+            });
+        });
+    }
+
+    render();
 })();
 </script>
 </body>

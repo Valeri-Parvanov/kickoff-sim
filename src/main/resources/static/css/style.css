@@ -793,6 +793,60 @@ a.team-name:hover {
     50% { opacity: 0.35; }
 }
 
+.standings-live-badge {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    font-family: "Poppins", sans-serif;
+    color: #fff;
+    background: #c00;
+    border-radius: 3px;
+    padding: 1px 6px 2px;
+    margin-left: 6px;
+    vertical-align: middle;
+    line-height: 1.15;
+    animation: live-pulse 1.2s ease-in-out infinite;
+}
+
+.slb-label {
+    font-size: 0.58rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+}
+
+.slb-score {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+}
+
+.ls-score-main {
+    font-size: 1.9rem;
+    font-weight: 700;
+    font-family: "Poppins", sans-serif;
+    color: var(--text);
+    line-height: 1;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.05rem;
+}
+
+tr.sl-winning { background: rgba(16, 185, 129, 0.10) !important; }
+tr.sl-drawing { background: rgba(245, 158, 11, 0.10) !important; }
+tr.sl-losing  { background: rgba(239, 68, 68, 0.10) !important; }
+
+@media (prefers-color-scheme: dark) {
+    tr.sl-winning { background: rgba(16, 185, 129, 0.18) !important; }
+    tr.sl-drawing { background: rgba(245, 158, 11, 0.18) !important; }
+    tr.sl-losing  { background: rgba(239, 68, 68, 0.18) !important; }
+}
+
+.cell-w     { color: #16a34a; font-weight: 600; }
+.cell-d     { color: #d97706; font-weight: 600; }
+.cell-l     { color: #dc2626; font-weight: 600; }
+.cell-gd-pos { color: #16a34a; font-weight: 600; }
+.cell-gd-neg { color: #dc2626; font-weight: 600; }
+.cell-pts   { font-weight: 700; }
+
 .goal-timeline {
     margin-top: 0.75rem;
     padding-top: 0.65rem;
@@ -862,19 +916,25 @@ a.team-name:hover {
     color: var(--pitch);
 }
 
+.goal-scorer-name {
+    font-size: 0.97rem;
+    font-weight: 600;
+    color: var(--fg);
+}
+
 .goal-assist {
     font-size: 0.75rem;
     color: var(--muted);
 }
 
 .running-score {
-    font-size: 0.72rem;
+    font-size: 0.9rem;
     font-weight: 700;
     background: var(--pitch);
     color: #fff;
     border-radius: 4px;
-    padding: 1px 5px;
-    margin-left: 4px;
+    padding: 2px 7px;
+    margin-left: 5px;
 }
 
 .match-actions {
@@ -1101,6 +1161,202 @@ tr.standings-highlight td:first-child {
     background: linear-gradient(90deg, rgba(251, 191, 36, 0.45), transparent);
 }
 
+.ls-date-header::after {
+    background: linear-gradient(90deg, rgba(99, 102, 241, 0.35), transparent);
+}
+
+input[type="date"] {
+    padding: 0.42rem 0.75rem;
+    border: 1.5px solid #d6e9dc;
+    border-radius: var(--radius-sm);
+    font-size: 0.88rem;
+    font-family: inherit;
+    background: #fff;
+    cursor: pointer;
+    color: inherit;
+    outline: none;
+}
+
+input[type="date"]:focus {
+    border-color: var(--pitch);
+    box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.15);
+}
+
+.cal-container {
+    margin: 0.75rem 0 0.5rem;
+}
+
+.cal-all-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.6rem;
+}
+
+.cal-sel-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--forest);
+}
+
+.match-calendar {
+    display: inline-block;
+}
+
+.cal-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+}
+
+.cal-month-title {
+    font-family: "Poppins", sans-serif;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--text);
+    min-width: 9rem;
+    text-align: center;
+}
+
+.cal-btn {
+    background: none;
+    border: 1.5px solid #d6e9dc;
+    border-radius: 50%;
+    width: 1.75rem;
+    height: 1.75rem;
+    cursor: pointer;
+    font-size: 1.15rem;
+    line-height: 1;
+    color: var(--forest);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.13s, color 0.13s, border-color 0.13s;
+    padding: 0;
+}
+.cal-btn:hover:not([disabled]) {
+    background: var(--pitch);
+    color: #fff;
+    border-color: var(--pitch);
+}
+.cal-btn[disabled] { opacity: 0.3; cursor: default; }
+
+.cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 2.15rem);
+    gap: 2px 0;
+}
+
+.cal-dh {
+    text-align: center;
+    font-size: 0.64rem;
+    font-weight: 700;
+    color: var(--muted);
+    padding: 0.15rem 0 0.3rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.cal-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 2.15rem;
+}
+
+.cal-cell span,
+.cal-cell a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    border-radius: 50%;
+    font-size: 0.78rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background 0.12s, color 0.12s;
+}
+
+.cal-cell span { color: var(--muted); font-weight: 400; }
+
+.cal-cell.cal-active a { color: var(--forest); font-weight: 700; }
+.cal-cell.cal-active a:hover { background: var(--pitch); color: #fff; }
+
+.cal-cell.cal-today a,
+.cal-cell.cal-today span {
+    border: 2px solid var(--pitch);
+    color: var(--pitch);
+    font-weight: 700;
+}
+
+.cal-cell.cal-selected a {
+    background: var(--pitch);
+    color: #fff;
+    font-weight: 700;
+}
+
+.cal-cell.cal-selected.cal-today a {
+    background: var(--pitch);
+    color: #fff;
+    border-color: transparent;
+}
+
+.date-chips-bar {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.4rem;
+    margin: 0.75rem 0 0.25rem;
+    overflow-x: auto;
+    padding-bottom: 0.35rem;
+    scrollbar-width: thin;
+    scrollbar-color: #d6e9dc transparent;
+    -webkit-overflow-scrolling: touch;
+}
+
+.date-chips-bar::-webkit-scrollbar { height: 3px; }
+.date-chips-bar::-webkit-scrollbar-track { background: transparent; }
+.date-chips-bar::-webkit-scrollbar-thumb { background: #d6e9dc; border-radius: 2px; }
+
+.date-chip {
+    display: inline-block;
+    padding: 0.28rem 0.85rem;
+    border-radius: 2rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: 1.5px solid #d6e9dc;
+    color: var(--forest);
+    text-decoration: none;
+    background: #fff;
+    white-space: nowrap;
+    transition: background 0.13s, color 0.13s, border-color 0.13s;
+}
+
+.date-chip:hover {
+    background: var(--pitch);
+    color: #fff;
+    border-color: var(--pitch);
+}
+
+.date-chip.active {
+    background: var(--pitch);
+    color: #fff;
+    border-color: var(--pitch);
+}
+
+.date-chip.today {
+    border-color: var(--pitch);
+    color: var(--pitch);
+    font-weight: 700;
+}
+
+.date-chip.today:hover,
+.date-chip.active.today {
+    background: var(--pitch);
+    color: #fff;
+}
+
 .ls-section-header:first-child {
     margin-top: 0;
 }
@@ -1126,7 +1382,7 @@ a.match-league-tag:hover {
 
 .upcoming-time {
     font-family: "Poppins", sans-serif;
-    font-size: 1.6rem;
+    font-size: 1.35rem;
     font-weight: 800;
     color: var(--pitch);
     letter-spacing: 0.02em;
@@ -1134,12 +1390,11 @@ a.match-league-tag:hover {
 }
 
 .upcoming-date {
-    font-size: 0.7rem;
+    font-size: 0.88rem;
     font-weight: 600;
     color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin-top: 0.2rem;
+    letter-spacing: 0.02em;
+    margin-top: 0.25rem;
 }
 
 .round-divider {

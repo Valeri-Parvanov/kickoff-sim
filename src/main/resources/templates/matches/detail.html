@@ -33,7 +33,13 @@
 
         <div class="match-scoreline">
             <span class="team-name home" th:text="${match.homeTeamName}"></span>
-            <div class="score-block">
+            <div class="score-block" th:if="${match.playedAt.isBefore(now) and match.playedAt.isAfter(liveThreshold)}"
+                 th:attr="data-kickoff=${#temporals.format(match.playedAt, 'yyyy-MM-dd HH:mm:ss')},data-match-id=${match.id}">
+                <div class="ls-score-main"><span class="ls-h">-</span>&thinsp;:&thinsp;<span class="ls-a">-</span></div>
+                <div class="live-badge">LIVE</div>
+                <div class="live-minute"></div>
+            </div>
+            <div class="score-block" th:unless="${match.playedAt.isBefore(now) and match.playedAt.isAfter(liveThreshold)}">
                 <div class="score-main"
                      th:text="${match.homeScore != null ? match.homeScore : '-'} + ' : ' + ${match.awayScore != null ? match.awayScore : '-'}"></div>
                 <div class="score-ht"
@@ -46,7 +52,7 @@
         <div class="goal-timeline" th:if="${!match.goalTimeline.isEmpty()}">
             <th:block th:each="g : ${match.goalTimeline}">
 
-                <div class="half-label" th:if="${g.firstInHalf}">
+                <div class="half-label" th:if="${g.firstInHalf}" th:attr="data-half=${g.half.name()}">
                     <span th:text="${g.half.name() == 'FIRST' ? '1st Half' : '2nd Half'}"></span>
                     <span class="half-score" th:if="${g.half.name() == 'FIRST'}"
                           th:text="${match.homeHalfScore} + ':' + ${match.awayHalfScore}"></span>
@@ -54,22 +60,21 @@
                           th:text="${match.homeScore - match.homeHalfScore} + ':' + ${match.awayScore - match.awayHalfScore}"></span>
                 </div>
 
-                <div class="timeline-row">
+                <div class="timeline-row" th:attr="data-half=${g.half.name()}">
                     <div class="tl-home">
                         <th:block th:if="${g.homeGoal}">
                             <span class="goal-icon">&#9917;</span>
                             <span class="goal-minute" th:if="${g.minute != null}"
                                   th:text="${(g.half.name() == 'FIRST' ? g.minute : g.minute + 20)} + '\'' + ' '"></span>
-                            <span th:text="${g.scorerName}"></span>
+                            <span class="goal-scorer-name" th:text="${g.scorerName}"></span>
+                            <span class="goal-type-badge og" th:if="${g.ownGoal}">OG</span>
+                            <span class="goal-type-badge pen" th:if="${g.penalty}">pen.</span>
                             <span class="goal-assist" th:if="${g.assistantName != null}"
                                   th:text="' (' + ${g.assistantName} + ')'"></span>
                             <span class="running-score"
                                   th:text="${g.runningHomeScore} + ':' + ${g.runningAwayScore}"></span>
                             <span sec:authorize="hasRole('ADMIN')" style="margin-left:4px">
                                 <a th:href="@{/matches/{mid}/goals/{gid}/form(mid=${match.id},gid=${g.id})}" class="btn-edit" style="font-size:0.75rem;padding:2px 8px">&#9998;</a>
-                                <form th:action="@{/matches/{mid}/goals/{gid}(mid=${match.id},gid=${g.id})}" th:method="delete" style="display:inline">
-                                    <button type="submit" class="btn-del" style="font-size:0.75rem;padding:2px 8px">&#10005;</button>
-                                </form>
                             </span>
                         </th:block>
                     </div>
@@ -77,15 +82,14 @@
                         <th:block th:unless="${g.homeGoal}">
                             <span sec:authorize="hasRole('ADMIN')" style="margin-right:4px">
                                 <a th:href="@{/matches/{mid}/goals/{gid}/form(mid=${match.id},gid=${g.id})}" class="btn-edit" style="font-size:0.75rem;padding:2px 8px">&#9998;</a>
-                                <form th:action="@{/matches/{mid}/goals/{gid}(mid=${match.id},gid=${g.id})}" th:method="delete" style="display:inline">
-                                    <button type="submit" class="btn-del" style="font-size:0.75rem;padding:2px 8px">&#10005;</button>
-                                </form>
                             </span>
                             <span class="running-score"
                                   th:text="${g.runningHomeScore} + ':' + ${g.runningAwayScore}"></span>
                             <span class="goal-assist" th:if="${g.assistantName != null}"
                                   th:text="'(' + ${g.assistantName} + ') '"></span>
-                            <span th:text="${g.scorerName}"></span>
+                            <span class="goal-scorer-name" th:text="${g.scorerName}"></span>
+                            <span class="goal-type-badge og" th:if="${g.ownGoal}">OG</span>
+                            <span class="goal-type-badge pen" th:if="${g.penalty}">pen.</span>
                             <span class="goal-minute" th:if="${g.minute != null}"
                                   th:text="' ' + ${(g.half.name() == 'FIRST' ? g.minute : g.minute + 20)} + '\''"></span>
                             <span class="goal-icon">&#9917;</span>
@@ -114,5 +118,55 @@
 
 </div>
 </main>
+<th:block th:if="${liveMatchForJs != null}">
+<script th:inline="javascript">
+var _LIVE = /*[[${liveMatchForJs}]]*/null;
+var _reloadScheduled = false;
+function getLiveState(kickoffStr, goals) {
+    var kickoff = new Date(kickoffStr.replace(' ', 'T'));
+    var realMin = Math.floor((Date.now() - kickoff.getTime()) / 60000);
+    if (realMin < 0) return { phase: 'PRE', displayMin: '', homeScore: 0, awayScore: 0 };
+    var phase, maxMin;
+    if (realMin <= 20)      { phase = 'FIRST';  maxMin = realMin; }
+    else if (realMin <= 25) { phase = 'HT';     maxMin = 20; }
+    else if (realMin <= 45) { phase = 'SECOND'; maxMin = realMin - 25; }
+    else                    { phase = 'FT';     maxMin = 20; }
+    var hs = 0, as = 0;
+    for (var i = 0; i < goals.length; i++) {
+        var g = goals[i];
+        if (g.half === 'FIRST') {
+            if ((phase === 'FIRST' && g.minute <= maxMin) || phase === 'HT' || phase === 'SECOND' || phase === 'FT') {
+                hs = g.rh; as = g.ra;
+            }
+        } else if (g.half === 'SECOND') {
+            var secMax = phase === 'SECOND' ? maxMin : (phase === 'FT' ? 20 : -1);
+            if (secMax >= 0 && g.minute <= secMax) { hs = g.rh; as = g.ra; }
+        }
+    }
+    var d = phase === 'FIRST' ? realMin + "'" : phase === 'HT' ? 'HT' : phase === 'SECOND' ? (20 + (realMin - 25)) + "'" : 'FT';
+    return { phase: phase, displayMin: d, homeScore: hs, awayScore: as };
+}
+function updateLive() {
+    if (!_LIVE) return;
+    var el = document.querySelector('[data-match-id="' + _LIVE.id + '"]');
+    if (!el) return;
+    var st = getLiveState(_LIVE.kickoff, _LIVE.goals);
+    var hEl = el.querySelector('.ls-h'), aEl = el.querySelector('.ls-a'), mEl = el.querySelector('.live-minute');
+    if (hEl) hEl.textContent = st.homeScore;
+    if (aEl) aEl.textContent = st.awayScore;
+    if (mEl) mEl.textContent = st.displayMin;
+    if (st.displayMin === 'FT' && !_reloadScheduled) {
+        _reloadScheduled = true;
+        setTimeout(function() { location.reload(); }, 3000);
+    }
+    var showSecond = st.phase === 'SECOND' || st.phase === 'FT';
+    document.querySelectorAll('[data-half="SECOND"]').forEach(function(r) {
+        r.style.display = showSecond ? '' : 'none';
+    });
+}
+updateLive();
+setInterval(updateLive, 30000);
+</script>
+</th:block>
 </body>
 </html>
