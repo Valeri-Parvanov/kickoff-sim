@@ -20,7 +20,9 @@
     <div class="match-detail-nav">
         <a th:href="@{/matches}" class="back-link">&#8592; All matches</a>
         <div class="match-detail-tags">
-            <span class="match-league-tag" th:if="${match.leagueName}" th:text="${match.leagueName}"></span>
+                <a class="match-league-tag" th:if="${match.leagueName}"
+               th:href="@{/leagues/{id}(id=${match.leagueId})}"
+               th:text="${match.leagueName}"></a>
             <span class="match-round-tag" th:if="${match.roundNumber != null}" th:text="'Round ' + ${match.roundNumber}"></span>
         </div>
     </div>
@@ -60,7 +62,7 @@
                           th:text="${match.homeScore - match.homeHalfScore} + ':' + ${match.awayScore - match.awayHalfScore}"></span>
                 </div>
 
-                <div class="timeline-row" th:attr="data-half=${g.half.name()}">
+                <div class="timeline-row" th:attr="data-half=${g.half.name()},data-minute=${g.minute != null ? g.minute : 0}">
                     <div class="tl-home">
                         <th:block th:if="${g.homeGoal}">
                             <span class="goal-icon">&#9917;</span>
@@ -73,16 +75,10 @@
                                   th:text="' (' + ${g.assistantName} + ')'"></span>
                             <span class="running-score"
                                   th:text="${g.runningHomeScore} + ':' + ${g.runningAwayScore}"></span>
-                            <span sec:authorize="hasRole('ADMIN')" style="margin-left:4px">
-                                <a th:href="@{/matches/{mid}/goals/{gid}/form(mid=${match.id},gid=${g.id})}" class="btn-edit" style="font-size:0.75rem;padding:2px 8px">&#9998;</a>
-                            </span>
                         </th:block>
                     </div>
                     <div class="tl-away">
                         <th:block th:unless="${g.homeGoal}">
-                            <span sec:authorize="hasRole('ADMIN')" style="margin-right:4px">
-                                <a th:href="@{/matches/{mid}/goals/{gid}/form(mid=${match.id},gid=${g.id})}" class="btn-edit" style="font-size:0.75rem;padding:2px 8px">&#9998;</a>
-                            </span>
                             <span class="running-score"
                                   th:text="${g.runningHomeScore} + ':' + ${g.runningAwayScore}"></span>
                             <span class="goal-assist" th:if="${g.assistantName != null}"
@@ -105,14 +101,6 @@
             No goals recorded for this match.
         </p>
 
-        <div class="match-actions" sec:authorize="isAuthenticated()">
-            <a th:href="@{/matches/{id}/goals/form(id=${match.id})}" class="btn-goal" sec:authorize="hasRole('ADMIN')">+ Goal</a>
-            <a th:href="@{/matches/{id}/form(id=${match.id})}" class="btn-edit">Edit</a>
-            <form th:action="@{/matches/{id}(id=${match.id})}" th:method="delete" style="display:inline"
-                  sec:authorize="hasRole('ADMIN')">
-                <button type="submit" class="btn-del">Delete</button>
-            </form>
-        </div>
 
     </div>
 
@@ -144,7 +132,7 @@ function getLiveState(kickoffStr, goals) {
         }
     }
     var d = phase === 'FIRST' ? realMin + "'" : phase === 'HT' ? 'HT' : phase === 'SECOND' ? (20 + (realMin - 25)) + "'" : 'FT';
-    return { phase: phase, displayMin: d, homeScore: hs, awayScore: as };
+    return { phase: phase, displayMin: d, homeScore: hs, awayScore: as, realMin: realMin };
 }
 function updateLive() {
     if (!_LIVE) return;
@@ -159,10 +147,24 @@ function updateLive() {
         _reloadScheduled = true;
         setTimeout(function() { location.reload(); }, 3000);
     }
-    var showSecond = st.phase === 'SECOND' || st.phase === 'FT';
-    document.querySelectorAll('[data-half="SECOND"]').forEach(function(r) {
-        r.style.display = showSecond ? '' : 'none';
+    var realMin = st.realMin;
+    var inSecond = st.phase === 'SECOND' || st.phase === 'FT';
+    document.querySelectorAll('.timeline-row[data-half="FIRST"]').forEach(function(r) {
+        var gMin = parseInt(r.dataset.minute || '0');
+        r.style.display = (realMin > 20 || gMin <= realMin) ? '' : 'none';
     });
+    var htScore = document.querySelector('.half-label[data-half="FIRST"] .half-score');
+    if (htScore) htScore.style.display = realMin > 20 ? '' : 'none';
+    document.querySelectorAll('.half-label[data-half="SECOND"]').forEach(function(r) {
+        r.style.display = inSecond ? '' : 'none';
+    });
+    document.querySelectorAll('.timeline-row[data-half="SECOND"]').forEach(function(r) {
+        if (!inSecond) { r.style.display = 'none'; return; }
+        var gMin = parseInt(r.dataset.minute || '0');
+        r.style.display = gMin <= (realMin - 25) ? '' : 'none';
+    });
+    var ht2Score = document.querySelector('.half-label[data-half="SECOND"] .half-score');
+    if (ht2Score) ht2Score.style.display = st.phase === 'FT' ? '' : 'none';
 }
 updateLive();
 setInterval(updateLive, 30000);

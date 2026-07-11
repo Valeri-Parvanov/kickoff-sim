@@ -83,11 +83,11 @@
                     <img th:src="@{/teams/{id}/logo(id=${row.teamId})}" class="team-logo-sm" alt=""/>
                     <a th:href="@{/teams/{id}(id=${row.teamId})}"
                        th:text="${row.teamName + (row.teamCity != null ? ' (' + row.teamCity + ')' : '')}"></a>
-                    <span class="standings-live-badge"
-                          th:if="${liveTeamIds != null and liveTeamIds.contains(row.teamId)}">
+                    <a class="standings-live-badge"
+                       th:if="${liveTeamIds != null and liveTeamIds.contains(row.teamId)}">
                         <span class="slb-label">LIVE</span>
                         <span class="slb-score"></span>
-                    </span>
+                    </a>
                 </td>
                 <td th:text="${row.played}"></td>
                 <td class="cell-w" th:text="${row.wins}"></td>
@@ -249,6 +249,7 @@
                             </a>
                         </div>
                         <div class="match-expand-hint">&#9662; details</div>
+                        <a th:href="@{/matches/{id}(id=${match.id})}" class="match-detail-link" onclick="event.stopPropagation()">&#8594; Details</a>
 
                     </summary>
 
@@ -359,8 +360,8 @@ function updateLive() {
     (LIVE_MATCHES || []).forEach(function(m) {
         var st = getLiveState(m.kickoff, m.goals);
         stateById[m.id] = st;
-        teamState[m.homeTeamId] = { st: st, isHome: true };
-        teamState[m.awayTeamId] = { st: st, isHome: false };
+        teamState[m.homeTeamId] = { st: st, isHome: true,  matchId: m.id };
+        teamState[m.awayTeamId] = { st: st, isHome: false, matchId: m.id };
     });
 
     document.querySelectorAll('[data-kickoff]').forEach(function(el) {
@@ -420,6 +421,8 @@ function updateLive() {
         var win  = entry.isHome ? st.homeScore > st.awayScore : st.awayScore > st.homeScore;
         var draw = st.homeScore === st.awayScore;
         tr.classList.add(win ? 'sl-winning' : draw ? 'sl-drawing' : 'sl-losing');
+        var badge = tr.querySelector('.standings-live-badge');
+        if (badge && entry.matchId) badge.href = '/matches/' + entry.matchId;
         var scoreSpan = tr.querySelector('.slb-score');
         if (scoreSpan) {
             var my  = entry.isHome ? st.homeScore : st.awayScore;

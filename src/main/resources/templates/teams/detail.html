@@ -32,10 +32,10 @@
         </div>
     </div>
     <div class="team-detail-actions" sec:authorize="isAuthenticated()">
-        <a th:href="@{/players/form(teamId=${team.id})}" class="btn-add" sec:authorize="hasRole('ADMIN')">+ Add player</a>
         <a th:href="@{/teams/{id}/squad(id=${team.id})}" class="btn-goal"
            th:if="${remainingSlots > 0}" sec:authorize="isAuthenticated()">+ Propose players</a>
-        <a th:href="@{/teams/{id}/form(id=${team.id})}" class="btn-edit" sec:authorize="hasRole('ADMIN')">Edit team</a>
+        <a th:href="@{/teams/{id}/form(id=${team.id})}" class="btn-edit"
+           th:if="${team.leagueId == null}" sec:authorize="hasRole('ADMIN')">Edit team</a>
     </div>
 </div>
 
@@ -100,7 +100,7 @@
                         <img th:src="@{/teams/{id}/logo(id=${row.teamId})}" class="team-logo-sm" alt=""/>
                         <a th:href="@{/teams/{id}(id=${row.teamId})}"
                            th:text="${row.teamName + (row.teamCity != null ? ' (' + row.teamCity + ')' : '')}"></a>
-                        <span class="standings-live-badge" style="display:none"><span class="slb-label">LIVE</span><span class="slb-score"></span></span>
+                        <a class="standings-live-badge" style="display:none"><span class="slb-label">LIVE</span><span class="slb-score"></span></a>
                     </td>
                     <td th:text="${row.played}"></td>
                     <td th:text="${row.wins}"></td>
@@ -130,10 +130,13 @@
                 <details class="match-card">
                     <summary class="match-card-summary">
                         <div class="match-meta">
-                            <a th:if="${m.leagueId != null}"
-                               th:href="@{/leagues/{id}(id=${m.leagueId})}"
-                               th:text="${m.leagueName}" class="match-league-tag"></a>
-                            <span class="match-date" th:text="${#temporals.format(m.playedAt, 'dd MMM yyyy, HH:mm')}"></span>
+                            <span class="match-meta-info">
+                                <a th:if="${m.leagueId != null}"
+                                   th:href="@{/leagues/{id}(id=${m.leagueId})}"
+                                   th:text="${m.leagueName}" class="match-league-tag"></a>
+                                <span class="match-date" th:text="${#temporals.format(m.playedAt, 'dd MMM yyyy, HH:mm')}"></span>
+                            </span>
+                            <a th:href="@{/matches/{id}(id=${m.id})}" class="match-detail-link" onclick="event.stopPropagation()">&#8594; Details</a>
                         </div>
                         <div class="match-scoreline">
                             <a class="team-name home" th:href="@{/teams/{id}(id=${m.homeTeamId})}">
@@ -160,11 +163,9 @@
                         </div>
                         <div class="match-expand-hint">&#9662; details</div>
                     </summary>
-
                     <div class="match-card-expand">
                         <div class="goal-timeline" th:if="${!m.goalTimeline.isEmpty()}">
                             <th:block th:each="g : ${m.goalTimeline}">
-
                                 <div class="half-label" th:if="${g.firstInHalf}">
                                     <span th:text="${g.half.name() == 'FIRST' ? '1st Half' : '2nd Half'}"></span>
                                     <span class="half-score" th:if="${g.half.name() == 'FIRST'}"
@@ -172,7 +173,6 @@
                                     <span class="half-score" th:unless="${g.half.name() == 'FIRST'}"
                                           th:text="${m.homeScore - m.homeHalfScore} + ':' + ${m.awayScore - m.awayHalfScore}"></span>
                                 </div>
-
                                 <div class="timeline-row">
                                     <div class="tl-home">
                                         <th:block th:if="${g.homeGoal}">
@@ -203,7 +203,6 @@
                                         </th:block>
                                     </div>
                                 </div>
-
                             </th:block>
                         </div>
                         <p th:if="${m.goalTimeline.isEmpty()}" style="font-size:0.82rem;color:var(--muted);margin:0.4rem 0 0;text-align:center;">
@@ -221,11 +220,14 @@
         <div class="match-list">
             <div class="match-card upcoming" th:each="m : ${teamUpcoming}">
                 <div class="match-meta">
-                    <a th:if="${m.leagueId != null}"
-                       th:href="@{/leagues/{id}(id=${m.leagueId})}"
-                       th:text="${m.leagueName}" class="match-league-tag"></a>
-                    <span th:if="${m.roundNumber != null}" class="match-date"
-                          th:text="'Round ' + ${m.roundNumber}"></span>
+                    <span class="match-meta-info">
+                        <a th:if="${m.leagueId != null}"
+                           th:href="@{/leagues/{id}(id=${m.leagueId})}"
+                           th:text="${m.leagueName}" class="match-league-tag"></a>
+                        <span th:if="${m.roundNumber != null}" class="match-date"
+                              th:text="'Round ' + ${m.roundNumber}"></span>
+                    </span>
+                    <a th:href="@{/matches/{id}(id=${m.id})}" class="match-detail-link">&#8594; Details</a>
                 </div>
                 <div class="match-scoreline">
                     <a class="team-name home" th:href="@{/teams/{id}(id=${m.homeTeamId})}">
@@ -311,8 +313,8 @@
         Object.keys(stateById).forEach(function(mId) {
             var entry = stateById[mId];
             var st = entry.st;
-            [[entry.homeTeamId, true], [entry.awayTeamId, false]].forEach(function(pair) {
-                var tid = pair[0], isHome = pair[1];
+            [{t: entry.homeTeamId, h: true}, {t: entry.awayTeamId, h: false}].forEach(function(pair) {
+                var tid = pair.t, isHome = pair.h;
                 var row = document.querySelector('tr[data-team-id="' + tid + '"]');
                 if (!row) return;
                 var badge = row.querySelector('.standings-live-badge');
@@ -321,6 +323,7 @@
                 var my = isHome ? st.homeScore : st.awayScore;
                 var opp = isHome ? st.awayScore : st.homeScore;
                 badge.querySelector('.slb-score').textContent = my + ':' + opp;
+                badge.href = '/matches/' + mId;
                 badge.style.display = '';
                 row.classList.remove('sl-winning', 'sl-drawing', 'sl-losing');
                 row.classList.add(my > opp ? 'sl-winning' : my < opp ? 'sl-losing' : 'sl-drawing');

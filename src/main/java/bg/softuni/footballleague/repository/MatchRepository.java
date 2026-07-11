@@ -38,6 +38,12 @@ public interface MatchRepository extends JpaRepository<Match, UUID> {
     @Query("SELECT COUNT(m) > 0 FROM Match m WHERE (m.homeTeam.league.id = :leagueId OR m.awayTeam.league.id = :leagueId) AND m.playedAt < :now")
     boolean hasPlayedMatchesForLeague(@Param("leagueId") UUID leagueId, @Param("now") LocalDateTime now);
 
+    @Query("SELECT COUNT(m) FROM Match m WHERE m.homeTeam.league.id = :leagueId OR m.awayTeam.league.id = :leagueId")
+    long countByLeagueId(@Param("leagueId") UUID leagueId);
+
+    @Query("SELECT COUNT(m) FROM Match m WHERE (m.homeTeam.league.id = :leagueId OR m.awayTeam.league.id = :leagueId) AND m.playedAt < :now")
+    long countPlayedByLeagueId(@Param("leagueId") UUID leagueId, @Param("now") LocalDateTime now);
+
     @Query("SELECT m.playedAt FROM Match m ORDER BY m.playedAt ASC")
     List<LocalDateTime> findAllPlayedAtTimes();
 

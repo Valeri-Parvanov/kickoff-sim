@@ -1,5 +1,6 @@
 package bg.softuni.footballleague.service.impl;
 
+import bg.softuni.footballleague.dto.GoalDto;
 import bg.softuni.footballleague.dto.LeagueDetailView;
 import bg.softuni.footballleague.dto.LeagueDto;
 import bg.softuni.footballleague.dto.MatchDto;
@@ -7,6 +8,7 @@ import bg.softuni.footballleague.dto.StandingRow;
 import bg.softuni.footballleague.dto.TeamDto;
 import bg.softuni.footballleague.exception.EntityNotFoundException;
 import bg.softuni.footballleague.exception.InvalidLeagueOperationException;
+import bg.softuni.footballleague.model.Half;
 import bg.softuni.footballleague.model.League;
 import bg.softuni.footballleague.model.LeagueFormat;
 import bg.softuni.footballleague.model.Match;
@@ -26,6 +28,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -170,23 +173,35 @@ public class LeagueServiceImpl implements LeagueService {
                 });
 
         LocalDateTime now = LocalDateTime.now();
+        LocalDateTime liveThreshold = now.minusMinutes(46);
         for (MatchDto m : intraLeagueMatches) {
-            if (m.getHomeScore() == null || m.getAwayScore() == null) continue;
             if (m.getPlayedAt() == null || m.getPlayedAt().isAfter(now)) continue;
+
+            int homeGoals, awayGoals;
+            if (m.getPlayedAt().isAfter(liveThreshold)) {
+                int[] live = computeLiveScore(m, now);
+                homeGoals = live[0];
+                awayGoals = live[1];
+            } else {
+                if (m.getHomeScore() == null || m.getAwayScore() == null) continue;
+                homeGoals = m.getHomeScore();
+                awayGoals = m.getAwayScore();
+            }
+
             StandingRow home = rowMap.get(m.getHomeTeamId());
             StandingRow away = rowMap.get(m.getAwayTeamId());
 
             home.setPlayed(home.getPlayed() + 1);
             away.setPlayed(away.getPlayed() + 1);
-            home.setGoalsFor(home.getGoalsFor() + m.getHomeScore());
-            home.setGoalsAgainst(home.getGoalsAgainst() + m.getAwayScore());
-            away.setGoalsFor(away.getGoalsFor() + m.getAwayScore());
-            away.setGoalsAgainst(away.getGoalsAgainst() + m.getHomeScore());
+            home.setGoalsFor(home.getGoalsFor() + homeGoals);
+            home.setGoalsAgainst(home.getGoalsAgainst() + awayGoals);
+            away.setGoalsFor(away.getGoalsFor() + awayGoals);
+            away.setGoalsAgainst(away.getGoalsAgainst() + homeGoals);
 
-            if (m.getHomeScore() > m.getAwayScore()) {
+            if (homeGoals > awayGoals) {
                 home.setWins(home.getWins() + 1);
                 away.setLosses(away.getLosses() + 1);
-            } else if (m.getHomeScore() < m.getAwayScore()) {
+            } else if (homeGoals < awayGoals) {
                 away.setWins(away.getWins() + 1);
                 home.setLosses(home.getLosses() + 1);
             } else {
@@ -293,6 +308,25 @@ public class LeagueServiceImpl implements LeagueService {
         return matchRepository.hasPlayedMatchesForLeague(leagueId, LocalDateTime.now());
     }
 
+    private int[] computeLiveScore(MatchDto m, LocalDateTime now) {
+        long realMin = Duration.between(m.getPlayedAt(), now).toMinutes();
+        if (realMin < 0) return new int[]{0, 0};
+        int hs = 0, as = 0;
+        for (GoalDto g : m.getGoalTimeline()) {
+            if (g.getMinute() == null || g.getHalf() == null) continue;
+            boolean counts;
+            if (g.getHalf() == Half.FIRST) {
+                counts = realMin > 20 || g.getMinute() <= realMin;
+            } else {
+                counts = realMin > 25 && g.getMinute() <= (realMin - 25);
+            }
+            if (counts) {
+                if (g.isHomeGoal()) hs++; else as++;
+            }
+        }
+        return new int[]{hs, as};
+    }
+
     private League getLeagueOrThrow(UUID id) {
         return leagueRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("League with id %s not found".formatted(id)));
@@ -310,6 +344,9 @@ public class LeagueServiceImpl implements LeagueService {
         leagueDto.setName(league.getName());
         leagueDto.setScheduleStartDate(league.getScheduleStartDate());
         leagueDto.setScheduleStartTime(league.getScheduleStartTime());
+        leagueDto.setTeamCount(league.getTeams().size());
+        leagueDto.setTotalMatches(matchRepository.countByLeagueId(league.getId()));
+        leagueDto.setPlayedMatches(matchRepository.countPlayedByLeagueId(league.getId(), LocalDateTime.now()));
         return leagueDto;
     }
 }

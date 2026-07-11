@@ -21,6 +21,22 @@
     <a th:href="@{/teams/form}" class="btn-add">Add new team</a>
 </div>
 
+<div class="league-ready-banner" th:if="${leagueReadyCount != null}" sec:authorize="isAuthenticated()">
+    <div class="league-ready-icon">&#127942;</div>
+    <div class="league-ready-body">
+        <div class="league-ready-title">You have enough teams to start a league!</div>
+        <div class="league-ready-sub">
+            <strong th:text="${leagueReadyCount}"></strong> eligible teams available (6+ players each).
+            Valid league sizes: 6, 8, 10 or 16 teams.
+        </div>
+        <div class="league-ready-actions">
+            <a th:href="@{/leagues/form}" class="league-ready-primary">&#43; Create a League</a>
+            <span class="league-ready-divider">or</span>
+            <span class="league-ready-secondary">continue adding teams</span>
+        </div>
+    </div>
+</div>
+
 <div class="table-wrapper">
 <table border="1" cellpadding="6">
     <thead>

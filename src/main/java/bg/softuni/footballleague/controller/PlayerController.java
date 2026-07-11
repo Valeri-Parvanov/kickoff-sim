@@ -20,7 +20,6 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -55,54 +54,6 @@ public class PlayerController {
         model.addAttribute("currentSort", sort);
         model.addAttribute("currentDir", dir == null ? "asc" : dir);
         return "players/list";
-    }
-
-    @GetMapping("/form")
-    public String createForm(@RequestParam(required = false) UUID fromRequest,
-                              @RequestParam(required = false) UUID teamId,
-                              Model model, Authentication authentication) {
-        PlayerDto playerDto = fromRequest != null
-                ? (PlayerDto) changeRequestService.getPayloadForResubmit(fromRequest, authentication)
-                : new PlayerDto();
-        if (teamId != null && playerDto.getTeamId() == null) {
-            playerDto.setTeamId(teamId);
-        }
-        model.addAttribute("playerDto", playerDto);
-        model.addAttribute("teams", teamService.findAll());
-        if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
-        return "players/form";
-    }
-
-    @PostMapping
-    public String create(@Valid @ModelAttribute("playerDto") PlayerDto playerDto, BindingResult bindingResult,
-                          @RequestParam(required = false) UUID fromRequest,
-                          Model model, Authentication authentication, RedirectAttributes redirectAttributes) {
-        if (bindingResult.hasErrors()) {
-            model.addAttribute("teams", teamService.findAll());
-            if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
-            return "players/form";
-        }
-
-        boolean executed;
-        try {
-            executed = changeRequestService.submitOrExecute(
-                    EntityType.PLAYER, ChangeAction.CREATE, playerDto, null, authentication);
-        } catch (SquadLimitExceededException e) {
-            bindingResult.rejectValue("teamId", "team.full", e.getMessage());
-            model.addAttribute("teams", teamService.findAll());
-            if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
-            return "players/form";
-        } catch (DuplicateShirtNumberException e) {
-            bindingResult.rejectValue("shirtNumber", "shirtNumber.taken", e.getMessage());
-            model.addAttribute("teams", teamService.findAll());
-            if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
-            return "players/form";
-        }
-
-        if (fromRequest != null) changeRequestService.cancelIfPending(fromRequest, authentication);
-        redirectAttributes.addFlashAttribute("statusMessage",
-                executed ? "Player created." : "Submitted for admin approval.");
-        return "redirect:/teams/" + playerDto.getTeamId();
     }
 
     @GetMapping("/{id}/form")

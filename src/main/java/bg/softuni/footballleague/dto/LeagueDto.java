@@ -29,4 +29,8 @@ public class LeagueDto {
     private LocalTime scheduleStartTime;
 
     private List<UUID> teamIds = new ArrayList<>();
+
+    private int teamCount;
+    private long totalMatches;
+    private long playedMatches;
 }

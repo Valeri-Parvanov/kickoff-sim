@@ -122,12 +122,10 @@ public class TeamController {
                 .filter(m -> id.equals(m.getHomeTeamId()) || id.equals(m.getAwayTeamId()))
                 .filter(m -> !m.getPlayedAt().isAfter(now))
                 .sorted(Comparator.comparing(MatchDto::getPlayedAt).reversed())
-                .limit(10)
                 .toList());
         model.addAttribute("teamUpcoming", all.stream()
                 .filter(m -> id.equals(m.getHomeTeamId()) || id.equals(m.getAwayTeamId()))
                 .filter(m -> m.getPlayedAt().isAfter(now))
-                .limit(5)
                 .toList());
         return "teams/detail";
     }
@@ -140,6 +138,12 @@ public class TeamController {
         model.addAttribute("teams", teamService.findAll(resolvedSort));
         model.addAttribute("currentSort", sort);
         model.addAttribute("currentDir", dir == null ? "asc" : dir);
+        long eligibleFreeCount = teamService.findAllFree().stream()
+                .filter(t -> t.getPlayerCount() >= 6)
+                .count();
+        if (eligibleFreeCount >= 6) {
+            model.addAttribute("leagueReadyCount", eligibleFreeCount);
+        }
         return "teams/list";
     }
 

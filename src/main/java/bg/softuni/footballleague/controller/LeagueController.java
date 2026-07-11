@@ -29,6 +29,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import bg.softuni.footballleague.dto.LeagueDetailView;
 import bg.softuni.footballleague.dto.MatchDto;
 
@@ -183,6 +184,12 @@ public class LeagueController {
         model.addAttribute("leagues", leagueService.findAll(resolvedSort));
         model.addAttribute("currentSort", sort);
         model.addAttribute("currentDir", dir == null ? "asc" : dir);
+        var freeTeams = teamService.findAllFree();
+        long eligibleFreeCount = freeTeams.stream()
+                .filter(t -> t.getPlayerCount() >= 6)
+                .count();
+        model.addAttribute("leagueEligibleCount", eligibleFreeCount);
+        model.addAttribute("leagueFreeCount", freeTeams.size());
         return "leagues/list";
     }
 
@@ -242,18 +249,33 @@ public class LeagueController {
             return "leagues/form";
         }
 
-        boolean executed = changeRequestService.submitOrExecute(
-                EntityType.LEAGUE, ChangeAction.CREATE, leagueDto, null, authentication);
+        boolean executed;
+        try {
+            executed = changeRequestService.submitOrExecute(
+                    EntityType.LEAGUE, ChangeAction.CREATE, leagueDto, null, authentication);
+        } catch (DataIntegrityViolationException e) {
+            bindingResult.rejectValue("name", "league.name.taken",
+                    "A league named \"" + leagueDto.getName() + "\" already exists. Please choose a different name.");
+            var freeTeams = teamService.findAllFree();
+            model.addAttribute("availableTeams", freeTeams);
+            model.addAttribute("eligibleCount", freeTeams.stream().filter(t -> t.getPlayerCount() >= 6).count());
+            if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
+            return "leagues/form";
+        }
         if (fromRequest != null) changeRequestService.cancelIfPending(fromRequest, authentication);
 
-        if (executed && leagueDto.getScheduleStartDate() != null && leagueDto.getScheduleStartTime() != null) {
+        if (executed) {
             UUID newId = leagueService.findAll().stream()
                     .filter(l -> leagueDto.getName().equals(l.getName()))
                     .map(LeagueDto::getId)
                     .findFirst().orElse(null);
             if (newId != null) {
+                LocalDate startDate = leagueDto.getScheduleStartDate() != null
+                        ? leagueDto.getScheduleStartDate() : LocalDate.now();
+                LocalTime startTime = leagueDto.getScheduleStartTime() != null
+                        ? leagueDto.getScheduleStartTime() : LocalTime.of(11, 0);
                 try {
-                    scheduleService.generate(newId, leagueDto.getScheduleStartDate(), leagueDto.getScheduleStartTime());
+                    scheduleService.generate(newId, startDate, startTime);
                     redirectAttributes.addFlashAttribute("statusMessage", "League created and schedule generated.");
                 } catch (InvalidLeagueOperationException ex) {
                     redirectAttributes.addFlashAttribute("statusMessage", "League created. " + ex.getMessage());

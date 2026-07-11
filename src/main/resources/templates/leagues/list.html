@@ -21,17 +21,66 @@
     <a th:href="@{/leagues/form}" class="btn-add">Add new league</a>
 </div>
 
+<div class="league-ready-banner" th:if="${leagueEligibleCount >= 6}" sec:authorize="isAuthenticated()">
+    <div class="league-ready-icon">&#127942;</div>
+    <div class="league-ready-body">
+        <div class="league-ready-title">You have enough teams to start a league!</div>
+        <div class="league-ready-sub">
+            <strong th:text="${leagueFreeCount}"></strong> teams without a league —
+            <strong th:text="${leagueEligibleCount}"></strong> of them are eligible (6+ players each).
+            Valid league sizes: 6, 8, 10 or 16 teams.
+        </div>
+        <div class="league-ready-actions">
+            <a th:href="@{/leagues/form}" class="league-ready-primary">&#43; Create a League</a>
+            <span class="league-ready-divider">or</span>
+            <span class="league-ready-secondary">continue adding teams</span>
+        </div>
+    </div>
+</div>
+
+<div class="league-warn-banner" th:if="${leagueEligibleCount < 6}" sec:authorize="isAuthenticated()">
+    <div class="league-ready-icon">&#9888;</div>
+    <div class="league-ready-body">
+        <div class="league-warn-title">Not enough eligible teams yet</div>
+        <div class="league-warn-sub">
+            To start a league you need at least 6 teams with 6+ players each.
+            Only <strong th:text="${leagueEligibleCount}"></strong> of your teams qualify right now — add players to more squads first.
+        </div>
+        <div class="league-ready-actions">
+            <a th:href="@{/teams/form}" class="league-warn-primary">&#43; Add a Team</a>
+            <span class="league-ready-divider">or</span>
+            <span class="league-warn-secondary">complete an existing team's squad</span>
+        </div>
+    </div>
+</div>
+
 <div class="table-wrapper">
 <table border="1" cellpadding="6">
     <thead>
     <tr>
         <th th:replace="~{fragments/sortable :: sortTh('/leagues', 'name', 'Name')}"></th>
+        <th>Teams</th>
+        <th>Progress</th>
         <th sec:authorize="hasRole('ADMIN')">Actions</th>
     </tr>
     </thead>
     <tbody>
     <tr th:each="league : ${leagues}">
         <td><a th:href="@{/leagues/{id}(id=${league.id})}" th:text="${league.name}"></a></td>
+        <td class="league-stat-teams" th:text="${league.teamCount > 0 ? league.teamCount : '—'}"></td>
+        <td class="league-progress-cell">
+            <th:block th:if="${league.totalMatches > 0}">
+                <div class="league-progress-wrap">
+                    <span class="league-progress-label"
+                          th:text="'League progress: ' + ${league.playedMatches} + '/' + ${league.totalMatches} + ' matches · ' + ${league.playedMatches * 100 / league.totalMatches} + '%'"></span>
+                    <div class="league-progress-bar">
+                        <div class="league-progress-fill"
+                             th:style="'width:' + ${league.playedMatches * 100 / league.totalMatches} + '%'"></div>
+                    </div>
+                </div>
+            </th:block>
+            <span th:if="${league.totalMatches == 0}" class="league-no-schedule">No schedule</span>
+        </td>
         <td sec:authorize="hasRole('ADMIN')">
             <a th:href="@{/leagues/{id}/form(id=${league.id})}">Edit</a>
             <form th:action="@{/leagues/{id}(id=${league.id})}" th:method="delete" style="display:inline">

@@ -16,8 +16,15 @@
 <div th:replace="~{fragments/topbar :: messages}"></div>
 <h1 style="text-align:center">&#128737; Add team</h1>
 <p style="text-align:center;color:var(--muted);max-width:580px;margin:0 auto 0.75rem">Fill in the team name, city, and squad. Leave unused rows empty.</p>
-<div th:if="${teamCreateForm.teamId == null}" style="max-width:760px;margin:0 auto 1.25rem;padding:0.95rem 1.2rem;background:rgba(59,130,246,0.08);border:2px solid rgba(59,130,246,0.45);border-radius:8px;font-size:1rem;font-weight:600;line-height:1.5;color:var(--fg);">
-    &#9917; To create a team, a minimum of <strong>6 players</strong> is required (maximum 12).
+<div th:if="${teamCreateForm.teamId == null}" class="league-warn-banner" style="max-width:760px;margin:0 auto 1.25rem;">
+    <div class="league-ready-icon">&#9432;</div>
+    <div class="league-ready-body">
+        <div class="league-warn-title">How to add a team</div>
+        <div class="league-warn-sub">
+            Enter the team name, city, and at least <strong>6 players</strong> (maximum 12).
+            Rows left empty will be ignored — only filled rows count toward the squad.
+        </div>
+    </div>
 </div>
 
 <form th:action="@{/teams(fromRequest=${fromRequest})}" th:object="${teamCreateForm}" method="post" class="card-form" style="max-width:760px">

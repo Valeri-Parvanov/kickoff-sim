@@ -109,11 +109,12 @@ public class ScheduleServiceImpl implements ScheduleService {
         LocalDate currentDate = startDate;
 
         for (int cycle = 0; cycle < format.getCycles(); cycle++) {
-            boolean swapHomeAway = (cycle % 2 == 1);
+            boolean cycleSwap = (cycle % 2 == 1);
             int[] positions = IntStream.range(0, n).toArray();
 
             for (int round = 0; round < n - 1; round++) {
                 int roundNumber = cycle * (n - 1) + round + 1;
+                boolean swapHomeAway = cycleSwap ^ (round % 2 == 1);
 
                 for (int i = 0; i < n / 2; i++) {
                     int aIdx = positions[i];

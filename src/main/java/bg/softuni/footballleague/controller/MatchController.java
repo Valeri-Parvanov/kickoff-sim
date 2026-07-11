@@ -87,46 +87,55 @@ public class MatchController {
         LocalDateTime liveThreshold = now.minusMinutes(46);
 
         List<LocalDate> matchDates;
-        List<MatchDto> dateMatches;
-        LocalDate selectedDate;
+        List<MatchDto> dateMatches = null;
+        List<MatchDto> recentMatches = List.of();
+        List<MatchDto> upcomingMatches = List.of();
+        LocalDate selectedDate = date;
 
+        List<MatchDto> allFiltered;
         if (league == null && team == null) {
             matchDates = matchService.findAllMatchDates();
-            selectedDate = resolveDate(date, matchDates, today);
-            dateMatches = selectedDate != null
-                    ? sortByStatus(matchService.findByDate(selectedDate), now, liveThreshold)
-                    : null;
+            allFiltered = date != null ? List.of() : matchService.findAll(Sort.by(Sort.Direction.ASC, "playedAt"));
         } else {
-            List<MatchDto> filtered = league != null
+            allFiltered = league != null
                     ? matchService.findByLeague(league)
                     : matchService.findAll(Sort.by(Sort.Direction.ASC, "playedAt"));
             if (team != null) {
                 final UUID t = team;
-                filtered = filtered.stream()
+                allFiltered = allFiltered.stream()
                         .filter(m -> t.equals(m.getHomeTeamId()) || t.equals(m.getAwayTeamId()))
                         .toList();
             }
-            matchDates = filtered.stream()
+            matchDates = allFiltered.stream()
                     .map(m -> m.getPlayedAt().toLocalDate())
                     .distinct()
                     .sorted()
                     .toList();
-            selectedDate = resolveDate(date, matchDates, today);
-            if (selectedDate != null) {
-                final LocalDate d = selectedDate;
-                List<MatchDto> dayFiltered = filtered.stream()
-                        .filter(m -> m.getPlayedAt().toLocalDate().equals(d))
-                        .toList();
-                dateMatches = sortByStatus(dayFiltered, now, liveThreshold);
+        }
+
+        if (date != null) {
+            if (league == null && team == null) {
+                dateMatches = sortByStatus(matchService.findByDate(date), now, liveThreshold);
             } else {
-                dateMatches = null;
+                final LocalDate d = date;
+                dateMatches = sortByStatus(
+                        allFiltered.stream().filter(m -> m.getPlayedAt().toLocalDate().equals(d)).toList(),
+                        now, liveThreshold);
             }
+        } else {
+            recentMatches = allFiltered.stream()
+                    .filter(m -> !m.getPlayedAt().isAfter(now) && m.getPlayedAt().toLocalDate().equals(today))
+                    .sorted(Comparator.comparing(MatchDto::getPlayedAt).reversed())
+                    .toList();
+            upcomingMatches = allFiltered.stream()
+                    .filter(m -> m.getPlayedAt().isAfter(now) && m.getPlayedAt().toLocalDate().equals(today))
+                    .toList();
         }
 
         List<String> matchDateStrings = matchDates.stream().map(LocalDate::toString).toList();
 
-        model.addAttribute("upcomingMatches", List.of());
-        model.addAttribute("recentMatches", List.of());
+        model.addAttribute("upcomingMatches", upcomingMatches);
+        model.addAttribute("recentMatches", recentMatches);
         model.addAttribute("dateMatches", dateMatches);
         model.addAttribute("leagues", leagueService.findAll());
         model.addAttribute("matchDates", matchDates);
@@ -149,8 +158,8 @@ public class MatchController {
                 model.addAttribute("teamLeagueId", t.getLeagueId());
             }
         }
-        List<Map<String, Object>> liveMatchesForJs = (dateMatches == null ? List.<MatchDto>of() : dateMatches)
-                .stream()
+        List<MatchDto> liveSource = dateMatches != null ? dateMatches : recentMatches;
+        List<Map<String, Object>> liveMatchesForJs = liveSource.stream()
                 .filter(m -> m.getPlayedAt().isBefore(now) && m.getPlayedAt().isAfter(liveThreshold))
                 .map(m -> {
                     List<Map<String, Object>> goals = m.getGoalTimeline().stream()
@@ -167,7 +176,10 @@ public class MatchController {
                             "goals", goals);
                 })
                 .toList();
+        boolean hasTodayResults = recentMatches.stream()
+                .anyMatch(m -> !m.getPlayedAt().isAfter(liveThreshold));
         model.addAttribute("liveMatchesForJs", liveMatchesForJs);
+        model.addAttribute("hasTodayResults", hasTodayResults);
         model.addAttribute("now", now);
         model.addAttribute("liveThreshold", liveThreshold);
         model.addAttribute("today", today);
