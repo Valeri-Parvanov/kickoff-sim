@@ -1,8 +1,8 @@
-# Football League Manager
+# Kickoff Sim
 
-A full-stack Spring Boot web application for managing football leagues — from creating teams and squads to generating round-robin schedules, recording goals, and watching live standings update in real time.
+A Spring Boot web application for managing mini-football leagues — create teams, build squads, generate round-robin schedules, record goals, and watch live standings update in real time.
 
-Built as an individual project for the Spring MVC & Thymeleaf courses at SoftUni.
+Built as an individual project for the Spring Fundamentals course at SoftUni.
 
 ---
 
@@ -21,119 +21,23 @@ Built as an individual project for the Spring MVC & Thymeleaf courses at SoftUni
 
 ---
 
-## Domain Model
-
-| Entity | Description |
-|---|---|
-| **League** | A football league; holds a set of teams and a schedule |
-| **Team** | Belongs to at most one League; has a city and a squad |
-| **Player** | Belongs to a Team; identified by shirt number, first name, last name |
-| **Match** | A fixture between a home Team and an away Team within a League |
-| **Goal** | Belongs to a Match; records scorer, optional assistant, minute, half, OG / penalty flag |
-
-All entities use `UUID` as their primary key.
-Technical entities not counted in the domain: **User** (authentication), **ChangeRequest** (approval workflow).
-
----
-
-## Features
-
-### Leagues
-- Create a league by selecting exactly **6, 8, 10, or 16 teams** (each must have at least 6 players).
-- Set a **Round 1 date and kick-off time** (15-minute granularity, 08:00–23:30) and the full round-robin schedule is generated automatically on creation.
-- Schedules can also be generated or regenerated manually from the league detail page (admin only).
-- View the league **standings table**, **round-by-round schedule**, and match results.
-
-### Schedule Generation
-- Round-robin algorithm (single or double leg depending on format).
-- Matches within a round are spread across the same day, each starting 1 hour after the previous.
-- Results are **auto-simulated** ~50 minutes after each kick-off (realistic goal distributions, scorers and assists drawn from the actual squad).
-
-### Live Standings
-- Any match kicked off within the last 46 minutes is treated as **live**.
-- Standing rows for teams currently playing are highlighted: **green** (winning), **orange** (draw), **red** (losing).
-- A pulsing **LIVE** badge next to each team shows the current score, updating every 30 seconds without a page reload.
-- Live standings appear identically on both the league detail page and the individual team detail page.
-
-### Teams & Players
-- Create a team with name, city, and an optional squad (up to 12 players) all in one form.
-- Randomizer buttons generate realistic names for players (full squad or minimum squad of 6).
-- Each team gets a unique auto-generated SVG logo based on its name.
-- Edit and delete teams and players (subject to the approval workflow for non-admin users).
-
-### Goals & Match Detail
-- Record goals with scorer, optional assist, minute (1–20 per half), OG and penalty flags.
-- The half is derived from the minute; the running score after each goal is stored and displayed.
-- The goal timeline is shown in an expandable match card, split by half with running scores.
-
-### Teams Page
-- Lists all teams with their league and player count.
-- Sortable by name, city, or league.
-
----
-
-## Security & Roles
-
-| Role | Permissions |
-|---|---|
-| **Guest** | Home page, register, login only |
-| **USER** | Browse everything; submit create / edit / delete proposals (see below) |
-| **ADMIN** | All USER permissions plus: changes apply immediately, manage proposals, generate schedules |
-
-The **first registered user** is automatically promoted to `ADMIN`.
-Passwords are hashed with BCrypt.
-
----
-
-## Change Approval Workflow
-
-Regular users don't write directly to the database. When a `USER` submits a create, edit, or delete action, the request is stored as a **pending `ChangeRequest`** and an admin must act on it:
-
-- **Approve** — re-runs the same validation as a direct admin action (stale proposals fail gracefully and stay pending rather than silently corrupting data), then applies the change.
-- **Reject** — discards the proposal; the admin can select a domain-specific reason or enter a custom one.
-
-Users track their own submissions on a **"My proposals"** page:
-- Filter by status (Pending / Approved / Rejected) and entity type.
-- See rejection reasons.
-- **Resubmit** a corrected version of a rejected proposal with one click (form pre-filled with original input).
-- **Cancel** pending proposals they no longer need.
-
-Stale pending requests older than 7 days are automatically cleaned up by a scheduled job.
-
----
-
-## Validation & Error Handling
-
-- Every form is validated server-side with `@Valid` and Bean Validation annotations.
-- Invalid submissions redisplay the form with field-level error messages in red.
-- Business rules enforced both in the UI and in the service layer:
-  - A match's home and away team must be different.
-  - A team must have at least 6 players to join a league.
-  - A league must have exactly 6, 8, 10, or 16 teams for schedule generation.
-  - Shirt numbers must be unique within a team.
-  - A team cannot be added to a league whose schedule has already started.
-- Custom exceptions (`EntityNotFoundException`, `InvalidMatchException`, `InvalidLeagueOperationException`, etc.) are handled centrally by `GlobalExceptionHandler` (`@ControllerAdvice`), rendering a user-friendly error page instead of a raw stack trace.
-
----
-
-## Running Locally
+## Quick Start
 
 ### Prerequisites
-- JDK 17
-- Maven (or use the included `mvnw` wrapper)
-- Docker (for the database)
 
-### Steps
+- JDK 17 or higher
+- Docker Desktop (must be running)
+- Maven, or use the included `mvnw` wrapper
 
-**1. Start the database**
+### 1. Start the database
 
 ```bash
 docker compose up -d
 ```
 
-This starts a MySQL 8 container with the `football_league_manager` database, root password `12345`, exposed on host port **3307** (to avoid conflicts with a locally installed MySQL).
+Starts a MySQL 8 container. The `kickoff_sim` database is created automatically on first run. Root password: `12345`. Exposed on host port **3307** to avoid conflicts with a locally installed MySQL.
 
-**2. Start the application**
+### 2. Start the application
 
 ```bash
 ./mvnw spring-boot:run
@@ -145,13 +49,222 @@ On Windows with a custom `JAVA_HOME`:
 .\run-local.ps1
 ```
 
-**3. Open the app**
+### 3. Open the app
 
 ```
 http://localhost:8080
 ```
 
-Register a user — the first registration automatically receives the `ADMIN` role.
+---
+
+## First-time Walkthrough
+
+Follow these steps on a fresh database to see all features in action.
+
+### Step 1 — Register your admin account
+
+Go to `/register`. The **first account created on an empty database is automatically granted ADMIN** — no setup needed. All subsequent registrations receive the USER role.
+
+### Step 2 — Create teams
+
+Go to **Teams → Create Team**. Use the **"Min squad (6)"** button to randomise six players instantly. Save, then repeat until you have at least **6 teams**. Eight teams give a better schedule (more rounds).
+
+Each team must have at least 6 players before it can join a league. Teams can exist without a league.
+
+### Step 3 — Create a league and see live matches immediately
+
+Go to **Leagues → Create League**. Select at least 6 teams, give the league a name, then set:
+
+- **Round 1 date**: today
+- **Kick-off time**: a time **5 to 40 minutes ago** (example: if it is 16:00, enter 15:25)
+
+The full round-robin schedule generates automatically on save. Matches within the same round are spaced **1 hour apart**, so the first match of Round 1 becomes live immediately. The second match goes live 1 hour later, the third 2 hours later, and so on.
+
+A match is live for exactly **46 minutes** from its kick-off time. After **50 minutes**, the result is auto-simulated by a background job that runs every 30 seconds.
+
+To see a completed result straight away instead of a live match, set the kick-off time to more than 50 minutes in the past (example: 15:05 if it is 16:00).
+
+### Step 4 — Watch the standings
+
+Open the league detail page. The **Standings** tab shows:
+
+- A **green** row for the team that is currently winning
+- An **orange** row for teams level in a draw
+- A **red** row for the team that is losing
+
+Each live team shows a pulsing **LIVE** badge next to its name with the current score. The score and highlights update every **30 seconds** without reloading the page.
+
+Once the 50-minute mark passes, the background scheduler simulates a realistic result and the match leaves the live state. Scorers and assists are drawn from the real squad rosters.
+
+### Step 5 — Record a goal manually (admin)
+
+Open any match via the **Matches** list or from the league schedule. As admin, you see **Add Goal** on the match detail page. Fill in the minute (1–40, where 1–20 = first half and 21–40 = second half), the scorer, and optionally an assist. Goals update the running score and are shown in the timeline by half.
+
+### Step 6 — Test the approval workflow
+
+Open a second browser or an incognito window and register a **second account** (this one gets USER role). Try editing a team or adding a player — the action is queued as a **pending proposal** instead of applying immediately. Switch back to your ADMIN account, go to **Admin → Change Requests**, and approve or reject it.
+
+---
+
+## Features
+
+### Leagues
+
+- Create leagues in four sizes: **6, 8, 10, or 16 teams**
+- Each selected team must have at least **6 players** and must not already belong to another league
+- Set the Round 1 date and kick-off time (15-minute steps, 08:00–23:30); the full round-robin schedule generates automatically
+- Schedule formats per size: 6 teams = 3-cycle (15 rounds total), 8 teams = 2-cycle (14 rounds), 10 teams = 2-cycle (18 rounds), 16 teams = 1-cycle (15 rounds)
+- View the **standings table**, **round-by-round schedule**, and match results on the league detail page
+- Round-by-round navigation with a dropdown to jump to any round
+- A progress bar shows how many of the season's matches have been completed
+- ADMIN can (re)generate a schedule at any time from the league detail page
+- Deleting a league detaches all teams (they keep their players) and removes all matches
+
+### Live Standings and Scores
+
+- A match is considered live during the **first 46 minutes** after kick-off
+- Live teams are highlighted in the standings: green (winning), orange (drawing), red (losing)
+- A pulsing **LIVE** badge next to each live team shows the current score, updated every 30 seconds without a page reload
+- The score displayed during a live match is computed in real time from the stored goal timeline:
+  - Minutes 0–20 of real time = first half in progress
+  - Minutes 21–25 = half-time break
+  - Minutes 26–45 = second half in progress
+  - After 45 minutes the match is shown as full time
+- The same live view appears on both the league page and each individual team's detail page
+- After **50 minutes**, the background job simulates the final result (runs every 30 seconds)
+
+### Schedule Generation and Auto-simulation
+
+- Round-robin rotation algorithm (positions array, last position fixed, rest rotate each round)
+- Multi-cycle leagues swap home/away between cycles; odd-numbered rounds also swap home/away
+- Matches within a round are played on the same day, each starting **1 hour after the previous**
+- Each round is played on a separate calendar day
+- Result simulation after 50 minutes: realistic goal totals weighted toward 3–6 goals per match; home-team advantage (55% of goals go to the home side); 8% own-goal probability; 12% penalty probability; 60% chance of an assist (if conditions allow); scorers and assists drawn from the actual squad
+
+### Teams and Players
+
+- Create a team with name, city, and a squad of up to **12 players** all in one form
+- Randomiser buttons fill in realistic Bulgarian team names, city names, and player names — full squad (12) or minimum squad (6)
+- Each team gets a unique auto-generated SVG logo based on its initials and UUID, cached by the browser for 24 hours
+- Add more players to an existing team at any time (up to the 12-player limit) via the squad page
+- Edit or delete individual players
+- Teams list is sortable by name, city, or league
+
+### Goals and Match Detail
+
+- Record goals with: scorer (dropdown filtered to match participants), optional assist (same team as scorer), minute 1–40, own-goal flag, penalty flag
+- The assist dropdown is hidden automatically when own-goal is checked
+- Minutes 1–20 are stored as first-half goals; 21–40 are stored as second-half goals (minute - 20)
+- A goal's minute must be unique within its half for the same match
+- Running score after each goal is stored and shown in the timeline
+- Expandable match card on list pages shows the full timeline split by half
+
+### Matches List and Filters
+
+- Filter matches by league, team, or date
+- Date calendar highlights days that have matches; clicking a day applies a date filter
+- When browsing without a date filter: Live / Upcoming / Results tabs
+- When filtering by team: a mini-standings table for that team's league is shown alongside the matches
+
+### Change Approval Workflow
+
+- **ADMIN** actions apply immediately to the database
+- **USER** actions are saved as a pending **ChangeRequest** for an admin to review
+- Admins see a badge in the navigation with the count of pending requests
+- On approval: the saved payload is re-validated; stale or now-invalid proposals fail gracefully and stay pending rather than silently corrupting data
+- On rejection: admin writes a reason (free text or from a context-sensitive suggestion list)
+- Users see all their proposals in **My Proposals**: filterable by status and entity type, paginated
+- PENDING proposals: can be edited (Resubmit button opens the form pre-filled) or cancelled
+- REJECTED proposals (non-delete): can be resubmitted with one click; the old pending request is removed automatically
+- PENDING requests older than **14 days** are automatically expired (rejected) by a background job
+- APPROVED and REJECTED requests older than **30 days** are hard-deleted by a nightly cleanup job
+
+### User Management (Admin)
+
+- Paginated list of all users (20 per page, sorted by username)
+- Promote any USER to ADMIN or demote any ADMIN to USER
+- The last remaining admin cannot be demoted — the button is disabled and the server enforces the rule
+- If an admin demotes themselves, their session is invalidated immediately and they are redirected to the login page
+
+---
+
+## Automatic Background Behaviours
+
+| Job | Schedule | What it does |
+|---|---|---|
+| Match auto-simulation | Every 30 seconds | Simulates results for matches with kick-off more than 50 minutes ago that still have 0-0 score |
+| Stale request expiry | Every 6 hours (first run after 5 min) | Auto-rejects PENDING requests older than 14 days |
+| Resolved request purge | Daily at 03:00 | Hard-deletes APPROVED and REJECTED requests older than 30 days |
+| Schedule auto-generation | On team save event | If a team is added to a league with a stored start date and a valid team count, the schedule is generated automatically |
+
+---
+
+## Security and Roles
+
+| Role | Access |
+|---|---|
+| **Guest** | Home page (`/`), register (`/register`), login (`/login`), team logos (`/teams/*/logo`) |
+| **USER** | All browsing pages; submit create / edit / delete proposals via the change request workflow |
+| **ADMIN** | Everything; changes apply immediately; access to `/admin/**`; manage change requests; generate schedules; add goals directly; manage users |
+
+- The **first registered user** on an empty database is automatically promoted to ADMIN
+- All passwords hashed with BCrypt
+- Access-denied responses return HTTP 404 to hide the existence of admin-only routes from non-admins
+- Role-based rules are enforced both in the Spring Security filter chain and via `@PreAuthorize` on individual controller methods
+
+---
+
+## Standings Tiebreakers
+
+When two or more teams are level on points, the following criteria are applied in order:
+
+1. Goal difference (overall)
+2. Goals scored (overall)
+3. Head-to-head points among the tied group
+4. Head-to-head goal difference
+5. Head-to-head goals scored
+6. Alphabetical order by team name
+
+Points system: **Win = 3 pts, Draw = 1 pt, Loss = 0 pts**.
+
+---
+
+## Validation and Error Handling
+
+Every form is validated server-side with `@Valid` and Bean Validation annotations. Invalid submissions redisplay the form with field-level error messages shown in red next to the specific field.
+
+Business rules enforced at the service layer:
+
+- A league must have exactly 6, 8, 10, or 16 teams
+- Every team in a league must have at least 6 players
+- A team cannot join a league that already has a generated schedule
+- The last match in a round must not start after 23:30
+- Shirt numbers must be unique within a team and between 1 and 99
+- Maximum squad size is 12 players per team
+- Home and away team in a match must be different
+- A goal can only be recorded if the declared score has room for it
+- A goal's minute must be unique within its half for the same match
+- Own goals cannot have an assist; assists must come from the same team as the scorer
+- Duplicate league names and duplicate team name + city combinations are rejected
+- The last admin cannot be demoted
+
+Custom exceptions (`EntityNotFoundException`, `InvalidMatchException`, `InvalidLeagueOperationException`, `DuplicateShirtNumberException`, `SquadLimitExceededException`, and others) are caught centrally by `GlobalExceptionHandler` (`@ControllerAdvice`) and rendered as a user-friendly error page instead of a raw stack trace.
+
+---
+
+## Domain Model
+
+| Entity | Key fields | Notes |
+|---|---|---|
+| **League** | name, scheduleStartDate, scheduleStartTime | Has many Teams and Matches |
+| **Team** | name, city, league (nullable) | Has many Players; can exist without a league |
+| **Player** | firstName, lastName, shirtNumber | Belongs to one Team |
+| **Match** | homeTeam, awayTeam, homeScore, awayScore, playedAt, roundNumber | Belongs to one League implicitly via teams |
+| **Goal** | scorer, assistant, minute, half, ownGoal, penalty | Belongs to one Match |
+
+Technical entities (not counted as domain): **User** (authentication) and **ChangeRequest** (approval workflow).
+
+All entities use `UUID` as primary key. All passwords are stored hashed (BCrypt).
 
 ---
 
@@ -172,5 +285,5 @@ src/main/java/bg/softuni/footballleague/
 
 src/main/resources/
 ├── templates/        Thymeleaf templates (leagues, teams, matches, players, admin, fragments)
-└── static/           CSS (style.css) and JS (random-names.js)
+└── static/           CSS (style.css), JS (random-names.js, goal-assist.js)
 ```

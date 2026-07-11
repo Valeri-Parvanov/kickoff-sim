@@ -9,7 +9,7 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>bg.softuni</groupId>
-	<artifactId>football-league-manager</artifactId>
+	<artifactId>kickoff-sim</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>Kickoff Sim</name>
 	<description/>

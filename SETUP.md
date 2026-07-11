@@ -29,7 +29,7 @@ check all three:
 - **File → Project Structure → Project**
   - SDK: **17** (or any 17.x JDK)
   - Language level: **17**
-- **File → Project Structure → Modules → football-league-manager**
+- **File → Project Structure → Modules → kickoff-sim**
   - Language level: inherit from project (17)
 - **Settings → Build, Execution, Deployment → Build Tools → Maven → Runner**
   - JRE: matches the project SDK (17)
@@ -47,19 +47,17 @@ Projects** (the circular-arrows icon).
 docker compose up -d mysql
 ```
 
-This starts only the MySQL container, mapped to **`localhost:3307`** on the host (database
-`football_league_manager`, root password `12345`). The port is 3307 (not 3306) to avoid
-conflicts with a locally installed MySQL instance. Data persists in a named Docker volume across
-restarts.
+This starts only the MySQL container. The container's port 3306 is mapped to host port **3307**
+to avoid conflicts with a locally installed MySQL. The database `kickoff_sim` is created
+automatically. Root password: `12345`. Data persists in a named Docker volume across restarts.
 
-Make sure `src/main/resources/application.properties` has the matching URL:
+The application connects to a local MySQL on port **3306**, so for Option B you need a local
+MySQL installation running on 3306. If you prefer to use the Docker MySQL instead, update
+`src/main/resources/application.properties` to port 3307:
 
 ```
-spring.datasource.url=jdbc:mysql://localhost:3307/football_league_manager
+spring.datasource.url=jdbc:mysql://localhost:3307/kickoff_sim
 ```
-
-If you have a local MySQL running on 3306 and prefer to use that instead, point the URL at 3306
-and skip the Docker step above.
 
 ### 3. Run the app
 

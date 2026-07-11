@@ -1,11 +1,11 @@
 services:
   mysql:
     image: mysql:8.0
-    container_name: football-league-manager-mysql
+    container_name: kickoff-sim-mysql
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-12345}
-      MYSQL_DATABASE: football_league_manager
+      MYSQL_DATABASE: kickoff_sim
     ports:
       - "3307:3306"
     volumes:
@@ -18,13 +18,13 @@ services:
 
   app:
     build: .
-    container_name: football-league-manager-app
+    container_name: kickoff-sim-app
     restart: unless-stopped
     depends_on:
       mysql:
         condition: service_healthy
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/football_league_manager?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/kickoff_sim?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-12345}
     ports:

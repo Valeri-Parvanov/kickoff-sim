@@ -1,33 +1,22 @@
 package bg.softuni.footballleague.controller;
 
-import bg.softuni.footballleague.dto.PlayerDto;
-import bg.softuni.footballleague.dto.PlayerRowDto;
-import bg.softuni.footballleague.dto.SquadForm;
-import bg.softuni.footballleague.dto.TeamDto;
-import bg.softuni.footballleague.dto.TeamSquadPayload;
+import bg.softuni.footballleague.dto.*;
 import bg.softuni.footballleague.model.ChangeAction;
 import bg.softuni.footballleague.model.EntityType;
 import bg.softuni.footballleague.service.ChangeRequestService;
 import bg.softuni.footballleague.service.PlayerService;
 import bg.softuni.footballleague.service.TeamService;
 import bg.softuni.footballleague.web.SquadRowValidator;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Controller
@@ -63,7 +52,7 @@ public class SquadController {
 
     @PostMapping
     public String submit(@PathVariable UUID teamId,
-                         @ModelAttribute("squadForm") SquadForm squadForm,
+                         @Valid @ModelAttribute("squadForm") SquadForm squadForm,
                          BindingResult bindingResult, Model model,
                          Authentication authentication, RedirectAttributes redirectAttributes) {
         TeamDto team = teamService.findById(teamId);

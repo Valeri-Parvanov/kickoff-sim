@@ -213,8 +213,7 @@
     <!-- LIVE -->
     <section id="live" class="team-tab-section">
         <div class="match-list">
-            <th:block th:each="match : ${recentMatches}">
-                <th:block th:if="${match.playedAt.isAfter(liveThreshold)}">
+            <th:block th:each="match : ${liveMatches}">
                     <details class="match-card">
                         <summary class="match-card-summary">
                             <div class="match-meta">
@@ -290,7 +289,6 @@
                             </div>
                         </div>
                     </details>
-                </th:block>
             </th:block>
         </div>
         <p th:if="${#lists.isEmpty(liveMatchesForJs)}" class="no-matches">No live matches right now.</p>
@@ -334,7 +332,7 @@
 
     <!-- RESULTS -->
     <section id="results" class="team-tab-section">
-        <div class="match-list" th:if="${!recentMatches.isEmpty()}">
+        <div class="match-list" th:if="${recentMatches.size() > liveMatches.size()}">
             <th:block th:each="match, stat : ${recentMatches}">
                 <th:block th:if="${!match.playedAt.isAfter(liveThreshold)}">
                     <div class="round-divider"
@@ -420,7 +418,7 @@
                 </th:block>
             </th:block>
         </div>
-        <p th:if="${recentMatches.isEmpty()}" class="no-matches">No results yet.</p>
+        <p th:if="${recentMatches.size() <= liveMatches.size()}" class="no-matches">No results yet.</p>
     </section>
 
 </div>
