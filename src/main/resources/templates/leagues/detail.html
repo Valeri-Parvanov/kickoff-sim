@@ -31,11 +31,25 @@
             <div class="team-hero-meta" th:if="${league.format == null}" style="color:var(--warn,#e67e22);">
                 &#9888; Invalid team count (<span th:text="${league.teams.size()}"></span>) &mdash; need 6, 8, 10, or 16
             </div>
+            <div class="ldp-wrap" th:if="${totalMatchCount != null and totalMatchCount > 0}">
+                <div class="ldp-header">
+                    <span class="ldp-label">League progress</span>
+                    <span class="ldp-counts">
+                        <strong th:text="${playedMatchCount}"></strong> / <span th:text="${totalMatchCount}"></span> matches played
+                        &nbsp;&middot;&nbsp;
+                        <strong class="ldp-pct" th:text="${playedMatchCount * 100 / totalMatchCount} + '%'"></strong>
+                    </span>
+                </div>
+                <div class="ldp-track">
+                    <div class="ldp-fill" th:style="'width:' + ${playedMatchCount * 100 / totalMatchCount} + '%'"></div>
+                </div>
+            </div>
         </div>
     </div>
-    <div class="team-detail-actions" sec:authorize="hasRole('ADMIN')">
-        <a th:href="@{/leagues/{id}/form(id=${league.id})}" class="btn-edit">Edit</a>
-        <form th:action="@{/leagues/{id}(id=${league.id})}" th:method="delete" style="display:inline">
+    <div class="team-detail-actions">
+        <a th:href="@{/leagues}" class="btn-back">&#8592; All Leagues</a>
+        <a th:href="@{/leagues/{id}/form(id=${league.id})}" class="btn-edit" sec:authorize="hasRole('ADMIN')">Edit</a>
+        <form th:action="@{/leagues/{id}(id=${league.id})}" th:method="delete" style="display:inline" sec:authorize="hasRole('ADMIN')">
             <button type="submit" class="btn-del">Delete</button>
         </form>
     </div>
@@ -46,13 +60,13 @@
         <span class="tab-icon">&#127942;</span>
         <span class="tab-label">Standings</span>
     </a>
-    <a class="team-tab" href="#teams">
-        <span class="tab-icon">&#128101;</span>
-        <span class="tab-label">Teams</span>
-    </a>
     <a class="team-tab" href="#schedule">
         <span class="tab-icon">&#9917;</span>
         <span class="tab-label">Schedule</span>
+    </a>
+    <a class="team-tab" href="#rules">
+        <span class="tab-icon">&#128220;</span>
+        <span class="tab-label">Rules</span>
     </a>
 </nav>
 
@@ -98,45 +112,6 @@
                 <td th:classappend="${row.goalDiff > 0} ? 'cell-gd-pos' : (${row.goalDiff < 0} ? 'cell-gd-neg' : '')"
                     th:text="${row.goalDiff}"></td>
                 <td><strong class="cell-pts" th:text="${row.points}"></strong></td>
-            </tr>
-            </tbody>
-        </table>
-    </div>
-    <details style="margin-top:1rem;">
-        <summary style="cursor:pointer;font-size:0.95rem;font-weight:600;color:var(--fg);">Tiebreaker rules</summary>
-        <div class="rules-box" style="margin-top:0.5rem;">
-            <ol>
-                <li>Points</li>
-                <li>Goal difference (all league matches)</li>
-                <li>Goals scored (all league matches)</li>
-                <li>Head-to-head points (only between tied teams)</li>
-                <li>Head-to-head goal difference</li>
-                <li>Head-to-head goals scored</li>
-                <li>Alphabetical order</li>
-            </ol>
-            <p><strong>Points:</strong> Win = 3 pts &nbsp;|&nbsp; Draw = 1 pt &nbsp;|&nbsp; Loss = 0 pts</p>
-        </div>
-    </details>
-</section>
-
-<!-- ── TEAMS ── -->
-<section id="teams" class="team-tab-section">
-    <div th:if="${league.teams.isEmpty()}" class="no-matches">No teams in this league yet.</div>
-    <div class="table-wrapper" th:if="${!league.teams.isEmpty()}">
-        <table border="1" cellpadding="6">
-            <thead>
-            <tr>
-                <th>Name</th>
-                <th>City</th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr th:each="team : ${league.teams}">
-                <td>
-                    <img th:src="@{/teams/{id}/logo(id=${team.id})}" class="team-logo-sm" alt=""/>
-                    <a th:href="@{/teams/{id}(id=${team.id})}" th:text="${team.name}"></a>
-                </td>
-                <td th:text="${team.city}"></td>
             </tr>
             </tbody>
         </table>
@@ -314,7 +289,45 @@
     </div>
 </section>
 
-<p><a th:href="@{/leagues}" class="back-link">&#8592; Back to leagues</a></p>
+<!-- ── RULES ── -->
+<section id="rules" class="team-tab-section">
+    <div class="rules-section">
+        <div class="rules-block">
+            <h3 class="rules-title">&#127942; Standings tiebreakers</h3>
+            <p class="rules-sub">When two or more teams are level on points, the following criteria apply in order:</p>
+            <ol class="rules-list">
+                <li>Points</li>
+                <li>Goal difference (all league matches)</li>
+                <li>Goals scored (all league matches)</li>
+                <li>Head-to-head points (only between tied teams)</li>
+                <li>Head-to-head goal difference</li>
+                <li>Head-to-head goals scored</li>
+                <li>Alphabetical order</li>
+            </ol>
+        </div>
+        <div class="rules-block">
+            <h3 class="rules-title">&#9917; Points system</h3>
+            <div class="rules-points">
+                <div class="rules-point-row"><span class="rp-result rp-win">Win</span><span class="rp-pts">3 points</span></div>
+                <div class="rules-point-row"><span class="rp-result rp-draw">Draw</span><span class="rp-pts">1 point</span></div>
+                <div class="rules-point-row"><span class="rp-result rp-loss">Loss</span><span class="rp-pts">0 points</span></div>
+            </div>
+        </div>
+        <div class="rules-block">
+            <h3 class="rules-title">&#128197; Format</h3>
+            <p class="rules-sub" th:if="${league.format != null}">
+                <strong th:text="${league.format.cycleName}"></strong> —
+                each team plays <strong th:text="${league.format.cycles}"></strong>
+                time(s) against every opponent.
+                <br/>
+                <strong th:text="${league.format.totalRounds}"></strong> rounds &nbsp;&middot;&nbsp;
+                <strong th:text="${league.format.matchesPerRound}"></strong> matches per round &nbsp;&middot;&nbsp;
+                <strong th:text="${league.format.totalMatches}"></strong> total matches.
+            </p>
+        </div>
+    </div>
+</section>
+
 
 </main>
 <script th:inline="javascript">

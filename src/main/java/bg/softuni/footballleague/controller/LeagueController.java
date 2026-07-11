@@ -1,6 +1,8 @@
 package bg.softuni.footballleague.controller;
 
+import bg.softuni.footballleague.dto.LeagueDetailView;
 import bg.softuni.footballleague.dto.LeagueDto;
+import bg.softuni.footballleague.dto.MatchDto;
 import bg.softuni.footballleague.dto.ScheduleForm;
 import bg.softuni.footballleague.exception.InvalidLeagueOperationException;
 import bg.softuni.footballleague.model.ChangeAction;
@@ -13,36 +15,20 @@ import bg.softuni.footballleague.service.TeamService;
 import bg.softuni.footballleague.web.SortSupport;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
-
-import org.springframework.dao.DataIntegrityViolationException;
-import bg.softuni.footballleague.dto.LeagueDetailView;
-import bg.softuni.footballleague.dto.MatchDto;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.OptionalInt;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Stream;
 
 @Controller
@@ -139,6 +125,10 @@ public class LeagueController {
                     })
                     .toList();
             model.addAttribute("liveMatchesForJs", liveMatchesForJs);
+            model.addAttribute("totalMatchCount", (long) league.getMatches().size());
+            model.addAttribute("playedMatchCount", league.getMatches().stream()
+                    .filter(m -> m.getPlayedAt().isBefore(liveThreshold))
+                    .count());
         }
 
         return "leagues/detail";

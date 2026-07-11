@@ -1,26 +1,11 @@
 package bg.softuni.footballleague.service.impl;
 
-import bg.softuni.footballleague.dto.ChangeRequestView;
-import bg.softuni.footballleague.dto.LeagueDto;
-import bg.softuni.footballleague.dto.MatchDto;
-import bg.softuni.footballleague.dto.PlayerDto;
-import bg.softuni.footballleague.dto.TeamDto;
-import bg.softuni.footballleague.dto.TeamSquadPayload;
+import bg.softuni.footballleague.dto.*;
 import bg.softuni.footballleague.exception.ChangeRequestApprovalException;
 import bg.softuni.footballleague.exception.EntityNotFoundException;
-import bg.softuni.footballleague.model.ChangeAction;
-import bg.softuni.footballleague.model.ChangeRequest;
-import bg.softuni.footballleague.model.ChangeRequestStatus;
-import bg.softuni.footballleague.model.EntityType;
-import bg.softuni.footballleague.model.Role;
-import bg.softuni.footballleague.model.User;
+import bg.softuni.footballleague.model.*;
 import bg.softuni.footballleague.repository.ChangeRequestRepository;
-import bg.softuni.footballleague.service.ChangeRequestService;
-import bg.softuni.footballleague.service.LeagueService;
-import bg.softuni.footballleague.service.MatchService;
-import bg.softuni.footballleague.service.PlayerService;
-import bg.softuni.footballleague.service.TeamService;
-import bg.softuni.footballleague.service.UserService;
+import bg.softuni.footballleague.service.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
@@ -31,7 +16,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -50,6 +37,7 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
     private final TeamService teamService;
     private final PlayerService playerService;
     private final MatchService matchService;
+    private final ScheduleService scheduleService;
     private final ObjectMapper objectMapper;
     private final Validator validator;
 
@@ -236,7 +224,24 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
 
     private void applyLeagueChange(ChangeAction action, LeagueDto dto, UUID targetId) {
         switch (action) {
-            case CREATE -> leagueService.create(dto);
+            case CREATE -> {
+                leagueService.create(dto);
+                UUID newId = leagueService.findAll().stream()
+                        .filter(l -> dto.getName().equals(l.getName()))
+                        .map(LeagueDto::getId)
+                        .findFirst().orElse(null);
+                if (newId != null) {
+                    LocalDate startDate = dto.getScheduleStartDate() != null
+                            ? dto.getScheduleStartDate() : LocalDate.now();
+                    LocalTime startTime = dto.getScheduleStartTime() != null
+                            ? dto.getScheduleStartTime() : LocalTime.of(11, 0);
+                    try {
+                        scheduleService.generate(newId, startDate, startTime);
+                    } catch (Exception e) {
+                        log.warn("Schedule generation failed after league approval: {}", e.getMessage());
+                    }
+                }
+            }
             case UPDATE -> leagueService.update(targetId, dto);
             case DELETE -> leagueService.delete(targetId);
         }
@@ -399,36 +404,76 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
             return switch (changeRequest.getEntityType()) {
                 case LEAGUE -> {
                     LeagueDto d = (LeagueDto) dto;
-                    yield List.of("Name: " + d.getName());
+                    List<String> lines = new ArrayList<>();
+                    lines.add("==League");
+                    lines.add("Name: " + d.getName());
+                    if (d.getScheduleStartDate() != null || d.getScheduleStartTime() != null) {
+                        lines.add("==Schedule");
+                        if (d.getScheduleStartDate() != null)
+                            lines.add("Round 1 date: " + d.getScheduleStartDate());
+                        if (d.getScheduleStartTime() != null)
+                            lines.add("First kick-off: " + d.getScheduleStartTime());
+                    }
+                    if (d.getTeamIds() != null && !d.getTeamIds().isEmpty()) {
+                        lines.add("==Teams (" + d.getTeamIds().size() + ")");
+                        for (UUID teamId : d.getTeamIds()) {
+                            try {
+                                TeamDto team = teamService.findById(teamId);
+                                lines.add("· " + team.getName()
+                                        + (team.getCity() != null ? " (" + team.getCity() + ")" : ""));
+                            } catch (Exception ignored) {
+                                lines.add("· [unknown team]");
+                            }
+                        }
+                    }
+                    yield lines;
                 }
                 case TEAM -> {
                     TeamDto d = (TeamDto) dto;
-                    yield List.of("Name: " + d.getName(), "City: " + d.getCity(), "League: " + d.getLeagueName());
+                    List<String> lines = new ArrayList<>();
+                    lines.add("==Team");
+                    lines.add("Name: " + d.getName());
+                    if (d.getCity() != null && !d.getCity().isBlank())
+                        lines.add("City: " + d.getCity());
+                    if (d.getLeagueName() != null)
+                        lines.add("League: " + d.getLeagueName());
+                    yield lines;
                 }
                 case PLAYER -> {
                     PlayerDto d = (PlayerDto) dto;
-                    yield List.of("Name: " + d.getFirstName() + " " + d.getLastName(),
-                            "Shirt number: " + d.getShirtNumber(), "Team: " + d.getTeamName());
+                    List<String> lines = new ArrayList<>();
+                    lines.add("==Player");
+                    lines.add("Name: " + d.getFirstName() + " " + d.getLastName());
+                    lines.add("Shirt #" + d.getShirtNumber());
+                    if (d.getTeamName() != null)
+                        lines.add("Team: " + d.getTeamName());
+                    yield lines;
                 }
                 case MATCH -> {
                     MatchDto d = (MatchDto) dto;
-                    yield List.of("Home team: " + d.getHomeTeamName(), "Away team: " + d.getAwayTeamName(),
-                            "Played at: " + d.getPlayedAt());
+                    List<String> lines = new ArrayList<>();
+                    lines.add("==Match");
+                    lines.add("Home: " + d.getHomeTeamName());
+                    lines.add("Away: " + d.getAwayTeamName());
+                    lines.add("Kick-off: " + d.getPlayedAt());
+                    yield lines;
                 }
                 case TEAM_SQUAD -> {
                     TeamSquadPayload d = (TeamSquadPayload) dto;
                     List<String> lines = new ArrayList<>();
+                    lines.add("==Team");
                     if (d.getTeam().getId() == null) {
                         String city = d.getTeam().getCity();
-                        lines.add("New team: " + d.getTeam().getName()
+                        lines.add("Name: " + d.getTeam().getName()
                                 + (city != null && !city.isBlank() ? " (" + city + ")" : ""));
-                        lines.add("League: " + d.getTeam().getLeagueName());
+                        if (d.getTeam().getLeagueName() != null)
+                            lines.add("League: " + d.getTeam().getLeagueName());
                     } else {
-                        lines.add("Add players to team: " + d.getTeam().getName());
+                        lines.add("Add players to: " + d.getTeam().getName());
                     }
-                    lines.add("Players (" + d.getPlayers().size() + "):");
+                    lines.add("==Players (" + d.getPlayers().size() + ")");
                     for (PlayerDto player : d.getPlayers()) {
-                        lines.add("#" + player.getShirtNumber() + " "
+                        lines.add("· #" + player.getShirtNumber() + " "
                                 + player.getFirstName() + " " + player.getLastName());
                     }
                     yield lines;

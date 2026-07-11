@@ -1,25 +1,15 @@
 package bg.softuni.footballleague.service.impl;
 
-import bg.softuni.footballleague.dto.GoalDto;
-import bg.softuni.footballleague.dto.LeagueDetailView;
-import bg.softuni.footballleague.dto.LeagueDto;
-import bg.softuni.footballleague.dto.MatchDto;
-import bg.softuni.footballleague.dto.StandingRow;
-import bg.softuni.footballleague.dto.TeamDto;
+import bg.softuni.footballleague.dto.*;
 import bg.softuni.footballleague.exception.EntityNotFoundException;
 import bg.softuni.footballleague.exception.InvalidLeagueOperationException;
-import bg.softuni.footballleague.model.Half;
-import bg.softuni.footballleague.model.League;
-import bg.softuni.footballleague.model.LeagueFormat;
-import bg.softuni.footballleague.model.Match;
-import bg.softuni.footballleague.model.Team;
+import bg.softuni.footballleague.model.*;
 import bg.softuni.footballleague.repository.LeagueRepository;
 import bg.softuni.footballleague.repository.MatchRepository;
 import bg.softuni.footballleague.repository.PlayerRepository;
 import bg.softuni.footballleague.repository.TeamRepository;
 import bg.softuni.footballleague.service.LeagueService;
 import bg.softuni.footballleague.service.MatchService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -30,14 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -115,6 +98,7 @@ public class LeagueServiceImpl implements LeagueService {
             }
             team.setLeague(saved);
             teamRepository.save(team);
+            saved.getTeams().add(team);
         }
 
         log.info("Created league '{}' with {} team(s)", saved.getName(), teams.size());

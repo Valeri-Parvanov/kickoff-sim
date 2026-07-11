@@ -1,25 +1,15 @@
 package bg.softuni.footballleague.controller;
 
-import bg.softuni.footballleague.dto.LeagueDetailView;
-import bg.softuni.footballleague.dto.MatchDto;
-import bg.softuni.footballleague.dto.PlayerDto;
-import bg.softuni.footballleague.dto.PlayerRowDto;
-import bg.softuni.footballleague.dto.TeamCreateForm;
-import bg.softuni.footballleague.dto.TeamDto;
-import bg.softuni.footballleague.dto.TeamSquadPayload;
+import bg.softuni.footballleague.dto.*;
 import bg.softuni.footballleague.model.ChangeAction;
 import bg.softuni.footballleague.model.EntityType;
-import org.springframework.dao.DataIntegrityViolationException;
-import bg.softuni.footballleague.service.ChangeRequestService;
-import bg.softuni.footballleague.service.LeagueService;
-import bg.softuni.footballleague.service.MatchService;
-import bg.softuni.footballleague.service.PlayerService;
-import bg.softuni.footballleague.service.TeamService;
+import bg.softuni.footballleague.service.*;
+import bg.softuni.footballleague.web.LogoGenerator;
 import bg.softuni.footballleague.web.SortSupport;
 import bg.softuni.footballleague.web.SquadRowValidator;
-import bg.softuni.footballleague.web.LogoGenerator;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -27,25 +17,11 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 
 @Controller

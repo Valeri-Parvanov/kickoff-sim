@@ -2,13 +2,7 @@ package bg.softuni.footballleague.service.impl;
 
 import bg.softuni.footballleague.exception.EntityNotFoundException;
 import bg.softuni.footballleague.exception.InvalidLeagueOperationException;
-import bg.softuni.footballleague.model.Goal;
-import bg.softuni.footballleague.model.Half;
-import bg.softuni.footballleague.model.League;
-import bg.softuni.footballleague.model.LeagueFormat;
-import bg.softuni.footballleague.model.Match;
-import bg.softuni.footballleague.model.Player;
-import bg.softuni.footballleague.model.Team;
+import bg.softuni.footballleague.model.*;
 import bg.softuni.footballleague.repository.GoalRepository;
 import bg.softuni.footballleague.repository.LeagueRepository;
 import bg.softuni.footballleague.repository.MatchRepository;
@@ -16,19 +10,14 @@ import bg.softuni.footballleague.repository.PlayerRepository;
 import bg.softuni.footballleague.service.ScheduleService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import org.springframework.cache.annotation.CacheEvict;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -51,8 +40,9 @@ public class ScheduleServiceImpl implements ScheduleService {
     private final GoalRepository goalRepository;
 
     @Override
+    @Transactional(noRollbackFor = InvalidLeagueOperationException.class)
     public void generate(UUID leagueId, LocalDate startDate, LocalTime startTime) {
-        League league = leagueRepository.findById(leagueId)
+        League league = leagueRepository.findByIdWithTeams(leagueId)
                 .orElseThrow(() -> new EntityNotFoundException("League not found"));
 
         int n = league.getTeams().size();

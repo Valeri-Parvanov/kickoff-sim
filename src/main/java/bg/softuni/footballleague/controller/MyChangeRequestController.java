@@ -8,13 +8,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -59,7 +56,25 @@ public class MyChangeRequestController {
         model.addAttribute("currentPage", safePage);
         model.addAttribute("totalPages", totalPages);
         model.addAttribute("filteredCount", filtered.size());
+        model.addAttribute("pageNumbers", buildPageNumbers(safePage, totalPages));
         return "my-change-requests";
+    }
+
+    private static List<Integer> buildPageNumbers(int current, int total) {
+        if (total <= 9) {
+            List<Integer> pages = new ArrayList<>();
+            for (int i = 0; i < total; i++) pages.add(i);
+            return pages;
+        }
+        List<Integer> pages = new ArrayList<>();
+        int start = Math.max(1, current - 2);
+        int end = Math.min(total - 2, current + 2);
+        pages.add(0);
+        if (start > 1) pages.add(-1);
+        for (int i = start; i <= end; i++) pages.add(i);
+        if (end < total - 2) pages.add(-1);
+        pages.add(total - 1);
+        return pages;
     }
 
     @DeleteMapping("/{id}")

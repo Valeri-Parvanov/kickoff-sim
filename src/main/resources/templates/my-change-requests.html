@@ -70,9 +70,15 @@
             </span>
         </div>
 
-        <ul class="cr-details">
-            <li th:each="line : ${cr.details}" th:text="${line}"></li>
-        </ul>
+        <div class="cr-details">
+            <th:block th:each="line : ${cr.details}">
+                <div class="cr-section-head" th:if="${#strings.startsWith(line, '==')}">
+                    <span th:text="${#strings.substringAfter(line, '==')}"></span>
+                </div>
+                <div class="cr-detail-bullet" th:if="${#strings.startsWith(line, '·')}" th:text="${line}"></div>
+                <div class="cr-detail-row" th:unless="${#strings.startsWith(line, '==') or #strings.startsWith(line, '·')}" th:text="${line}"></div>
+            </th:block>
+        </div>
 
         <p th:if="${cr.status.name() == 'REJECTED' and cr.rejectionReason != null and !cr.rejectionReason.isBlank()}"
            class="error-message">
@@ -122,12 +128,18 @@
     <a th:if="${currentPage > 0}"
        th:href="@{/my-change-requests(status=${selectedStatus},type=${selectedType},page=${currentPage - 1})}"
        class="page-btn">&lsaquo; Prev</a>
-    <span>Page <strong th:text="${currentPage + 1}"></strong> of <strong th:text="${totalPages}"></strong>
-        <span style="font-size:0.82rem;color:var(--muted);" th:text="'(' + ${filteredCount} + ' total)'"></span>
+    <span th:each="p : ${pageNumbers}">
+        <span th:if="${p == -1}" class="page-ellipsis">&#8230;</span>
+        <a th:if="${p != -1 and p != currentPage}"
+           th:href="@{/my-change-requests(status=${selectedStatus},type=${selectedType},page=${p})}"
+           class="page-btn" th:text="${p + 1}"></a>
+        <span th:if="${p != -1 and p == currentPage}"
+              class="page-btn page-btn-active" th:text="${p + 1}"></span>
     </span>
     <a th:if="${currentPage < totalPages - 1}"
        th:href="@{/my-change-requests(status=${selectedStatus},type=${selectedType},page=${currentPage + 1})}"
        class="page-btn">Next &rsaquo;</a>
+    <span style="font-size:0.82rem;color:var(--muted);" th:text="'(' + ${filteredCount} + ' total)'"></span>
 </div>
 
 </main>

@@ -41,9 +41,15 @@
             </span>
         </div>
 
-        <ul class="cr-details">
-            <li th:each="line : ${cr.details}" th:text="${line}"></li>
-        </ul>
+        <div class="cr-details">
+            <th:block th:each="line : ${cr.details}">
+                <div class="cr-section-head" th:if="${#strings.startsWith(line, '==')}">
+                    <span th:text="${#strings.substringAfter(line, '==')}"></span>
+                </div>
+                <div class="cr-detail-bullet" th:if="${#strings.startsWith(line, '·')}" th:text="${line}"></div>
+                <div class="cr-detail-row" th:unless="${#strings.startsWith(line, '==') or #strings.startsWith(line, '·')}" th:text="${line}"></div>
+            </th:block>
+        </div>
 
         <div class="cr-actions">
             <form th:action="@{/admin/change-requests/{id}/approval(id=${cr.id})}" method="post" style="display:inline">

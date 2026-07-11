@@ -1,19 +1,11 @@
 package bg.softuni.footballleague.controller;
 
-import bg.softuni.footballleague.dto.GoalDto;
-import bg.softuni.footballleague.dto.GoalEventDto;
-import bg.softuni.footballleague.dto.LeagueDetailView;
-import bg.softuni.footballleague.dto.MatchDto;
-import bg.softuni.footballleague.dto.TeamDto;
+import bg.softuni.footballleague.dto.*;
 import bg.softuni.footballleague.exception.InvalidGoalException;
 import bg.softuni.footballleague.model.ChangeAction;
 import bg.softuni.footballleague.model.EntityType;
 import bg.softuni.footballleague.model.Half;
-import bg.softuni.footballleague.service.ChangeRequestService;
-import bg.softuni.footballleague.service.LeagueService;
-import bg.softuni.footballleague.service.MatchService;
-import bg.softuni.footballleague.service.PlayerService;
-import bg.softuni.footballleague.service.TeamService;
+import bg.softuni.footballleague.service.*;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
@@ -23,14 +15,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.time.LocalDate;
@@ -159,8 +144,12 @@ public class MatchController {
             }
         }
         List<MatchDto> liveSource = dateMatches != null ? dateMatches : recentMatches;
-        List<Map<String, Object>> liveMatchesForJs = liveSource.stream()
+        List<MatchDto> liveMatches = liveSource.stream()
                 .filter(m -> m.getPlayedAt().isBefore(now) && m.getPlayedAt().isAfter(liveThreshold))
+                .sorted(Comparator.comparing(MatchDto::getPlayedAt))
+                .toList();
+        model.addAttribute("liveMatches", liveMatches);
+        List<Map<String, Object>> liveMatchesForJs = liveMatches.stream()
                 .map(m -> {
                     List<Map<String, Object>> goals = m.getGoalTimeline().stream()
                             .map(g -> Map.<String, Object>of(

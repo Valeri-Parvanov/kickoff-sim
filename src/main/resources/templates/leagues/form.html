@@ -24,12 +24,27 @@
         <div class="error-message" th:each="err : ${#fields.globalErrors()}" th:text="${err}"></div>
     </div>
 
-    <div th:if="${leagueDto.id == null}" style="margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;padding:0.85rem 1rem;background:rgba(234,179,8,0.1);border:1px solid rgba(234,179,8,0.45);border-radius:8px;">
-        <span style="font-size:0.93rem;">
-            &#9888; Eligible teams: <strong th:text="${eligibleCount}"></strong>
-            &nbsp;&middot;&nbsp; Need exactly <strong>6, 8, 10 or 16</strong>
-        </span>
-        <a th:href="@{/teams/form}" class="btn-add" style="text-decoration:none;white-space:nowrap;">Add more teams</a>
+    <div th:if="${leagueDto.id == null and eligibleCount >= 6}" class="league-ready-banner" style="margin-bottom:20px;">
+        <div class="league-ready-icon">&#127942;</div>
+        <div class="league-ready-body">
+            <div class="league-ready-title">Ready to create a league!</div>
+            <div class="league-ready-sub">
+                <strong th:text="${eligibleCount}"></strong> eligible teams available (6+ players each).
+                Select exactly <strong>6, 8, 10 or 16</strong> teams below to form the league.
+            </div>
+        </div>
+    </div>
+    <div th:if="${leagueDto.id == null and eligibleCount < 6}" class="league-warn-banner" style="margin-bottom:20px;">
+        <div class="league-ready-icon">&#9888;</div>
+        <div class="league-ready-body">
+            <div class="league-warn-title">Not enough eligible teams yet</div>
+            <div class="league-warn-sub">
+                You have <strong th:text="${eligibleCount}"></strong> eligible team(s). You need at least 6 with 6+ players each.
+            </div>
+            <div class="league-ready-actions">
+                <a th:href="@{/teams/form}" class="league-warn-primary">&#43; Add a Team</a>
+            </div>
+        </div>
     </div>
 
     <div>
@@ -42,10 +57,10 @@
     </div>
 
     <fieldset style="margin-top:16px;padding:12px;border:1px solid #ccc;border-radius:6px;">
-        <legend style="font-weight:600;padding:0 6px;">Auto-generate schedule (optional)</legend>
+        <legend style="font-weight:600;padding:0 6px;">Schedule start</legend>
         <p style="font-size:0.85rem;color:#555;margin:0 0 10px;">
-            When the team count reaches 6, 8, 10, or 16, the schedule is created automatically.
-            Leave blank to generate manually later.
+            The schedule is generated automatically when the league is created.
+            If you leave the date blank, Round 1 starts today.
         </p>
         <div style="display:flex;gap:16px;flex-wrap:wrap;">
             <div>
