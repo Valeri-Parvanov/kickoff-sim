@@ -5,6 +5,7 @@ import bg.softuni.footballleague.exception.ChangeRequestApprovalException;
 import bg.softuni.footballleague.exception.EntityNotFoundException;
 import bg.softuni.footballleague.model.*;
 import bg.softuni.footballleague.repository.ChangeRequestRepository;
+import bg.softuni.footballleague.repository.TeamRepository;
 import bg.softuni.footballleague.service.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.ConstraintViolation;
@@ -32,6 +33,7 @@ import java.util.stream.Collectors;
 public class ChangeRequestServiceImpl implements ChangeRequestService {
 
     private final ChangeRequestRepository changeRequestRepository;
+    private final TeamRepository teamRepository;
     private final UserService userService;
     private final LeagueService leagueService;
     private final TeamService teamService;
@@ -72,6 +74,7 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
     }
 
     @Override
+    @Transactional(readOnly = true, noRollbackFor = Exception.class)
     public List<ChangeRequestView> findPending() {
         return changeRequestRepository.findAllByStatusOrderByRequestedAtAsc(ChangeRequestStatus.PENDING).stream()
                 .map(this::toView)
@@ -90,6 +93,7 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
     }
 
     @Override
+    @Transactional(readOnly = true, noRollbackFor = Exception.class)
     public List<ChangeRequestView> findMine(Authentication authentication) {
         User requester = userService.findByUsername(authentication.getName());
         return changeRequestRepository.findAllByRequestedByOrderByRequestedAtDesc(requester).stream()
@@ -417,13 +421,11 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
                     if (d.getTeamIds() != null && !d.getTeamIds().isEmpty()) {
                         lines.add("==Teams (" + d.getTeamIds().size() + ")");
                         for (UUID teamId : d.getTeamIds()) {
-                            try {
-                                TeamDto team = teamService.findById(teamId);
-                                lines.add("· " + team.getName()
-                                        + (team.getCity() != null ? " (" + team.getCity() + ")" : ""));
-                            } catch (Exception ignored) {
-                                lines.add("· [unknown team]");
-                            }
+                            teamRepository.findById(teamId).ifPresentOrElse(
+                                t -> lines.add("· " + t.getName()
+                                        + (t.getCity() != null ? " (" + t.getCity() + ")" : "")),
+                                () -> lines.add("· [unknown team]")
+                            );
                         }
                     }
                     yield lines;

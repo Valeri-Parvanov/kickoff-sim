@@ -115,7 +115,7 @@ public class ScheduleServiceImpl implements ScheduleService {
                     Match match = new Match();
                     match.setHomeTeam(home);
                     match.setAwayTeam(away);
-                    match.setPlayedAt(currentDate.atTime(startTime.plusHours(i)));
+                    match.setPlayedAt(currentDate.atTime(startTime).plusHours(i));
                     match.setHomeScore(0);
                     match.setAwayScore(0);
                     match.setRoundNumber(roundNumber);
@@ -232,11 +232,15 @@ public class ScheduleServiceImpl implements ScheduleService {
         if (startTime.isBefore(EARLIEST)) {
             throw new InvalidLeagueOperationException("Start time cannot be before 08:00.");
         }
-        LocalTime lastMatchTime = startTime.plusHours(matchesPerRound - 1);
-        if (lastMatchTime.isAfter(LATEST)) {
+        int startMinutes = startTime.getHour() * 60 + startTime.getMinute();
+        int latestMinutes = LATEST.getHour() * 60 + LATEST.getMinute();
+        int lastStartMinutes = startMinutes + (matchesPerRound - 1) * 60;
+        if (lastStartMinutes > latestMinutes) {
+            int latestStartMinutes = latestMinutes - (matchesPerRound - 1) * 60;
+            LocalTime latestStart = LocalTime.of(latestStartMinutes / 60, latestStartMinutes % 60);
             throw new InvalidLeagueOperationException(
-                    "Start time too late: the last match would kick off at " + lastMatchTime
-                    + ". Choose " + LATEST.minusHours(matchesPerRound - 1) + " or earlier.");
+                    "Start time too late: the last match would kick off after " + LATEST
+                    + ". Choose " + latestStart + " or earlier.");
         }
     }
 
