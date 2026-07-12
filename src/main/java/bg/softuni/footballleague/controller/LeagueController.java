@@ -25,6 +25,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -58,6 +59,7 @@ public class LeagueController {
         }
 
         model.addAttribute("liveMatchesForJs", List.of());
+        model.addAttribute("elapsedByMatchId", Map.of());
 
         if (!league.getMatches().isEmpty()) {
             LocalDateTime now = LocalDateTime.now();
@@ -120,11 +122,17 @@ public class LeagueController {
                                 "id", m.getId().toString(),
                                 "homeTeamId", m.getHomeTeamId().toString(),
                                 "awayTeamId", m.getAwayTeamId().toString(),
-                                "kickoff", m.getPlayedAt().toString(),
+                                "elapsedMin", Duration.between(m.getPlayedAt(), now).toMinutes(),
                                 "goals", goals);
                     })
                     .toList();
             model.addAttribute("liveMatchesForJs", liveMatchesForJs);
+            Map<UUID, Long> elapsedByMatchId = league.getMatches().stream()
+                    .filter(m -> m.getPlayedAt().isBefore(now) && m.getPlayedAt().isAfter(liveThreshold))
+                    .collect(java.util.stream.Collectors.toMap(
+                            MatchDto::getId,
+                            m -> Duration.between(m.getPlayedAt(), now).toMinutes()));
+            model.addAttribute("elapsedByMatchId", elapsedByMatchId);
             model.addAttribute("totalMatchCount", (long) league.getMatches().size());
             model.addAttribute("playedMatchCount", league.getMatches().stream()
                     .filter(m -> m.getPlayedAt().isBefore(liveThreshold))

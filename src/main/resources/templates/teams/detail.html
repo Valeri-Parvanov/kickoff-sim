@@ -124,10 +124,6 @@
         <div class="match-list">
             <th:block th:each="m, stat : ${teamResults}">
 
-                <div class="round-divider"
-                     th:if="${m.roundNumber != null and (stat.first or m.roundNumber != teamResults[stat.index - 1].roundNumber)}"
-                     th:text="'Round ' + ${m.roundNumber}"></div>
-
                 <details class="match-card">
                     <summary class="match-card-summary">
                         <div class="match-meta">
@@ -135,9 +131,8 @@
                                 <a th:if="${m.leagueId != null}"
                                    th:href="@{/leagues/{id}(id=${m.leagueId})}"
                                    th:text="${m.leagueName}" class="match-league-tag"></a>
-                                <span class="match-date" th:text="${#temporals.format(m.playedAt, 'dd MMM yyyy, HH:mm')}"></span>
+                                <span class="match-round" th:if="${m.roundNumber != null}" th:text="'Round ' + ${m.roundNumber}"></span>
                             </span>
-                            <a th:href="@{/matches/{id}(id=${m.id})}" class="match-detail-link" onclick="event.stopPropagation()">&#8594; Details</a>
                         </div>
                         <div class="match-scoreline">
                             <a class="team-name home" th:href="@{/teams/{id}(id=${m.homeTeamId})}">
@@ -146,23 +141,21 @@
                             </a>
                             <div class="score-block"
                                  th:if="${m.playedAt.isAfter(liveThreshold)}"
-                                 th:attr="data-kickoff=${#temporals.format(m.playedAt, 'yyyy-MM-dd HH:mm:ss')},data-match-id=${m.id}">
+                                 th:attr="data-elapsed=${elapsedByMatchId[m.id]},data-match-id=${m.id}">
+                                <div class="score-time" th:attr="data-utc=${m.playedAtUtcIso},data-fmt='datetime-compact'"></div>
                                 <div class="ls-score-main"><span class="ls-h">-</span>&thinsp;:&thinsp;<span class="ls-a">-</span></div>
                                 <div class="live-badge">LIVE</div>
                                 <div class="live-minute"></div>
                             </div>
                             <div class="score-block" th:unless="${m.playedAt.isAfter(liveThreshold)}">
+                                <div class="score-time" th:attr="data-utc=${m.playedAtUtcIso},data-fmt='datetime-compact'"></div>
                                 <div class="score-main" th:text="${m.homeScore} + ' : ' + ${m.awayScore}"></div>
-                                <div class="score-ht"
-                                     th:if="${m.homeHalfScore != null}"
-                                     th:text="'HT ' + ${m.homeHalfScore} + ' – ' + ${m.awayHalfScore}"></div>
                             </div>
                             <a class="team-name away" th:href="@{/teams/{id}(id=${m.awayTeamId})}">
                                 <img th:src="@{/teams/{id}/logo(id=${m.awayTeamId})}" class="match-logo" alt=""/>
                                 <span th:text="${m.awayTeamName + (m.awayTeamCity != null ? ' (' + m.awayTeamCity + ')' : '')}"></span>
                             </a>
                         </div>
-                        <div class="match-expand-hint">&#9662; details</div>
                     </summary>
                     <div class="match-card-expand">
                         <div class="goal-timeline" th:if="${!m.goalTimeline.isEmpty()}">
@@ -225,10 +218,8 @@
                         <a th:if="${m.leagueId != null}"
                            th:href="@{/leagues/{id}(id=${m.leagueId})}"
                            th:text="${m.leagueName}" class="match-league-tag"></a>
-                        <span th:if="${m.roundNumber != null}" class="match-date"
-                              th:text="'Round ' + ${m.roundNumber}"></span>
+                        <span class="match-round" th:if="${m.roundNumber != null}" th:text="'Round ' + ${m.roundNumber}"></span>
                     </span>
-                    <a th:href="@{/matches/{id}(id=${m.id})}" class="match-detail-link">&#8594; Details</a>
                 </div>
                 <div class="match-scoreline">
                     <a class="team-name home" th:href="@{/teams/{id}(id=${m.homeTeamId})}">
@@ -236,8 +227,8 @@
                         <img th:src="@{/teams/{id}/logo(id=${m.homeTeamId})}" class="match-logo" alt=""/>
                     </a>
                     <div class="score-block">
-                        <div class="upcoming-time" th:text="${#temporals.format(m.playedAt, 'HH:mm')}"></div>
-                        <div class="upcoming-date" th:text="${#temporals.format(m.playedAt, 'dd MMM yyyy')}"></div>
+                        <div class="upcoming-time" th:attr="data-utc=${m.playedAtUtcIso},data-fmt='time'"></div>
+                        <div class="upcoming-date" th:attr="data-utc=${m.playedAtUtcIso},data-fmt='date-iso'"></div>
                     </div>
                     <a class="team-name away" th:href="@{/teams/{id}(id=${m.awayTeamId})}">
                         <img th:src="@{/teams/{id}/logo(id=${m.awayTeamId})}" class="match-logo" alt=""/>
@@ -279,10 +270,10 @@
 (function() {
     var liveData = /*[[${liveMatchesForJs}]]*/ [];
     if (!liveData.length) return;
+    var PAGE_LOAD_TIME = Date.now();
 
-    function getLiveState(kickoffStr, goals) {
-        var kickoff = new Date(kickoffStr.replace(' ', 'T'));
-        var realMin = Math.floor((Date.now() - kickoff.getTime()) / 60000);
+    function getLiveState(elapsedAtLoad, goals) {
+        var realMin = elapsedAtLoad + Math.floor((Date.now() - PAGE_LOAD_TIME) / 60000);
         if (realMin < 0) return { phase: 'PRE', homeScore: 0, awayScore: 0, displayMin: '' };
         var phase, maxMin, displayMin;
         if      (realMin <= 20) { phase = 'FIRST';  maxMin = realMin;      displayMin = realMin + "'"; }
@@ -308,7 +299,7 @@
     function updateLive() {
         var stateById = {};
         liveData.forEach(function(m) {
-            stateById[m.id] = { st: getLiveState(m.kickoff, m.goals), homeTeamId: m.homeTeamId, awayTeamId: m.awayTeamId };
+            stateById[m.id] = { st: getLiveState(m.elapsedMin, m.goals), homeTeamId: m.homeTeamId, awayTeamId: m.awayTeamId };
         });
 
         Object.keys(stateById).forEach(function(mId) {
@@ -331,7 +322,7 @@
             });
         });
 
-        document.querySelectorAll('[data-kickoff]').forEach(function(el) {
+        document.querySelectorAll('[data-elapsed]').forEach(function(el) {
             var mId = el.getAttribute('data-match-id');
             if (!mId || !stateById[mId]) return;
             var st = stateById[mId].st;
@@ -347,6 +338,29 @@
     updateLive();
     setInterval(updateLive, 30000);
 })();
+</script>
+<script>
+(function() {
+    document.querySelectorAll('[data-utc]').forEach(function(el) {
+        try {
+            var d = new Date(el.dataset.utc);
+            if (isNaN(d.getTime())) return;
+            var fmt = el.dataset.fmt;
+            if (fmt === 'time') {
+                el.textContent = d.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+            } else if (fmt === 'date') {
+                el.textContent = d.toLocaleDateString(undefined, {day:'2-digit',month:'short',year:'numeric'});
+            } else if (fmt === 'date-iso') {
+                el.textContent = String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + d.getFullYear();
+            } else if (fmt === 'datetime-compact') {
+                el.textContent = String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + d.getFullYear() + ' · ' + d.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+            } else {
+                el.textContent = d.toLocaleDateString(undefined, {day:'2-digit',month:'short',year:'numeric'})
+                    + ', ' + d.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+            }
+        } catch(e) {}
+    });
+}());
 </script>
 
 </main>

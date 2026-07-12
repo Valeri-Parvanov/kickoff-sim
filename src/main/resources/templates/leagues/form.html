@@ -73,6 +73,15 @@
                 <label for="scheduleStartTimeSelect">First kick-off (default 11:00)</label><br/>
                 <input type="hidden" th:field="*{scheduleStartTime}"/>
                 <select id="scheduleStartTimeSelect" style="height:2.2rem;font-size:1rem;border:1px solid #ccc;border-radius:6px;padding:0 0.5rem;"></select>
+                <div id="tzBanner" style="display:none;margin-top:10px;padding:10px 14px;border-radius:6px;background:#fffbeb;border-left:4px solid #d97706;border-top:1px solid #fcd34d;border-right:1px solid #fcd34d;border-bottom:1px solid #fcd34d;max-width:340px;">
+                    <div style="display:flex;align-items:flex-start;gap:8px;">
+                        <span style="font-size:1.15rem;line-height:1.2;color:#d97706;">&#9888;</span>
+                        <div>
+                            <div style="font-size:0.82rem;font-weight:600;color:#92400e;">Times are entered in Sofia time (UTC+3).</div>
+                            <div style="font-size:0.82rem;color:#78350f;margin-top:3px;">First match will kick off at <strong><span id="tzBannerLocal"></span> your local time</strong>.</div>
+                        </div>
+                    </div>
+                </div>
                 <span style="color:red" th:if="${#fields.hasErrors('scheduleStartTime')}" th:errors="*{scheduleStartTime}"></span>
             </div>
         </div>
@@ -127,7 +136,32 @@
     sel.value = cur;
     if (!sel.value) sel.value = '11:00';
     hidden.value = sel.value;
-    sel.addEventListener('change', function() { hidden.value = sel.value; });
+
+    var sofiaOffset = (function() {
+        try {
+            var d = new Date();
+            var s = d.toLocaleString('sv', {timeZone: 'Europe/Sofia'});
+            var u = d.toLocaleString('sv', {timeZone: 'UTC'});
+            return Math.round((new Date(s) - new Date(u)) / 60000);
+        } catch(e) { return 180; }
+    })();
+    var clientOffset = -new Date().getTimezoneOffset();
+    var delta = sofiaOffset - clientOffset;
+
+    function updateLocalNote() {
+        var banner = document.getElementById('tzBanner');
+        var bannerLocal = document.getElementById('tzBannerLocal');
+        if (!banner) return;
+        if (delta === 0) { banner.style.display = 'none'; return; }
+        var parts = sel.value.split(':');
+        var sofiaMin = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+        var localMin = ((sofiaMin - delta) % 1440 + 1440) % 1440;
+        var localStr = String(Math.floor(localMin / 60)).padStart(2, '0') + ':' + String(localMin % 60).padStart(2, '0');
+        if (bannerLocal) bannerLocal.textContent = localStr;
+        banner.style.display = 'block';
+    }
+    sel.addEventListener('change', function() { hidden.value = sel.value; updateLocalNote(); });
+    updateLocalNote();
 })();
 
 (function() {
@@ -233,7 +267,9 @@
         document.getElementById('lcmName').textContent = (document.getElementById('name').value || '').trim() || '—';
         document.getElementById('lcmDate').textContent = fmtDate((document.getElementById('scheduleStartDate').value || '').trim());
         var sel = document.getElementById('scheduleStartTimeSelect');
-        document.getElementById('lcmTime').textContent = sel ? sel.value : '—';
+        var bannerLocal = document.getElementById('tzBannerLocal');
+        var localNote = bannerLocal && bannerLocal.textContent ? ' (' + bannerLocal.textContent + ' your local time)' : '';
+        document.getElementById('lcmTime').textContent = (sel ? sel.value + ' Sofia' : '—') + localNote;
         modal.style.display = 'flex';
     });
     document.getElementById('lcmConfirm').addEventListener('click', function() {

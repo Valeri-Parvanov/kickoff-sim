@@ -18,12 +18,15 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Controller
 @RequiredArgsConstructor
@@ -56,7 +59,7 @@ public class MatchController {
                     .toList();
             model.addAttribute("liveMatchForJs", Map.of(
                     "id", match.getId().toString(),
-                    "kickoff", match.getPlayedAt().toString(),
+                    "elapsedMin", Duration.between(match.getPlayedAt(), now).toMinutes(),
                     "goals", goals));
         }
         return "matches/detail";
@@ -113,7 +116,7 @@ public class MatchController {
                     .sorted(Comparator.comparing(MatchDto::getPlayedAt).reversed())
                     .toList();
             upcomingMatches = allFiltered.stream()
-                    .filter(m -> m.getPlayedAt().isAfter(now) && m.getPlayedAt().toLocalDate().equals(today))
+                    .filter(m -> m.getPlayedAt().isAfter(now))
                     .toList();
         }
 
@@ -161,19 +164,38 @@ public class MatchController {
                             .toList();
                     return Map.<String, Object>of(
                             "id", m.getId().toString(),
-                            "kickoff", m.getPlayedAt().toString(),
+                            "elapsedMin", Duration.between(m.getPlayedAt(), now).toMinutes(),
                             "goals", goals);
                 })
                 .toList();
         boolean hasTodayResults = recentMatches.stream()
                 .anyMatch(m -> !m.getPlayedAt().isAfter(liveThreshold));
         model.addAttribute("liveMatchesForJs", liveMatchesForJs);
+        Map<UUID, Long> elapsedByMatchId = liveMatches.stream()
+                .collect(Collectors.toMap(MatchDto::getId, m -> Duration.between(m.getPlayedAt(), now).toMinutes()));
+        model.addAttribute("elapsedByMatchId", elapsedByMatchId);
         model.addAttribute("hasTodayResults", hasTodayResults);
         model.addAttribute("now", now);
         model.addAttribute("liveThreshold", liveThreshold);
         model.addAttribute("today", today);
         model.addAttribute("todayStr", today.toString());
         model.addAttribute("selectedDateStr", selectedDate != null ? selectedDate.toString() : "");
+        if (selectedDate != null) {
+            model.addAttribute("selectedDateUtcNoon",
+                    selectedDate.atTime(12, 0)
+                            .atZone(ZoneId.of("Europe/Sofia"))
+                            .toInstant()
+                            .toString());
+        }
+        List<String> allMatchUtcIsos;
+        if (league == null && team == null) {
+            allMatchUtcIsos = matchService.findAllMatchUtcIsos();
+        } else {
+            allMatchUtcIsos = allFiltered.stream()
+                    .map(m -> m.getPlayedAt().atZone(ZoneId.of("Europe/Sofia")).toInstant().toString())
+                    .toList();
+        }
+        model.addAttribute("allMatchUtcIsos", allMatchUtcIsos);
         return "matches/list";
     }
 

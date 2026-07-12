@@ -10,6 +10,7 @@ import lombok.Setter;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -66,4 +67,9 @@ public class MatchDto {
     private Integer awayHalfScore;
 
     private List<GoalDto> goalTimeline = new ArrayList<>();
+
+    public String getPlayedAtUtcIso() {
+        if (playedAt == null) return "";
+        return playedAt.atZone(ZoneId.of("Europe/Sofia")).toInstant().toString();
+    }
 }

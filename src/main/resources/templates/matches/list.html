@@ -31,9 +31,6 @@
         <a th:href="@{/matches(league=${selectedLeague})}" class="ls-chip-clear">&#10005;</a>
     </span>
     <a th:href="@{/matches}" th:if="${selectedLeague != null or selectedDate != null or selectedTeam != null}" class="ls-clear-filter">&#10005; Clear filters</a>
-    <div style="margin-left:auto;" sec:authorize="hasRole('ADMIN')">
-        <a th:href="@{/matches/form}" class="btn-add">Add new match</a>
-    </div>
 </div>
 
 <div class="cal-container" th:if="${!matchDates.isEmpty()}">
@@ -76,17 +73,19 @@
 <!-- ── DATE FILTER: unified section ── -->
 <div th:if="${dateMatches != null}">
     <div class="ls-section-header ls-date-header"
+         th:attr="data-utc-date=${selectedDateUtcNoon}"
          th:text="${#temporals.format(selectedDate, 'dd MMMM yyyy')}"></div>
-    <div class="match-list" th:if="${!dateMatches.isEmpty()}">
-        <th:block th:each="match : ${dateMatches}">
-
-            <details class="match-card" th:if="${!match.playedAt.isAfter(now)}">
+    <div id="dateMatchList" class="match-list" th:if="${!dateMatches.isEmpty()}">
+        <th:block th:each="match, stat : ${dateMatches}">
+            <details class="match-card" th:if="${!match.playedAt.isAfter(now)}" th:attr="data-round=${match.roundNumber}">
                 <summary class="match-card-summary">
                     <div class="match-meta">
-                        <a class="match-league-tag" th:if="${match.leagueId != null}"
-                           th:href="@{/leagues/{id}(id=${match.leagueId})}"
-                           th:text="${match.leagueName}"></a>
-                        <span class="match-date" th:text="${#temporals.format(match.playedAt, 'HH:mm')}"></span>
+                        <span class="match-meta-info">
+                            <a class="match-league-tag" th:if="${match.leagueId != null}"
+                               th:href="@{/leagues/{id}(id=${match.leagueId})}"
+                               th:text="${match.leagueName}"></a>
+                            <span class="match-round" th:if="${match.roundNumber != null}" th:text="'Round ' + ${match.roundNumber}"></span>
+                        </span>
                     </div>
                     <div class="match-scoreline">
                         <a class="team-name home" th:href="@{/teams/{id}(id=${match.homeTeamId})}">
@@ -94,15 +93,14 @@
                             <img th:src="@{/teams/{id}/logo(id=${match.homeTeamId})}" class="match-logo" alt=""/>
                         </a>
                         <div class="score-block" th:if="${!match.playedAt.isAfter(liveThreshold)}">
+                            <div class="score-time" th:attr="data-utc=${match.playedAtUtcIso},data-fmt='datetime-compact'"></div>
                             <div class="score-main"
                                  th:text="${match.homeScore != null ? match.homeScore : '-'} + ' : ' + ${match.awayScore != null ? match.awayScore : '-'}"></div>
-                            <div class="score-ht"
-                                 th:if="${match.homeHalfScore != null}"
-                                 th:text="'HT ' + ${match.homeHalfScore} + ' – ' + ${match.awayHalfScore}"></div>
                         </div>
                         <div class="score-block"
                              th:unless="${!match.playedAt.isAfter(liveThreshold)}"
-                             th:attr="data-kickoff=${#temporals.format(match.playedAt, 'yyyy-MM-dd HH:mm:ss')},data-match-id=${match.id}">
+                             th:attr="data-elapsed=${elapsedByMatchId[match.id]},data-match-id=${match.id}">
+                            <div class="score-time" th:attr="data-utc=${match.playedAtUtcIso},data-fmt='datetime-compact'"></div>
                             <div class="ls-score-main"><span class="ls-h">-</span>&thinsp;:&thinsp;<span class="ls-a">-</span></div>
                             <div class="live-badge">LIVE</div>
                             <div class="live-minute"></div>
@@ -112,7 +110,6 @@
                             <span th:text="${match.awayTeamName + (match.awayTeamCity != null ? ' (' + match.awayTeamCity + ')' : '')}"></span>
                         </a>
                     </div>
-                    <div class="match-expand-hint">&#9662; details</div>
                 </summary>
                 <div class="match-card-expand">
                     <p th:if="${match.playedAt.isBefore(now) and !match.playedAt.isBefore(liveThreshold) and match.goalTimeline.isEmpty()}"
@@ -164,12 +161,14 @@
                 </div>
             </details>
 
-            <div class="match-card upcoming" th:unless="${!match.playedAt.isAfter(now)}">
+            <div class="match-card upcoming" th:unless="${!match.playedAt.isAfter(now)}" th:attr="data-round=${match.roundNumber}">
                 <div class="match-meta">
-                    <a class="match-league-tag" th:if="${match.leagueId != null}"
-                       th:href="@{/leagues/{id}(id=${match.leagueId})}"
-                       th:text="${match.leagueName}"></a>
-                    <span class="match-date" th:text="${#temporals.format(match.playedAt, 'HH:mm')}"></span>
+                    <span class="match-meta-info">
+                        <a class="match-league-tag" th:if="${match.leagueId != null}"
+                           th:href="@{/leagues/{id}(id=${match.leagueId})}"
+                           th:text="${match.leagueName}"></a>
+                        <span class="match-round" th:if="${match.roundNumber != null}" th:text="'Round ' + ${match.roundNumber}"></span>
+                    </span>
                 </div>
                 <div class="match-scoreline">
                     <a class="team-name home" th:href="@{/teams/{id}(id=${match.homeTeamId})}">
@@ -177,8 +176,8 @@
                         <img th:src="@{/teams/{id}/logo(id=${match.homeTeamId})}" class="match-logo" alt=""/>
                     </a>
                     <div class="score-block">
-                        <div class="upcoming-time" th:text="${#temporals.format(match.playedAt, 'HH:mm')}"></div>
-                        <div class="upcoming-date" th:text="'Upcoming'"></div>
+                        <div class="upcoming-time" th:attr="data-utc=${match.playedAtUtcIso},data-fmt='time'"></div>
+                        <div class="upcoming-date" th:attr="data-utc=${match.playedAtUtcIso},data-fmt='date-iso'"></div>
                     </div>
                     <a class="team-name away" th:href="@{/teams/{id}(id=${match.awayTeamId})}">
                         <img th:src="@{/teams/{id}/logo(id=${match.awayTeamId})}" class="match-logo" alt=""/>
@@ -221,9 +220,8 @@
                                     <a class="match-league-tag" th:if="${match.leagueId != null}"
                                        th:href="@{/leagues/{id}(id=${match.leagueId})}"
                                        th:text="${match.leagueName}"></a>
-                                    <span class="match-date" th:text="${#temporals.format(match.playedAt, 'dd MMM yyyy, HH:mm')}"></span>
+                                    <span class="match-round" th:if="${match.roundNumber != null}" th:text="'Round ' + ${match.roundNumber}"></span>
                                 </span>
-                                <a th:href="@{/matches/{id}(id=${match.id})}" class="match-detail-link" onclick="event.stopPropagation()">&#8594; Details</a>
                             </div>
                             <div class="match-scoreline">
                                 <a class="team-name home" th:href="@{/teams/{id}(id=${match.homeTeamId})}">
@@ -231,7 +229,8 @@
                                     <img th:src="@{/teams/{id}/logo(id=${match.homeTeamId})}" class="match-logo" alt=""/>
                                 </a>
                                 <div class="score-block"
-                                     th:attr="data-kickoff=${#temporals.format(match.playedAt, 'yyyy-MM-dd HH:mm:ss')},data-match-id=${match.id}">
+                                     th:attr="data-elapsed=${elapsedByMatchId[match.id]},data-match-id=${match.id}">
+                                    <div class="score-time" th:attr="data-utc=${match.playedAtUtcIso},data-fmt='datetime-compact'"></div>
                                     <div class="ls-score-main"><span class="ls-h">-</span>&thinsp;:&thinsp;<span class="ls-a">-</span></div>
                                     <div class="live-badge">LIVE</div>
                                     <div class="live-minute"></div>
@@ -241,7 +240,6 @@
                                     <span th:text="${match.awayTeamName + (match.awayTeamCity != null ? ' (' + match.awayTeamCity + ')' : '')}"></span>
                                 </a>
                             </div>
-                            <div class="match-expand-hint">&#9662; details</div>
                         </summary>
                         <div class="match-card-expand">
                             <p th:if="${match.goalTimeline.isEmpty()}"
@@ -297,18 +295,15 @@
     <!-- UPCOMING -->
     <section id="upcoming" class="team-tab-section">
         <div class="match-list" th:if="${!upcomingMatches.isEmpty()}">
-            <th:block th:each="match, stat : ${upcomingMatches}">
-                <div class="round-divider"
-                     th:if="${match.roundNumber != null and (stat.first or match.roundNumber != upcomingMatches[stat.index - 1].roundNumber)}"
-                     th:text="'Round ' + ${match.roundNumber}"></div>
+            <th:block th:each="match : ${upcomingMatches}">
                 <div class="match-card upcoming">
                     <div class="match-meta">
                         <span class="match-meta-info">
                             <a class="match-league-tag" th:if="${match.leagueId != null}"
                                th:href="@{/leagues/{id}(id=${match.leagueId})}"
                                th:text="${match.leagueName}"></a>
+                            <span class="match-round" th:if="${match.roundNumber != null}" th:text="'Round ' + ${match.roundNumber}"></span>
                         </span>
-                        <a th:href="@{/matches/{id}(id=${match.id})}" class="match-detail-link">&#8594; Details</a>
                     </div>
                     <div class="match-scoreline">
                         <a class="team-name home" th:href="@{/teams/{id}(id=${match.homeTeamId})}">
@@ -316,8 +311,8 @@
                             <img th:src="@{/teams/{id}/logo(id=${match.homeTeamId})}" class="match-logo" alt=""/>
                         </a>
                         <div class="score-block">
-                            <div class="upcoming-time" th:text="${#temporals.format(match.playedAt, 'HH:mm')}"></div>
-                            <div class="upcoming-date" th:text="${#temporals.format(match.playedAt, 'dd MMM yyyy')}"></div>
+                            <div class="upcoming-time" th:attr="data-utc=${match.playedAtUtcIso},data-fmt='time'"></div>
+                            <div class="upcoming-date" th:attr="data-utc=${match.playedAtUtcIso},data-fmt='date-iso'"></div>
                         </div>
                         <a class="team-name away" th:href="@{/teams/{id}(id=${match.awayTeamId})}">
                             <img th:src="@{/teams/{id}/logo(id=${match.awayTeamId})}" class="match-logo" alt=""/>
@@ -327,7 +322,7 @@
                 </div>
             </th:block>
         </div>
-        <p th:if="${upcomingMatches.isEmpty()}" class="no-matches">No more upcoming matches today.</p>
+        <p th:if="${upcomingMatches.isEmpty()}" class="no-matches">No upcoming matches.</p>
     </section>
 
     <!-- RESULTS -->
@@ -335,9 +330,6 @@
         <div class="match-list" th:if="${recentMatches.size() > liveMatches.size()}">
             <th:block th:each="match, stat : ${recentMatches}">
                 <th:block th:if="${!match.playedAt.isAfter(liveThreshold)}">
-                    <div class="round-divider"
-                         th:if="${match.roundNumber != null and stat.first}"
-                         th:text="'Round ' + ${match.roundNumber}"></div>
                     <details class="match-card">
                         <summary class="match-card-summary">
                             <div class="match-meta">
@@ -345,9 +337,8 @@
                                     <a class="match-league-tag" th:if="${match.leagueId != null}"
                                        th:href="@{/leagues/{id}(id=${match.leagueId})}"
                                        th:text="${match.leagueName}"></a>
-                                    <span class="match-date" th:text="${#temporals.format(match.playedAt, 'dd MMM yyyy, HH:mm')}"></span>
+                                    <span class="match-round" th:if="${match.roundNumber != null}" th:text="'Round ' + ${match.roundNumber}"></span>
                                 </span>
-                                <a th:href="@{/matches/{id}(id=${match.id})}" class="match-detail-link" onclick="event.stopPropagation()">&#8594; Details</a>
                             </div>
                             <div class="match-scoreline">
                                 <a class="team-name home" th:href="@{/teams/{id}(id=${match.homeTeamId})}">
@@ -355,18 +346,15 @@
                                     <img th:src="@{/teams/{id}/logo(id=${match.homeTeamId})}" class="match-logo" alt=""/>
                                 </a>
                                 <div class="score-block">
+                                    <div class="score-time" th:attr="data-utc=${match.playedAtUtcIso},data-fmt='datetime-compact'"></div>
                                     <div class="score-main"
                                          th:text="${match.homeScore != null ? match.homeScore : '-'} + ' : ' + ${match.awayScore != null ? match.awayScore : '-'}"></div>
-                                    <div class="score-ht"
-                                         th:if="${match.homeHalfScore != null}"
-                                         th:text="'HT ' + ${match.homeHalfScore} + ' – ' + ${match.awayHalfScore}"></div>
                                 </div>
                                 <a class="team-name away" th:href="@{/teams/{id}(id=${match.awayTeamId})}">
                                     <img th:src="@{/teams/{id}/logo(id=${match.awayTeamId})}" class="match-logo" alt=""/>
                                     <span th:text="${match.awayTeamName + (match.awayTeamCity != null ? ' (' + match.awayTeamCity + ')' : '')}"></span>
                                 </a>
                             </div>
-                            <div class="match-expand-hint">&#9662; details</div>
                         </summary>
                         <div class="match-card-expand">
                             <div class="goal-timeline" th:if="${!match.goalTimeline.isEmpty()}">
@@ -425,8 +413,7 @@
 
 </main>
 <script th:inline="javascript">
-var CAL_DATES    = /*[[${matchDateStrings}]]*/[];
-var CAL_TODAY    = /*[[${todayStr}]]*/'';
+var ALL_MATCH_UTCS = /*[[${allMatchUtcIsos}]]*/[];
 var CAL_SELECTED = /*[[${selectedDateStr}]]*/'';
 var CAL_LEAGUE   = /*[[${selectedLeague != null ? selectedLeague.toString() : ''}]]*/'';
 var CAL_TEAM     = /*[[${selectedTeam != null ? selectedTeam.toString() : ''}]]*/'';
@@ -434,10 +421,10 @@ var LIVE_MATCHES = /*[[${liveMatchesForJs}]]*/[];
 var HAS_TODAY_RESULTS = /*[[${hasTodayResults}]]*/false;
 </script>
 <script>
+var PAGE_LOAD_TIME = Date.now();
 var _reloadScheduled = false;
-function getLiveState(kickoffStr, goals) {
-    var kickoff = new Date(kickoffStr.replace(' ', 'T'));
-    var realMin = Math.floor((Date.now() - kickoff.getTime()) / 60000);
+function getLiveState(elapsedAtLoad, goals) {
+    var realMin = elapsedAtLoad + Math.floor((Date.now() - PAGE_LOAD_TIME) / 60000);
     if (realMin < 0) return { phase: 'PRE', displayMin: '', homeScore: 0, awayScore: 0, maxMin: 0 };
     var phase, maxMin;
     if (realMin <= 20)      { phase = 'FIRST';  maxMin = realMin; }
@@ -468,14 +455,14 @@ function getLiveState(kickoffStr, goals) {
 function updateLiveMinutes() {
     var liveById = {};
     (LIVE_MATCHES || []).forEach(function(m) { liveById[m.id] = m; });
-    document.querySelectorAll('[data-kickoff]').forEach(function(el) {
-        var raw = el.getAttribute('data-kickoff');
+    document.querySelectorAll('[data-elapsed]').forEach(function(el) {
+        var elapsed = parseInt(el.getAttribute('data-elapsed') || '0');
         var mid = el.getAttribute('data-match-id');
         var minEl = el.querySelector('.live-minute');
         if (!minEl) return;
         var lm = mid && liveById[mid];
         if (lm) {
-            var state = getLiveState(raw, lm.goals);
+            var state = getLiveState(lm.elapsedMin, lm.goals);
             minEl.textContent = state.displayMin;
             var hsEl = el.querySelector('.ls-h');
             var asEl = el.querySelector('.ls-a');
@@ -512,18 +499,96 @@ function updateLiveMinutes() {
                 });
             }
         } else {
-            var realMin = Math.floor((Date.now() - new Date(raw.replace(' ', 'T')).getTime()) / 60000);
+            var min = elapsed + Math.floor((Date.now() - PAGE_LOAD_TIME) / 60000);
             var d;
-            if (realMin <= 20)      d = realMin + "'";
-            else if (realMin <= 25) d = 'HT';
-            else if (realMin <= 45) d = (20 + (realMin - 25)) + "'";
-            else                    d = 'FT';
+            if (min <= 20)      d = min + "'";
+            else if (min <= 25) d = 'HT';
+            else if (min <= 45) d = (20 + (min - 25)) + "'";
+            else                d = 'FT';
             minEl.textContent = d;
         }
     });
 }
 updateLiveMinutes();
 setInterval(updateLiveMinutes, 30000);
+
+(function() {
+    document.querySelectorAll('[data-utc]').forEach(function(el) {
+        try {
+            var d = new Date(el.dataset.utc);
+            if (isNaN(d.getTime())) return;
+            var fmt = el.dataset.fmt;
+            if (fmt === 'time') {
+                el.textContent = d.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+            } else if (fmt === 'date') {
+                el.textContent = d.toLocaleDateString(undefined, {day:'2-digit',month:'short',year:'numeric'});
+            } else if (fmt === 'date-iso') {
+                el.textContent = String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + d.getFullYear();
+            } else if (fmt === 'datetime-compact') {
+                el.textContent = String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + d.getFullYear() + ' · ' + d.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+            } else {
+                el.textContent = d.toLocaleDateString(undefined, {day:'2-digit',month:'short',year:'numeric'})
+                    + ', ' + d.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+            }
+        } catch(e) {}
+    });
+}());
+
+(function() {
+    var dateHeader = document.querySelector('.ls-date-header[data-utc-date]');
+    if (dateHeader) {
+        try {
+            var d = new Date(dateHeader.dataset.utcDate);
+            if (!isNaN(d.getTime())) {
+                dateHeader.textContent = d.toLocaleDateString(undefined, {day:'2-digit', month:'long', year:'numeric'});
+            }
+        } catch(e) {}
+    }
+}());
+
+(function() {
+    var list = document.getElementById('dateMatchList');
+    if (!list) return;
+    var cards = Array.from(list.children).filter(function(el) {
+        return el.classList.contains('match-card');
+    });
+    if (!cards.length) return;
+    cards.sort(function(a, b) {
+        var aEl = a.querySelector('[data-utc]');
+        var bEl = b.querySelector('[data-utc]');
+        var at = aEl ? new Date(aEl.dataset.utc).getTime() : 0;
+        var bt = bEl ? new Date(bEl.dataset.utc).getTime() : 0;
+        return at - bt;
+    });
+    list.innerHTML = '';
+    cards.forEach(function(card) { list.appendChild(card); });
+}());
+
+(function() {
+    var list = document.querySelector('#upcoming .match-list');
+    if (!list) return;
+    var localToday = new Date().toLocaleDateString('sv');
+    var cards = Array.from(list.querySelectorAll('.match-card.upcoming'));
+    if (!cards.length) return;
+    var todayCards = [];
+    cards.forEach(function(card) {
+        var utcEl = card.querySelector('[data-utc]');
+        if (!utcEl) return;
+        var d = new Date(utcEl.dataset.utc);
+        if (isNaN(d.getTime())) return;
+        if (d.toLocaleDateString('sv') === localToday) todayCards.push(card);
+    });
+    list.innerHTML = '';
+    if (todayCards.length === 0) {
+        var p = document.createElement('p');
+        p.className = 'no-matches';
+        p.textContent = 'No upcoming matches today.';
+        list.parentNode.insertBefore(p, list.nextSibling);
+        list.parentNode.removeChild(list);
+    } else {
+        todayCards.forEach(function(c) { list.appendChild(c); });
+    }
+}());
 
 (function() {
     var tabs = document.querySelectorAll('.team-tab[href^="#"]');
@@ -554,35 +619,50 @@ setInterval(updateLiveMinutes, 30000);
 })();
 
 (function() {
-    if (!CAL_DATES || CAL_DATES.length === 0) return;
+    if (!ALL_MATCH_UTCS || ALL_MATCH_UTCS.length === 0) return;
 
     var BG_MONTHS = ['Януари','Февруари','Март','Април','Май','Юни',
                      'Юли','Август','Септември','Октомври','Ноември','Декември'];
     var BG_DAYS   = ['Пн','Вт','Ср','Чт','Пт','Сб','Нд'];
 
+    var localToday = new Date().toLocaleDateString('sv');
+
     var active = {};
-    CAL_DATES.forEach(function(d) { active[d] = true; });
+    ALL_MATCH_UTCS.forEach(function(utcIso) {
+        try {
+            var d = new Date(utcIso);
+            if (isNaN(d.getTime())) return;
+            active[d.toLocaleDateString('sv')] = true;
+        } catch(e) {}
+    });
 
     var months = [];
-    var seen   = {};
-    CAL_DATES.forEach(function(d) {
+    var seen = {};
+    Object.keys(active).forEach(function(d) {
         var m = d.substring(0, 7);
         if (!seen[m]) { seen[m] = true; months.push(m); }
     });
+    var todayMonth = localToday.substring(0, 7);
+    if (!seen[todayMonth]) { seen[todayMonth] = true; months.push(todayMonth); }
     months.sort();
 
-    var cur = (CAL_SELECTED && CAL_SELECTED.length >= 7 && seen[CAL_SELECTED.substring(0,7)])
-        ? CAL_SELECTED.substring(0, 7)
-        : (CAL_TODAY && seen[CAL_TODAY.substring(0, 7)] ? CAL_TODAY.substring(0, 7) : months[0]);
+    var cur;
+    if (CAL_SELECTED && CAL_SELECTED.length >= 7 && seen[CAL_SELECTED.substring(0, 7)]) {
+        cur = CAL_SELECTED.substring(0, 7);
+    } else if (seen[todayMonth]) {
+        cur = todayMonth;
+    } else {
+        cur = months[0];
+    }
 
-    function url(iso) {
-        if (iso === CAL_TODAY) {
+    function makeUrl(localIso) {
+        if (localIso === localToday) {
             var p = '';
             if (CAL_LEAGUE) p += (p ? '&' : '?') + 'league=' + CAL_LEAGUE;
             if (CAL_TEAM)   p += (p ? '&' : '?') + 'team='   + CAL_TEAM;
             return '/matches' + p;
         }
-        var p = '?date=' + iso;
+        var p = '?date=' + localIso;
         if (CAL_LEAGUE) p += '&league=' + CAL_LEAGUE;
         if (CAL_TEAM)   p += '&team='   + CAL_TEAM;
         return '/matches' + p;
@@ -608,12 +688,12 @@ setInterval(updateLiveMinutes, 30000);
         for (var day = 1; day <= days; day++) {
             var iso = year + '-' + String(month).padStart(2,'0') + '-' + String(day).padStart(2,'0');
             var cls = 'cal-cell'
-                + (active[iso]        ? ' cal-active'   : '')
-                + (iso === CAL_TODAY  ? ' cal-today'    : '')
+                + (active[iso]          ? ' cal-active'   : '')
+                + (iso === localToday   ? ' cal-today'    : '')
                 + (iso === CAL_SELECTED ? ' cal-selected' : '');
             h += '<div class="' + cls + '">';
             h += active[iso]
-                ? '<a href="' + url(iso) + '">' + day + '</a>'
+                ? '<a href="' + makeUrl(iso) + '">' + day + '</a>'
                 : '<span>' + day + '</span>';
             h += '</div>';
         }

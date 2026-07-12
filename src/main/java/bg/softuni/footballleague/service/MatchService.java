@@ -36,4 +36,6 @@ public interface MatchService {
     List<LocalDate> findAllMatchDates();
 
     List<MatchDto> findByDate(LocalDate date);
+
+    List<String> findAllMatchUtcIsos();
 }

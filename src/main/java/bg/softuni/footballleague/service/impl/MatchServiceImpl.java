@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
@@ -257,6 +258,13 @@ public class MatchServiceImpl implements MatchService {
                 date.atStartOfDay(),
                 date.plusDays(1).atStartOfDay()
         ).stream().map(this::toDto).toList();
+    }
+
+    @Override
+    public List<String> findAllMatchUtcIsos() {
+        return matchRepository.findAllPlayedAtTimes().stream()
+                .map(ldt -> ldt.atZone(ZoneId.of("Europe/Sofia")).toInstant().toString())
+                .toList();
     }
 
     private MatchDto toDto(Match match) {

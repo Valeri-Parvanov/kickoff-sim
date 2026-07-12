@@ -138,6 +138,15 @@
                 <label for="startTime">First match kick-off</label><br/>
                 <input type="hidden" th:field="*{startTime}"/>
                 <select id="startTimeSelect" style="height:2.2rem;font-size:1rem;border:1px solid #ccc;border-radius:6px;padding:0 0.5rem;" required></select>
+                <div id="detailTzBanner" style="display:none;margin-top:10px;padding:10px 14px;border-radius:6px;background:#fffbeb;border-left:4px solid #d97706;border-top:1px solid #fcd34d;border-right:1px solid #fcd34d;border-bottom:1px solid #fcd34d;max-width:340px;">
+                    <div style="display:flex;align-items:flex-start;gap:8px;">
+                        <span style="font-size:1.15rem;line-height:1.2;color:#d97706;">&#9888;</span>
+                        <div>
+                            <div style="font-size:0.82rem;font-weight:600;color:#92400e;">Times are entered in Sofia time (UTC+3).</div>
+                            <div style="font-size:0.82rem;color:#78350f;margin-top:3px;">First match will kick off at <strong><span id="detailTzBannerLocal"></span> your local time</strong>.</div>
+                        </div>
+                    </div>
+                </div>
                 <p th:if="${#fields.hasErrors('startTime')}" th:errors="*{startTime}" class="error-msg"></p>
             </div>
             <button type="submit" class="btn-add">Generate</button>
@@ -174,7 +183,7 @@
 
                 <div class="match-card upcoming" th:if="${match.playedAt.isAfter(now)}">
                     <div class="match-meta">
-                        <span class="match-date" th:text="${#temporals.format(match.playedAt, 'dd MMM yyyy, HH:mm')}"></span>
+                        <span class="match-round" th:if="${match.roundNumber != null}" th:text="'Round ' + ${match.roundNumber}"></span>
                     </div>
                     <div class="match-scoreline">
                         <a class="team-name home" th:href="@{/teams/{id}(id=${match.homeTeamId})}">
@@ -182,8 +191,8 @@
                             <img th:src="@{/teams/{id}/logo(id=${match.homeTeamId})}" class="match-logo" alt=""/>
                         </a>
                         <div class="score-block">
-                            <div class="upcoming-time" th:text="${#temporals.format(match.playedAt, 'HH:mm')}"></div>
-                            <div class="upcoming-date" th:text="${#temporals.format(match.playedAt, 'dd MMM yyyy')}"></div>
+                            <div class="upcoming-time" th:attr="data-utc=${match.playedAtUtcIso},data-fmt='time'"></div>
+                            <div class="upcoming-date" th:attr="data-utc=${match.playedAtUtcIso},data-fmt='date-iso'"></div>
                         </div>
                         <a class="team-name away" th:href="@{/teams/{id}(id=${match.awayTeamId})}">
                             <img th:src="@{/teams/{id}/logo(id=${match.awayTeamId})}" class="match-logo" alt=""/>
@@ -196,7 +205,7 @@
                     <summary class="match-card-summary">
 
                         <div class="match-meta">
-                            <span class="match-date" th:text="${#temporals.format(match.playedAt, 'dd MMM yyyy, HH:mm')}"></span>
+                            <span class="match-round" th:if="${match.roundNumber != null}" th:text="'Round ' + ${match.roundNumber}"></span>
                         </div>
 
                         <div class="match-scoreline">
@@ -205,15 +214,14 @@
                                 <img th:src="@{/teams/{id}/logo(id=${match.homeTeamId})}" class="match-logo" alt=""/>
                             </a>
                             <div class="score-block" th:if="${!match.playedAt.isAfter(liveThreshold)}">
+                                <div class="score-time" th:attr="data-utc=${match.playedAtUtcIso},data-fmt='datetime-compact'"></div>
                                 <div class="score-main"
                                      th:text="${match.homeScore != null ? match.homeScore : '-'} + ' : ' + ${match.awayScore != null ? match.awayScore : '-'}"></div>
-                                <div class="score-ht"
-                                     th:if="${match.homeHalfScore != null}"
-                                     th:text="'HT ' + ${match.homeHalfScore} + ' – ' + ${match.awayHalfScore}"></div>
                             </div>
                             <div class="score-block"
                                  th:if="${match.playedAt.isBefore(now) and match.playedAt.isAfter(liveThreshold)}"
-                                 th:attr="data-kickoff=${#temporals.format(match.playedAt, 'yyyy-MM-dd HH:mm:ss')},data-match-id=${match.id}">
+                                 th:attr="data-elapsed=${elapsedByMatchId[match.id]},data-match-id=${match.id}">
+                                <div class="score-time" th:attr="data-utc=${match.playedAtUtcIso},data-fmt='datetime-compact'"></div>
                                 <div class="ls-score-main"><span class="ls-h">-</span>&thinsp;:&thinsp;<span class="ls-a">-</span></div>
                                 <div class="live-badge">LIVE</div>
                                 <div class="live-minute"></div>
@@ -223,8 +231,6 @@
                                 <span th:text="${match.awayTeamName + (match.awayTeamCity != null ? ' (' + match.awayTeamCity + ')' : '')}"></span>
                             </a>
                         </div>
-                        <div class="match-expand-hint">&#9662; details</div>
-                        <a th:href="@{/matches/{id}(id=${match.id})}" class="match-detail-link" onclick="event.stopPropagation()">&#8594; Details</a>
 
                     </summary>
 
@@ -334,10 +340,10 @@
 var LIVE_MATCHES = /*[[${liveMatchesForJs}]]*/[];
 </script>
 <script>
+var PAGE_LOAD_TIME = Date.now();
 var _reloadScheduled = false;
-function getLiveState(kickoffStr, goals) {
-    var kickoff = new Date(kickoffStr.replace(' ', 'T'));
-    var realMin = Math.floor((Date.now() - kickoff.getTime()) / 60000);
+function getLiveState(elapsedAtLoad, goals) {
+    var realMin = elapsedAtLoad + Math.floor((Date.now() - PAGE_LOAD_TIME) / 60000);
     var phase, maxMin;
     if (realMin < 0)         return { phase: 'PRE',    displayMin: '',   homeScore: 0, awayScore: 0, maxMin: 0 };
     if (realMin <= 20)       { phase = 'FIRST';  maxMin = realMin; }
@@ -371,13 +377,13 @@ function getLiveState(kickoffStr, goals) {
 function updateLive() {
     var stateById = {}, teamState = {};
     (LIVE_MATCHES || []).forEach(function(m) {
-        var st = getLiveState(m.kickoff, m.goals);
+        var st = getLiveState(m.elapsedMin, m.goals);
         stateById[m.id] = st;
         teamState[m.homeTeamId] = { st: st, isHome: true,  matchId: m.id };
         teamState[m.awayTeamId] = { st: st, isHome: false, matchId: m.id };
     });
 
-    document.querySelectorAll('[data-kickoff]').forEach(function(el) {
+    document.querySelectorAll('[data-elapsed]').forEach(function(el) {
         var mId = el.getAttribute('data-match-id');
         var st  = mId && stateById[mId] ? stateById[mId] : null;
         var minEl = el.querySelector('.live-minute');
@@ -419,8 +425,8 @@ function updateLive() {
                 });
             }
         } else {
-            var raw = el.getAttribute('data-kickoff').replace(' ', 'T');
-            var min = Math.floor((Date.now() - new Date(raw).getTime()) / 60000);
+            var elapsed = parseInt(el.getAttribute('data-elapsed') || '0');
+            var min = elapsed + Math.floor((Date.now() - PAGE_LOAD_TIME) / 60000);
             if (minEl) minEl.textContent = min + "'";
         }
     });
@@ -447,6 +453,28 @@ function updateLive() {
 
 updateLive();
 setInterval(updateLive, 30000);
+
+(function() {
+    document.querySelectorAll('[data-utc]').forEach(function(el) {
+        try {
+            var d = new Date(el.dataset.utc);
+            if (isNaN(d.getTime())) return;
+            var fmt = el.dataset.fmt;
+            if (fmt === 'time') {
+                el.textContent = d.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+            } else if (fmt === 'date') {
+                el.textContent = d.toLocaleDateString(undefined, {day:'2-digit',month:'short',year:'numeric'});
+            } else if (fmt === 'date-iso') {
+                el.textContent = String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + d.getFullYear();
+            } else if (fmt === 'datetime-compact') {
+                el.textContent = String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + d.getFullYear() + ' · ' + d.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+            } else {
+                el.textContent = d.toLocaleDateString(undefined, {day:'2-digit',month:'short',year:'numeric'})
+                    + ', ' + d.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+            }
+        } catch(e) {}
+    });
+}());
 
 (function() {
     function activate(hash) {
@@ -484,7 +512,32 @@ setInterval(updateLive, 30000);
     sel.value = cur;
     if (!sel.value) sel.value = '11:00';
     hidden.value = sel.value;
-    sel.addEventListener('change', function() { hidden.value = sel.value; });
+
+    var sofiaOff = (function() {
+        try {
+            var d = new Date();
+            var s = d.toLocaleString('sv', {timeZone: 'Europe/Sofia'});
+            var u = d.toLocaleString('sv', {timeZone: 'UTC'});
+            return Math.round((new Date(s) - new Date(u)) / 60000);
+        } catch(e) { return 180; }
+    })();
+    var clientOff = -new Date().getTimezoneOffset();
+    var detailDelta = sofiaOff - clientOff;
+
+    function updateDetailNote() {
+        var banner = document.getElementById('detailTzBanner');
+        var bannerLocal = document.getElementById('detailTzBannerLocal');
+        if (!banner) return;
+        if (detailDelta === 0) { banner.style.display = 'none'; return; }
+        var parts = sel.value.split(':');
+        var sofiaMin = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+        var localMin = ((sofiaMin - detailDelta) % 1440 + 1440) % 1440;
+        var localStr = String(Math.floor(localMin / 60)).padStart(2, '0') + ':' + String(localMin % 60).padStart(2, '0');
+        if (bannerLocal) bannerLocal.textContent = localStr;
+        banner.style.display = 'block';
+    }
+    sel.addEventListener('change', function() { hidden.value = sel.value; updateDetailNote(); });
+    updateDetailNote();
 }());
 
 (function() {

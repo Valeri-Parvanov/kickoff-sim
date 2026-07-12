@@ -20,8 +20,10 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 
 @Controller
@@ -66,6 +68,7 @@ public class TeamController {
         model.addAttribute("now", now);
         model.addAttribute("liveThreshold", liveThreshold);
         model.addAttribute("liveMatchesForJs", List.of());
+        model.addAttribute("elapsedByMatchId", Map.of());
 
         if (team.getLeagueId() != null) {
             LeagueDetailView league = leagueService.findDetail(team.getLeagueId());
@@ -86,11 +89,15 @@ public class TeamController {
                                 "id", m.getId().toString(),
                                 "homeTeamId", m.getHomeTeamId().toString(),
                                 "awayTeamId", m.getAwayTeamId().toString(),
-                                "kickoff", m.getPlayedAt().toString(),
+                                "elapsedMin", Duration.between(m.getPlayedAt(), now).toMinutes(),
                                 "goals", goals);
                     })
                     .toList();
             model.addAttribute("liveMatchesForJs", liveMatchesForJs);
+            Map<UUID, Long> elapsedByMatchId = league.getMatches().stream()
+                    .filter(m -> m.getPlayedAt().isBefore(now) && m.getPlayedAt().isAfter(liveThreshold))
+                    .collect(Collectors.toMap(MatchDto::getId, m -> Duration.between(m.getPlayedAt(), now).toMinutes()));
+            model.addAttribute("elapsedByMatchId", elapsedByMatchId);
         }
 
         List<MatchDto> all = matchService.findAll(Sort.by(Sort.Direction.ASC, "playedAt"));

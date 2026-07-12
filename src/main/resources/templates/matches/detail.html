@@ -30,13 +30,13 @@
     <div class="match-card">
 
         <div class="match-meta">
-            <span class="match-date" th:text="${#temporals.format(match.playedAt, 'dd MMM yyyy, HH:mm')}"></span>
+            <span class="match-date" th:attr="data-utc=${match.playedAtUtcIso}"></span>
         </div>
 
         <div class="match-scoreline">
             <span class="team-name home" th:text="${match.homeTeamName}"></span>
             <div class="score-block" th:if="${match.playedAt.isBefore(now) and match.playedAt.isAfter(liveThreshold)}"
-                 th:attr="data-kickoff=${#temporals.format(match.playedAt, 'yyyy-MM-dd HH:mm:ss')},data-match-id=${match.id}">
+                 th:attr="data-elapsed=${liveMatchForJs['elapsedMin']},data-match-id=${match.id}">
                 <div class="ls-score-main"><span class="ls-h">-</span>&thinsp;:&thinsp;<span class="ls-a">-</span></div>
                 <div class="live-badge">LIVE</div>
                 <div class="live-minute"></div>
@@ -106,13 +106,32 @@
 
 </div>
 </main>
+<script>
+(function() {
+    document.querySelectorAll('[data-utc]').forEach(function(el) {
+        try {
+            var d = new Date(el.dataset.utc);
+            if (isNaN(d.getTime())) return;
+            var fmt = el.dataset.fmt;
+            if (fmt === 'time') {
+                el.textContent = d.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+            } else if (fmt === 'date') {
+                el.textContent = d.toLocaleDateString(undefined, {day:'2-digit',month:'short',year:'numeric'});
+            } else {
+                el.textContent = d.toLocaleDateString(undefined, {day:'2-digit',month:'short',year:'numeric'})
+                    + ', ' + d.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+            }
+        } catch(e) {}
+    });
+}());
+</script>
 <th:block th:if="${liveMatchForJs != null}">
 <script th:inline="javascript">
 var _LIVE = /*[[${liveMatchForJs}]]*/null;
+var PAGE_LOAD_TIME = Date.now();
 var _reloadScheduled = false;
-function getLiveState(kickoffStr, goals) {
-    var kickoff = new Date(kickoffStr.replace(' ', 'T'));
-    var realMin = Math.floor((Date.now() - kickoff.getTime()) / 60000);
+function getLiveState(elapsedAtLoad, goals) {
+    var realMin = elapsedAtLoad + Math.floor((Date.now() - PAGE_LOAD_TIME) / 60000);
     if (realMin < 0) return { phase: 'PRE', displayMin: '', homeScore: 0, awayScore: 0 };
     var phase, maxMin;
     if (realMin <= 20)      { phase = 'FIRST';  maxMin = realMin; }
@@ -138,7 +157,7 @@ function updateLive() {
     if (!_LIVE) return;
     var el = document.querySelector('[data-match-id="' + _LIVE.id + '"]');
     if (!el) return;
-    var st = getLiveState(_LIVE.kickoff, _LIVE.goals);
+    var st = getLiveState(_LIVE.elapsedMin, _LIVE.goals);
     var hEl = el.querySelector('.ls-h'), aEl = el.querySelector('.ls-a'), mEl = el.querySelector('.live-minute');
     if (hEl) hEl.textContent = st.homeScore;
     if (aEl) aEl.textContent = st.awayScore;
