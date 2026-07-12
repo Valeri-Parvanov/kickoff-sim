@@ -17,27 +17,24 @@ Built as an individual project for the Spring Fundamentals course at SoftUni.
 | Security | Spring Security — session-based auth, BCrypt |
 | Build | Maven |
 | Utilities | Lombok |
-| Infrastructure | Docker (MySQL container) |
+| Infrastructure | Docker (full app — multi-stage build) |
 
 ---
 
 ## Quick Start
 
+The application can be run in two modes: **locally** (IntelliJ / Maven) or **via Docker**. Both connect to the same MySQL instance running on the host machine.
+
 ### Prerequisites
 
-- JDK 17 or higher
-- Docker Desktop (must be running)
-- Maven, or use the included `mvnw` wrapper
+- MySQL 8 running locally on port **3306**, root password `12345`
+  - The `kickoff_sim` database is created automatically on first connect
+- **Local mode:** JDK 17, Maven (or use the included `mvnw` wrapper)
+- **Docker mode:** Docker Desktop running
 
-### 1. Start the database
+---
 
-```bash
-docker compose up -d
-```
-
-Starts a MySQL 8 container. The `kickoff_sim` database is created automatically on first run. Root password: `12345`. Exposed on host port **3307** to avoid conflicts with a locally installed MySQL.
-
-### 2. Start the application
+### Option A — Run locally (IntelliJ / Maven)
 
 ```bash
 ./mvnw spring-boot:run
@@ -49,11 +46,35 @@ On Windows with a custom `JAVA_HOME`:
 .\run-local.ps1
 ```
 
-### 3. Open the app
+Open the app at `http://localhost:8080`.
 
+---
+
+### Option B — Run via Docker
+
+Docker builds and runs the full application in a container. It connects to your **host machine's MySQL** automatically.
+
+```bash
+docker-compose up -d --build
 ```
-http://localhost:8080
+
+Open the app at `http://localhost:8080`.
+
+To stop:
+
+```bash
+docker-compose down
 ```
+
+> **Note:** On first run Docker downloads the Maven and JRE base images (~500 MB). Subsequent builds are fast because dependency layers are cached.
+
+---
+
+### Timezone
+
+The **08:00–23:30** kick-off window for league scheduling is always validated against **Europe/Sofia (Bulgarian) time** — this is fixed regardless of where the server runs.
+
+If the person creating the league is in a different timezone, the form also shows the equivalent kick-off time in **their local timezone**, so they know exactly when the match will start relative to where they are. The schedule itself is still generated and stored in Sofia time.
 
 ---
 
@@ -112,7 +133,7 @@ Open a second browser or an incognito window and register a **second account** (
 
 - Create leagues in four sizes: **6, 8, 10, or 16 teams**
 - Each selected team must have at least **6 players** and must not already belong to another league
-- Set the Round 1 date and kick-off time (15-minute steps, 08:00–23:30); the full round-robin schedule generates automatically
+- Set the Round 1 date and kick-off time (15-minute steps, 08:00–23:30 Bulgarian time; local-time equivalent shown for users in other timezones); the full round-robin schedule generates automatically
 - Schedule formats per size: 6 teams = 3-cycle (15 rounds total), 8 teams = 2-cycle (14 rounds), 10 teams = 2-cycle (18 rounds), 16 teams = 1-cycle (15 rounds)
 - View the **standings table**, **round-by-round schedule**, and match results on the league detail page
 - Round-by-round navigation with a dropdown to jump to any round
