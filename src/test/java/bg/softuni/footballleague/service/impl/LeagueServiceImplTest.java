@@ -15,6 +15,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -38,19 +39,25 @@ class LeagueServiceImplTest {
 
     @Test
     void create_savesAndReturnsDto() {
-        UUID teamId = UUID.randomUUID();
-        Team team = new Team();
-        team.setId(teamId);
-        team.setLeague(null);
+        List<UUID> teamIds = new ArrayList<>();
+        List<Team> teams = new ArrayList<>();
+        for (int i = 0; i < 6; i++) {
+            UUID id = UUID.randomUUID();
+            Team team = new Team();
+            team.setId(id);
+            team.setLeague(null);
+            teamIds.add(id);
+            teams.add(team);
+        }
 
         when(leagueRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(teamRepository.findAllById(any())).thenReturn(List.of(team));
-        when(playerRepository.countByTeam(team)).thenReturn(6L);
+        when(teamRepository.findAllById(any())).thenReturn(teams);
+        when(playerRepository.countByTeam(any(Team.class))).thenReturn(6L);
         when(teamRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         LeagueDto dto = new LeagueDto();
         dto.setName("First League");
-        dto.setTeamIds(List.of(teamId));
+        dto.setTeamIds(teamIds);
 
         LeagueDto saved = leagueService.create(dto);
 

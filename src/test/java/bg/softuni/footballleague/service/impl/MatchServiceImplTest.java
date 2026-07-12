@@ -102,7 +102,7 @@ class MatchServiceImplTest {
     void addGoal_halfAndMinuteAreCalculatedCorrectly(int rawMinute, String expectedHalf, int expectedStoredMinute) {
         when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
         when(playerRepository.findById(homePlayerId)).thenReturn(Optional.of(homePlayer));
-        when(goalRepository.countByMatchAndScorerTeamIdExcluding(match, homeTeamId, null)).thenReturn(0L);
+        when(goalRepository.countGoalsBenefitingTeam(match, homeTeamId, null)).thenReturn(0L);
 
         GoalEventDto dto = new GoalEventDto();
         dto.setScorerId(homePlayerId);
@@ -122,7 +122,7 @@ class MatchServiceImplTest {
     void addGoal_nullMinute_defaultsToFirstHalfWithNullMinute() {
         when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
         when(playerRepository.findById(homePlayerId)).thenReturn(Optional.of(homePlayer));
-        when(goalRepository.countByMatchAndScorerTeamIdExcluding(match, homeTeamId, null)).thenReturn(0L);
+        when(goalRepository.countGoalsBenefitingTeam(match, homeTeamId, null)).thenReturn(0L);
 
         GoalEventDto dto = new GoalEventDto();
         dto.setScorerId(homePlayerId);
@@ -164,7 +164,7 @@ class MatchServiceImplTest {
     void addGoal_homeScoreLimitReached_throwsInvalidGoalException() {
         when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
         when(playerRepository.findById(homePlayerId)).thenReturn(Optional.of(homePlayer));
-        when(goalRepository.countByMatchAndScorerTeamIdExcluding(match, homeTeamId, null)).thenReturn(2L);
+        when(goalRepository.countGoalsBenefitingTeam(match, homeTeamId, null)).thenReturn(2L);
 
         GoalEventDto dto = new GoalEventDto();
         dto.setScorerId(homePlayerId);
@@ -179,7 +179,7 @@ class MatchServiceImplTest {
     void addGoal_awayScoreLimitReached_throwsInvalidGoalException() {
         when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
         when(playerRepository.findById(awayPlayerId)).thenReturn(Optional.of(awayPlayer));
-        when(goalRepository.countByMatchAndScorerTeamIdExcluding(match, awayTeamId, null)).thenReturn(1L);
+        when(goalRepository.countGoalsBenefitingTeam(match, awayTeamId, null)).thenReturn(1L);
 
         GoalEventDto dto = new GoalEventDto();
         dto.setScorerId(awayPlayerId);
@@ -195,7 +195,7 @@ class MatchServiceImplTest {
         when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
         when(playerRepository.findById(homePlayerId)).thenReturn(Optional.of(homePlayer));
         when(playerRepository.findById(awayPlayerId)).thenReturn(Optional.of(awayPlayer));
-        when(goalRepository.countByMatchAndScorerTeamIdExcluding(match, homeTeamId, null)).thenReturn(0L);
+        when(goalRepository.countGoalsBenefitingTeam(match, homeTeamId, null)).thenReturn(0L);
 
         GoalEventDto dto = new GoalEventDto();
         dto.setScorerId(homePlayerId);
@@ -211,7 +211,7 @@ class MatchServiceImplTest {
     void addGoal_scorerAsOwnAssistant_throwsInvalidGoalException() {
         when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
         when(playerRepository.findById(homePlayerId)).thenReturn(Optional.of(homePlayer));
-        when(goalRepository.countByMatchAndScorerTeamIdExcluding(match, homeTeamId, null)).thenReturn(0L);
+        when(goalRepository.countGoalsBenefitingTeam(match, homeTeamId, null)).thenReturn(0L);
 
         GoalEventDto dto = new GoalEventDto();
         dto.setScorerId(homePlayerId);
@@ -229,7 +229,7 @@ class MatchServiceImplTest {
     void addGoal_duplicateMinute_throwsInvalidGoalException() {
         when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
         when(playerRepository.findById(homePlayerId)).thenReturn(Optional.of(homePlayer));
-        when(goalRepository.countByMatchAndScorerTeamIdExcluding(match, homeTeamId, null)).thenReturn(0L);
+        when(goalRepository.countGoalsBenefitingTeam(match, homeTeamId, null)).thenReturn(0L);
         when(goalRepository.countByMatchAndHalfAndMinuteExcluding(match, Half.FIRST, 10, null)).thenReturn(1L);
 
         GoalEventDto dto = new GoalEventDto();
@@ -253,7 +253,7 @@ class MatchServiceImplTest {
 
         when(goalRepository.findById(goalId)).thenReturn(Optional.of(goal));
         when(playerRepository.findById(awayPlayerId)).thenReturn(Optional.of(awayPlayer));
-        when(goalRepository.countByMatchAndScorerTeamIdExcluding(match, awayTeamId, goalId)).thenReturn(1L);
+        when(goalRepository.countGoalsBenefitingTeam(match, awayTeamId, goalId)).thenReturn(1L);
 
         GoalEventDto dto = new GoalEventDto();
         dto.setScorerId(awayPlayerId);
@@ -275,7 +275,7 @@ class MatchServiceImplTest {
 
         when(goalRepository.findById(goalId)).thenReturn(Optional.of(goal));
         when(playerRepository.findById(homePlayerId)).thenReturn(Optional.of(homePlayer));
-        when(goalRepository.countByMatchAndScorerTeamIdExcluding(match, homeTeamId, goalId)).thenReturn(0L);
+        when(goalRepository.countGoalsBenefitingTeam(match, homeTeamId, goalId)).thenReturn(0L);
 
         GoalEventDto dto = new GoalEventDto();
         dto.setScorerId(homePlayerId);

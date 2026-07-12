@@ -11,10 +11,7 @@ import java.util.UUID;
 
 public interface GoalRepository extends JpaRepository<Goal, UUID> {
 
-    @Query("SELECT COUNT(g) FROM Goal g WHERE g.match = :match AND g.scorer.team.id = :teamId AND (:excludeId IS NULL OR g.id != :excludeId)")
-    long countByMatchAndScorerTeamIdExcluding(@Param("match") Match match,
-                                              @Param("teamId") UUID teamId,
-                                              @Param("excludeId") UUID excludeId);
+
 
     @Query("SELECT COUNT(g) FROM Goal g WHERE g.match = :match " +
            "AND ((g.ownGoal = false AND g.scorer.team.id = :teamId) " +
