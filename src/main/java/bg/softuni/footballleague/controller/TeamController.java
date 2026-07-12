@@ -149,10 +149,15 @@ public class TeamController {
                     row.setLastName(p.getLastName());
                     form.getPlayers().add(row);
                 }
-                int remaining = playerService.squadRemainingSlots(form.getTeamId());
                 Set<Integer> taken = new HashSet<>();
-                playerService.findAllByTeam(form.getTeamId())
-                        .forEach(p -> { if (p.getShirtNumber() != null) taken.add(p.getShirtNumber()); });
+                int remaining;
+                if (form.getTeamId() != null) {
+                    remaining = playerService.squadRemainingSlots(form.getTeamId());
+                    playerService.findAllByTeam(form.getTeamId())
+                            .forEach(p -> { if (p.getShirtNumber() != null) taken.add(p.getShirtNumber()); });
+                } else {
+                    remaining = MAX_SQUAD_SIZE;
+                }
                 squadPayload.getPlayers()
                         .forEach(p -> { if (p.getShirtNumber() != null) taken.add(p.getShirtNumber()); });
                 int next = 1;
