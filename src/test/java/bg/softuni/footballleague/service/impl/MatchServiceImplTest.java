@@ -1,14 +1,18 @@
 package bg.softuni.footballleague.service.impl;
 
+import bg.softuni.footballleague.dto.GoalDto;
 import bg.softuni.footballleague.dto.GoalEventDto;
 import bg.softuni.footballleague.dto.MatchDto;
 import bg.softuni.footballleague.exception.EntityNotFoundException;
 import bg.softuni.footballleague.exception.InvalidGoalException;
 import bg.softuni.footballleague.model.Goal;
 import bg.softuni.footballleague.model.Half;
+import bg.softuni.footballleague.model.League;
 import bg.softuni.footballleague.model.Match;
 import bg.softuni.footballleague.model.Player;
 import bg.softuni.footballleague.model.Team;
+import bg.softuni.footballleague.client.BroadcastRequest;
+import bg.softuni.footballleague.client.NotificationClient;
 import bg.softuni.footballleague.repository.GoalRepository;
 import bg.softuni.footballleague.repository.MatchRepository;
 import bg.softuni.footballleague.repository.PlayerRepository;
@@ -27,9 +31,12 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -41,6 +48,7 @@ class MatchServiceImplTest {
     @Mock private TeamRepository teamRepository;
     @Mock private GoalRepository goalRepository;
     @Mock private PlayerRepository playerRepository;
+    @Mock private NotificationClient notificationClient;
 
     @InjectMocks
     private MatchServiceImpl matchService;
@@ -287,6 +295,69 @@ class MatchServiceImplTest {
     }
 
     @Test
+    void updateGoal_scorerNotInMatch_throwsInvalidGoalException() {
+        UUID goalId = UUID.randomUUID();
+        Goal goal = goalWithScorer(homePlayer);
+        goal.setId(goalId);
+        goal.setMatch(match);
+
+        Player outsider = new Player();
+        outsider.setId(UUID.randomUUID());
+        outsider.setFirstName("Petar");
+        outsider.setLastName("Petrov");
+        Team otherTeam = new Team();
+        otherTeam.setId(UUID.randomUUID());
+        outsider.setTeam(otherTeam);
+
+        when(goalRepository.findById(goalId)).thenReturn(Optional.of(goal));
+        when(playerRepository.findById(outsider.getId())).thenReturn(Optional.of(outsider));
+
+        GoalEventDto dto = new GoalEventDto();
+        dto.setScorerId(outsider.getId());
+        dto.setMinute(10);
+
+        assertThatThrownBy(() -> matchService.updateGoal(goalId, dto))
+                .isInstanceOf(InvalidGoalException.class)
+                .hasMessageContaining("does not play in this match");
+
+        verify(goalRepository, never()).save(any());
+    }
+
+    @Test
+    void updateGoal_notFound_throwsEntityNotFoundException() {
+        UUID goalId = UUID.randomUUID();
+        when(goalRepository.findById(goalId)).thenReturn(Optional.empty());
+
+        GoalEventDto dto = new GoalEventDto();
+        dto.setScorerId(homePlayerId);
+
+        assertThatThrownBy(() -> matchService.updateGoal(goalId, dto))
+                .isInstanceOf(EntityNotFoundException.class);
+
+        verify(goalRepository, never()).save(any());
+    }
+
+    @Test
+    void addGoal_withLeague_broadcastsLeagueId() {
+        League league = new League();
+        league.setId(UUID.randomUUID());
+        homeTeam.setLeague(league);
+        when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
+        when(playerRepository.findById(homePlayerId)).thenReturn(Optional.of(homePlayer));
+        when(goalRepository.countGoalsBenefitingTeam(match, homeTeamId, null)).thenReturn(0L);
+
+        GoalEventDto dto = new GoalEventDto();
+        dto.setScorerId(homePlayerId);
+        dto.setMinute(10);
+
+        matchService.addGoal(matchId, dto);
+
+        ArgumentCaptor<BroadcastRequest> captor = ArgumentCaptor.forClass(BroadcastRequest.class);
+        verify(notificationClient).broadcast(captor.capture());
+        assertThat(captor.getValue().getLeagueId()).isEqualTo(league.getId());
+    }
+
+    @Test
     void deleteGoal_goalNotFound_throwsEntityNotFoundException() {
         UUID goalId = UUID.randomUUID();
         when(goalRepository.findById(goalId)).thenReturn(Optional.empty());
@@ -337,6 +408,270 @@ class MatchServiceImplTest {
 
         assertThat(savedMatch.getHomeScore()).isEqualTo(3);
         assertThat(savedMatch.getAwayScore()).isEqualTo(1);
+    }
+
+    @Test
+    void addGoal_broadcastsGoalNotification() {
+        when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
+        when(playerRepository.findById(homePlayerId)).thenReturn(Optional.of(homePlayer));
+        when(goalRepository.countGoalsBenefitingTeam(match, homeTeamId, null)).thenReturn(0L);
+
+        GoalEventDto dto = new GoalEventDto();
+        dto.setScorerId(homePlayerId);
+        dto.setMinute(9);
+
+        matchService.addGoal(matchId, dto);
+
+        ArgumentCaptor<BroadcastRequest> captor = ArgumentCaptor.forClass(BroadcastRequest.class);
+        verify(notificationClient).broadcast(captor.capture());
+        assertThat(captor.getValue().getMatchId()).isEqualTo(matchId);
+        assertThat(captor.getValue().getType()).isEqualTo("GOAL");
+        assertThat(captor.getValue().getMessage()).contains("Ivan Ivanov");
+    }
+
+    @Test
+    void update_broadcastsNotificationWithLeague() {
+        League league = new League();
+        league.setId(UUID.randomUUID());
+        league.setName("Premier");
+        homeTeam.setLeague(league);
+        when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
+        when(teamRepository.findById(homeTeamId)).thenReturn(Optional.of(homeTeam));
+        when(teamRepository.findById(awayTeamId)).thenReturn(Optional.of(awayTeam));
+        when(matchRepository.save(any(Match.class))).thenReturn(match);
+
+        MatchDto dto = new MatchDto();
+        dto.setHomeTeamId(homeTeamId);
+        dto.setAwayTeamId(awayTeamId);
+        dto.setHomeScore(2);
+        dto.setAwayScore(1);
+        dto.setPlayedAt(LocalDateTime.now().minusDays(1));
+
+        matchService.update(matchId, dto);
+
+        ArgumentCaptor<BroadcastRequest> captor = ArgumentCaptor.forClass(BroadcastRequest.class);
+        verify(notificationClient).broadcast(captor.capture());
+        assertThat(captor.getValue().getLeagueId()).isEqualTo(league.getId());
+    }
+
+    @Test
+    void update_broadcastFails_logsWarningButStillReturns() {
+        when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
+        when(teamRepository.findById(homeTeamId)).thenReturn(Optional.of(homeTeam));
+        when(teamRepository.findById(awayTeamId)).thenReturn(Optional.of(awayTeam));
+        when(matchRepository.save(any(Match.class))).thenReturn(match);
+        doThrow(new RuntimeException("down")).when(notificationClient).broadcast(any());
+
+        MatchDto dto = new MatchDto();
+        dto.setHomeTeamId(homeTeamId);
+        dto.setAwayTeamId(awayTeamId);
+        dto.setHomeScore(2);
+        dto.setAwayScore(1);
+        dto.setPlayedAt(LocalDateTime.now().minusDays(1));
+
+        MatchDto result = matchService.update(matchId, dto);
+
+        assertThat(result).isNotNull();
+    }
+
+    @Test
+    void addGoal_ownGoal_creditsAwayTeamAndBroadcastsOwnGoalMessage() {
+        when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
+        when(playerRepository.findById(homePlayerId)).thenReturn(Optional.of(homePlayer));
+        when(goalRepository.countGoalsBenefitingTeam(match, awayTeamId, null)).thenReturn(0L);
+
+        GoalEventDto dto = new GoalEventDto();
+        dto.setScorerId(homePlayerId);
+        dto.setMinute(10);
+        dto.setOwnGoal(true);
+
+        matchService.addGoal(matchId, dto);
+
+        ArgumentCaptor<Goal> captor = ArgumentCaptor.forClass(Goal.class);
+        verify(goalRepository).save(captor.capture());
+        assertThat(captor.getValue().getAssistant()).isNull();
+
+        ArgumentCaptor<BroadcastRequest> bCaptor = ArgumentCaptor.forClass(BroadcastRequest.class);
+        verify(notificationClient).broadcast(bCaptor.capture());
+        assertThat(bCaptor.getValue().getMessage()).contains("own goal");
+    }
+
+    @Test
+    void addGoal_ownGoalWithAssistant_throwsInvalidGoalException() {
+        when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
+        when(playerRepository.findById(homePlayerId)).thenReturn(Optional.of(homePlayer));
+        when(goalRepository.countGoalsBenefitingTeam(match, awayTeamId, null)).thenReturn(0L);
+
+        GoalEventDto dto = new GoalEventDto();
+        dto.setScorerId(homePlayerId);
+        dto.setAssistantId(awayPlayerId);
+        dto.setMinute(10);
+        dto.setOwnGoal(true);
+
+        assertThatThrownBy(() -> matchService.addGoal(matchId, dto))
+                .isInstanceOf(InvalidGoalException.class)
+                .hasMessageContaining("Own goals cannot have an assist");
+
+        verify(goalRepository, never()).save(any());
+    }
+
+    @Test
+    void addGoal_penalty_broadcastsPenaltyMessage() {
+        when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
+        when(playerRepository.findById(homePlayerId)).thenReturn(Optional.of(homePlayer));
+        when(goalRepository.countGoalsBenefitingTeam(match, homeTeamId, null)).thenReturn(0L);
+
+        GoalEventDto dto = new GoalEventDto();
+        dto.setScorerId(homePlayerId);
+        dto.setMinute(10);
+        dto.setPenalty(true);
+
+        matchService.addGoal(matchId, dto);
+
+        ArgumentCaptor<BroadcastRequest> captor = ArgumentCaptor.forClass(BroadcastRequest.class);
+        verify(notificationClient).broadcast(captor.capture());
+        assertThat(captor.getValue().getMessage()).contains("penalty");
+    }
+
+    @Test
+    void addGoal_broadcastFails_logsWarningButGoalIsSaved() {
+        when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
+        when(playerRepository.findById(homePlayerId)).thenReturn(Optional.of(homePlayer));
+        when(goalRepository.countGoalsBenefitingTeam(match, homeTeamId, null)).thenReturn(0L);
+        doThrow(new RuntimeException("down")).when(notificationClient).broadcast(any());
+
+        GoalEventDto dto = new GoalEventDto();
+        dto.setScorerId(homePlayerId);
+        dto.setMinute(10);
+
+        matchService.addGoal(matchId, dto);
+
+        verify(goalRepository).save(any(Goal.class));
+    }
+
+    @Test
+    void updateGoal_ownGoal_creditsOtherTeamAndSkipsAssistant() {
+        UUID goalId = UUID.randomUUID();
+        Goal goal = goalWithScorer(homePlayer);
+        goal.setId(goalId);
+        goal.setMatch(match);
+        goal.setOwnGoal(true);
+
+        when(goalRepository.findById(goalId)).thenReturn(Optional.of(goal));
+        when(playerRepository.findById(homePlayerId)).thenReturn(Optional.of(homePlayer));
+        when(goalRepository.countGoalsBenefitingTeam(match, awayTeamId, goalId)).thenReturn(0L);
+
+        GoalEventDto dto = new GoalEventDto();
+        dto.setScorerId(homePlayerId);
+        dto.setMinute(10);
+
+        matchService.updateGoal(goalId, dto);
+
+        ArgumentCaptor<Goal> captor = ArgumentCaptor.forClass(Goal.class);
+        verify(goalRepository).save(captor.capture());
+        assertThat(captor.getValue().getAssistant()).isNull();
+    }
+
+    @Test
+    void updateGoal_ownGoalByAwayScorer_creditsHomeTeam() {
+        UUID goalId = UUID.randomUUID();
+        Goal goal = goalWithScorer(awayPlayer);
+        goal.setId(goalId);
+        goal.setMatch(match);
+        goal.setOwnGoal(true);
+
+        when(goalRepository.findById(goalId)).thenReturn(Optional.of(goal));
+        when(playerRepository.findById(awayPlayerId)).thenReturn(Optional.of(awayPlayer));
+        when(goalRepository.countGoalsBenefitingTeam(match, homeTeamId, goalId)).thenReturn(0L);
+
+        GoalEventDto dto = new GoalEventDto();
+        dto.setScorerId(awayPlayerId);
+        dto.setMinute(10);
+
+        matchService.updateGoal(goalId, dto);
+
+        ArgumentCaptor<Goal> captor = ArgumentCaptor.forClass(Goal.class);
+        verify(goalRepository).save(captor.capture());
+        assertThat(captor.getValue().getAssistant()).isNull();
+    }
+
+    @Test
+    void findGoalById_returnsDtoWithScorerDetails() {
+        UUID goalId = UUID.randomUUID();
+        Goal goal = goalWithScorer(homePlayer);
+        goal.setId(goalId);
+        when(goalRepository.findById(goalId)).thenReturn(Optional.of(goal));
+
+        GoalDto result = matchService.findGoalById(goalId);
+
+        assertThat(result.getScorerId()).isEqualTo(homePlayerId);
+    }
+
+    @Test
+    void findGoalById_notFound_throwsEntityNotFoundException() {
+        UUID goalId = UUID.randomUUID();
+        when(goalRepository.findById(goalId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> matchService.findGoalById(goalId))
+                .isInstanceOf(EntityNotFoundException.class);
+    }
+
+    @Test
+    void findGoalById_noScorer_leavesScorerFieldsNull() {
+        UUID goalId = UUID.randomUUID();
+        Goal goal = new Goal();
+        goal.setId(goalId);
+        goal.setHalf(Half.FIRST);
+        goal.setMinute(5);
+        when(goalRepository.findById(goalId)).thenReturn(Optional.of(goal));
+
+        GoalDto result = matchService.findGoalById(goalId);
+
+        assertThat(result.getScorerId()).isNull();
+    }
+
+    @Test
+    void findById_buildsGoalTimelineWithRunningScoresAndHalfSplit() {
+        Goal g1 = goalWithScorer(homePlayer);
+        g1.setHalf(Half.FIRST);
+        g1.setMinute(10);
+
+        Goal g2 = new Goal();
+        g2.setId(UUID.randomUUID());
+        g2.setScorer(awayPlayer);
+        g2.setHalf(Half.SECOND);
+        g2.setMinute(5);
+        g2.setMatch(match);
+
+        Goal g3 = new Goal();
+        g3.setId(UUID.randomUUID());
+        g3.setScorer(homePlayer);
+        g3.setHalf(Half.SECOND);
+        g3.setMinute(15);
+        g3.setOwnGoal(true);
+        g3.setMatch(match);
+
+        match.getGoals().addAll(List.of(g1, g2, g3));
+        when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
+
+        MatchDto result = matchService.findById(matchId);
+
+        assertThat(result.getGoalTimeline()).hasSize(3);
+        assertThat(result.getHomeHalfScore()).isEqualTo(1);
+        assertThat(result.getAwayHalfScore()).isEqualTo(0);
+        assertThat(result.getGoalTimeline().get(1).isHomeGoal()).isFalse();
+        assertThat(result.getGoalTimeline().get(2).isHomeGoal()).isFalse();
+        assertThat(result.getGoalTimeline().get(2).isFirstInHalf()).isFalse();
+    }
+
+    @Test
+    void findById_noGoals_doesNotSetHalfScores() {
+        when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
+
+        MatchDto result = matchService.findById(matchId);
+
+        assertThat(result.getGoalTimeline()).isEmpty();
+        assertThat(result.getHomeHalfScore()).isNull();
     }
 
     private Goal goalWithScorer(Player scorer) {

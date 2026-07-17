@@ -11,4 +11,8 @@ public interface ScheduleService {
     void tryAutoGenerate(UUID leagueId);
 
     void simulatePastMatches();
+
+    void notifyMatchEvents();
+
+    void notifyGoals();
 }

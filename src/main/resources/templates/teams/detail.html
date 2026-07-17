@@ -36,6 +36,21 @@
            th:if="${remainingSlots > 0}" sec:authorize="isAuthenticated()">+ Propose players</a>
         <a th:href="@{/teams/{id}/form(id=${team.id})}" class="btn-edit"
            th:if="${team.leagueId == null}" sec:authorize="hasRole('ADMIN')">Edit team</a>
+        <th:block th:if="${followedSubscriptionId != null}">
+            <form th:action="@{/notifications/subscriptions/{sid}(sid=${followedSubscriptionId})}" method="post" style="display:inline">
+                <input type="hidden" name="_method" value="DELETE"/>
+                <input type="hidden" name="returnUrl" th:value="'/teams/' + ${team.id}"/>
+                <button type="submit" class="btn-following">&#10003; Following</button>
+            </form>
+        </th:block>
+        <th:block th:if="${followedSubscriptionId == null}">
+            <form th:action="@{/notifications/subscribe}" method="post" style="display:inline">
+                <input type="hidden" name="entityId" th:value="${team.id}"/>
+                <input type="hidden" name="entityType" value="TEAM"/>
+                <input type="hidden" name="returnUrl" th:value="'/teams/' + ${team.id}"/>
+                <button type="submit" class="btn-follow-team">&#128276; Follow team</button>
+            </form>
+        </th:block>
     </div>
 </div>
 
@@ -86,35 +101,8 @@
 
 <!-- Standings -->
 <section id="standings" class="team-tab-section" th:if="${leagueStandings != null}">
-    <div class="table-wrapper">
-        <table border="1" cellpadding="6">
-            <thead>
-                <tr><th>#</th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th>Pts</th></tr>
-            </thead>
-            <tbody>
-                <tr th:each="row, stat : ${leagueStandings}"
-                    th:classappend="${row.teamId != null and row.teamId == team.id} ? 'standings-highlight' : ''"
-                    th:attr="data-team-id=${row.teamId}">
-                    <td th:text="${stat.index + 1}"></td>
-                    <td>
-                        <img th:src="@{/teams/{id}/logo(id=${row.teamId})}" class="team-logo-sm" alt=""/>
-                        <a th:href="@{/teams/{id}(id=${row.teamId})}"
-                           th:text="${row.teamName + (row.teamCity != null ? ' (' + row.teamCity + ')' : '')}"></a>
-                        <a class="standings-live-badge" style="display:none"><span class="slb-label">LIVE</span><span class="slb-score"></span></a>
-                    </td>
-                    <td th:text="${row.played}"></td>
-                    <td class="cell-w" th:text="${row.wins}"></td>
-                    <td class="cell-d" th:text="${row.draws}"></td>
-                    <td class="cell-l" th:text="${row.losses}"></td>
-                    <td th:text="${row.goalsFor}"></td>
-                    <td th:text="${row.goalsAgainst}"></td>
-                    <td th:classappend="${row.goalDiff > 0} ? 'cell-gd-pos' : (${row.goalDiff < 0} ? 'cell-gd-neg' : '')"
-                        th:text="${row.goalDiff}"></td>
-                    <td><strong class="cell-pts" th:text="${row.points}"></strong></td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
+    <div th:replace="~{fragments/standings :: leagueProgress(${totalMatchCount}, ${playedMatchCount})}"></div>
+    <div th:replace="~{fragments/standings :: standingsTable(${leagueStandings}, ${team.id})}"></div>
 </section>
 
 <!-- Matches -->
@@ -127,6 +115,9 @@
                 <details class="match-card">
                     <summary class="match-card-summary">
                         <div class="match-meta">
+                            <th:block th:if="${m.playedAt.isAfter(liveThreshold)}">
+                                <div th:replace="~{fragments/topbar :: matchStar(${m.id})}"></div>
+                            </th:block>
                             <span class="match-meta-info">
                                 <a th:if="${m.leagueId != null}"
                                    th:href="@{/leagues/{id}(id=${m.leagueId})}"
@@ -214,6 +205,7 @@
         <div class="match-list">
             <div class="match-card upcoming" th:each="m : ${teamUpcoming}">
                 <div class="match-meta">
+                    <div th:replace="~{fragments/topbar :: matchStar(${m.id})}"></div>
                     <span class="match-meta-info">
                         <a th:if="${m.leagueId != null}"
                            th:href="@{/leagues/{id}(id=${m.leagueId})}"

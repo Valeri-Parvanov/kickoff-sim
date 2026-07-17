@@ -39,4 +39,6 @@ public class Goal {
 
     @Column(nullable = false)
     private boolean penalty = false;
+
+    private boolean notified;
 }

@@ -33,9 +33,8 @@
     <a th:href="@{/matches}" th:if="${selectedLeague != null or selectedDate != null or selectedTeam != null}" class="ls-clear-filter">&#10005; Clear filters</a>
 </div>
 
-<div class="cal-container" th:if="${!matchDates.isEmpty()}">
-    <div id="matchCalendar" class="match-calendar"></div>
-</div>
+<div class="matches-layout">
+<div class="matches-main">
 
 <!-- ── TEAM STANDINGS PANEL ── -->
 <div th:if="${teamStandings != null and not #lists.isEmpty(teamStandings.?[played > 0])}"
@@ -80,6 +79,9 @@
             <details class="match-card" th:if="${!match.playedAt.isAfter(now)}" th:attr="data-round=${match.roundNumber}">
                 <summary class="match-card-summary">
                     <div class="match-meta">
+                        <th:block th:if="${match.playedAt.isAfter(liveThreshold)}">
+                            <div th:replace="~{fragments/topbar :: matchStar(${match.id})}"></div>
+                        </th:block>
                         <span class="match-meta-info">
                             <a class="match-league-tag" th:if="${match.leagueId != null}"
                                th:href="@{/leagues/{id}(id=${match.leagueId})}"
@@ -163,6 +165,7 @@
 
             <div class="match-card upcoming" th:unless="${!match.playedAt.isAfter(now)}" th:attr="data-round=${match.roundNumber}">
                 <div class="match-meta">
+                    <div th:replace="~{fragments/topbar :: matchStar(${match.id})}"></div>
                     <span class="match-meta-info">
                         <a class="match-league-tag" th:if="${match.leagueId != null}"
                            th:href="@{/leagues/{id}(id=${match.leagueId})}"
@@ -216,6 +219,7 @@
                     <details class="match-card">
                         <summary class="match-card-summary">
                             <div class="match-meta">
+                                <div th:replace="~{fragments/topbar :: matchStar(${match.id})}"></div>
                                 <span class="match-meta-info">
                                     <a class="match-league-tag" th:if="${match.leagueId != null}"
                                        th:href="@{/leagues/{id}(id=${match.leagueId})}"
@@ -298,6 +302,7 @@
             <th:block th:each="match : ${upcomingMatches}">
                 <div class="match-card upcoming">
                     <div class="match-meta">
+                        <div th:replace="~{fragments/topbar :: matchStar(${match.id})}"></div>
                         <span class="match-meta-info">
                             <a class="match-league-tag" th:if="${match.leagueId != null}"
                                th:href="@{/leagues/{id}(id=${match.leagueId})}"
@@ -411,6 +416,14 @@
 
 </div>
 
+</div>
+<aside class="matches-side">
+    <div class="cal-container" th:if="${!matchDates.isEmpty()}">
+        <div id="matchCalendar" class="match-calendar"></div>
+    </div>
+</aside>
+</div>
+
 </main>
 <script th:inline="javascript">
 var ALL_MATCH_UTCS = /*[[${allMatchUtcIsos}]]*/[];
@@ -419,98 +432,10 @@ var CAL_LEAGUE   = /*[[${selectedLeague != null ? selectedLeague.toString() : ''
 var CAL_TEAM     = /*[[${selectedTeam != null ? selectedTeam.toString() : ''}]]*/'';
 var LIVE_MATCHES = /*[[${liveMatchesForJs}]]*/[];
 var HAS_TODAY_RESULTS = /*[[${hasTodayResults}]]*/false;
+var LIVESCORE_RELOAD_AT_FT = true;
 </script>
+<script th:src="@{/js/livescore.js}"></script>
 <script>
-var PAGE_LOAD_TIME = Date.now();
-var _reloadScheduled = false;
-function getLiveState(elapsedAtLoad, goals) {
-    var realMin = elapsedAtLoad + Math.floor((Date.now() - PAGE_LOAD_TIME) / 60000);
-    if (realMin < 0) return { phase: 'PRE', displayMin: '', homeScore: 0, awayScore: 0, maxMin: 0 };
-    var phase, maxMin;
-    if (realMin <= 20)      { phase = 'FIRST';  maxMin = realMin; }
-    else if (realMin <= 25) { phase = 'HT';     maxMin = 20; }
-    else if (realMin <= 45) { phase = 'SECOND'; maxMin = realMin - 25; }
-    else                    { phase = 'FT';     maxMin = 20; }
-    var hs = 0, as = 0;
-    for (var i = 0; i < goals.length; i++) {
-        var g = goals[i];
-        if (g.half === 'FIRST') {
-            if ((phase === 'FIRST' && g.minute <= maxMin) ||
-                    phase === 'HT' || phase === 'SECOND' || phase === 'FT') {
-                hs = g.rh; as = g.ra;
-            }
-        } else if (g.half === 'SECOND') {
-            var secMax = phase === 'SECOND' ? maxMin : (phase === 'FT' ? 20 : -1);
-            if (secMax >= 0 && g.minute <= secMax) { hs = g.rh; as = g.ra; }
-        }
-    }
-    var d;
-    if (phase === 'FIRST')        d = realMin + "'";
-    else if (phase === 'HT')      d = 'HT';
-    else if (phase === 'SECOND')  d = (20 + (realMin - 25)) + "'";
-    else                          d = 'FT';
-    return { phase: phase, displayMin: d, homeScore: hs, awayScore: as, maxMin: maxMin };
-}
-
-function updateLiveMinutes() {
-    var liveById = {};
-    (LIVE_MATCHES || []).forEach(function(m) { liveById[m.id] = m; });
-    document.querySelectorAll('[data-elapsed]').forEach(function(el) {
-        var elapsed = parseInt(el.getAttribute('data-elapsed') || '0');
-        var mid = el.getAttribute('data-match-id');
-        var minEl = el.querySelector('.live-minute');
-        if (!minEl) return;
-        var lm = mid && liveById[mid];
-        if (lm) {
-            var state = getLiveState(lm.elapsedMin, lm.goals);
-            minEl.textContent = state.displayMin;
-            var hsEl = el.querySelector('.ls-h');
-            var asEl = el.querySelector('.ls-a');
-            if (hsEl) hsEl.textContent = state.homeScore;
-            if (asEl) asEl.textContent = state.awayScore;
-            if (state.displayMin === 'FT' && !_reloadScheduled) {
-                _reloadScheduled = true;
-                setTimeout(function() { location.reload(); }, 3000);
-            }
-            var details = el.closest('details');
-            if (details) {
-                var anyFirstVis = false, anySecondVis = false;
-                details.querySelectorAll('.timeline-row').forEach(function(r) {
-                    var rHalf = r.getAttribute('data-half');
-                    var rMin  = parseInt(r.getAttribute('data-minute') || '0');
-                    var show;
-                    if      (state.phase === 'FT')     show = true;
-                    else if (state.phase === 'HT')     show = rHalf === 'FIRST';
-                    else if (state.phase === 'SECOND') show = rHalf === 'FIRST' || (rHalf === 'SECOND' && rMin <= state.maxMin);
-                    else                               show = rHalf === 'FIRST' && rMin <= state.maxMin;
-                    r.style.display = show ? '' : 'none';
-                    if (show && rHalf === 'FIRST')  anyFirstVis  = true;
-                    if (show && rHalf === 'SECOND') anySecondVis = true;
-                });
-                details.querySelectorAll('.half-label').forEach(function(hl) {
-                    var halfName = hl.getAttribute('data-half');
-                    hl.style.display = (halfName === 'FIRST' ? anyFirstVis : anySecondVis) ? '' : 'none';
-                    var scoreSpan = hl.querySelector('.half-score');
-                    if (scoreSpan) {
-                        var halfDone = (halfName === 'FIRST' && (state.phase === 'HT' || state.phase === 'SECOND' || state.phase === 'FT')) ||
-                                       (halfName === 'SECOND' && state.phase === 'FT');
-                        scoreSpan.style.display = halfDone ? '' : 'none';
-                    }
-                });
-            }
-        } else {
-            var min = elapsed + Math.floor((Date.now() - PAGE_LOAD_TIME) / 60000);
-            var d;
-            if (min <= 20)      d = min + "'";
-            else if (min <= 25) d = 'HT';
-            else if (min <= 45) d = (20 + (min - 25)) + "'";
-            else                d = 'FT';
-            minEl.textContent = d;
-        }
-    });
-}
-updateLiveMinutes();
-setInterval(updateLiveMinutes, 30000);
 
 (function() {
     document.querySelectorAll('[data-utc]').forEach(function(el) {

@@ -3,13 +3,22 @@ package bg.softuni.footballleague.repository;
 import bg.softuni.footballleague.model.Goal;
 import bg.softuni.footballleague.model.Half;
 import bg.softuni.footballleague.model.Match;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 public interface GoalRepository extends JpaRepository<Goal, UUID> {
+
+    @EntityGraph(attributePaths = {"match", "match.homeTeam", "match.homeTeam.league", "match.awayTeam",
+            "scorer", "scorer.team"})
+    @Query("SELECT g FROM Goal g WHERE g.notified = false AND g.match.playedAt BETWEEN :from AND :to")
+    List<Goal> findUnnotifiedForMatchesStartedBetween(@Param("from") LocalDateTime from,
+                                                      @Param("to") LocalDateTime to);
 
 
 

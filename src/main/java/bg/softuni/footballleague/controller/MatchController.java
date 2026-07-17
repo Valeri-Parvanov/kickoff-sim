@@ -6,6 +6,9 @@ import bg.softuni.footballleague.model.ChangeAction;
 import bg.softuni.footballleague.model.EntityType;
 import bg.softuni.footballleague.model.Half;
 import bg.softuni.footballleague.service.*;
+import bg.softuni.footballleague.web.MatchFollowSupport;
+import bg.softuni.footballleague.web.ViewerZone;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
@@ -38,6 +41,8 @@ public class MatchController {
     private final PlayerService playerService;
     private final LeagueService leagueService;
     private final ChangeRequestService changeRequestService;
+    private final MatchFollowSupport matchFollowSupport;
+    private final ViewerZone viewerZone;
 
     @GetMapping("/{id}")
     public String detail(@PathVariable UUID id, Model model) {
@@ -69,50 +74,46 @@ public class MatchController {
     public String list(@RequestParam(required = false) UUID league,
                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
                        @RequestParam(required = false) UUID team,
+                       Authentication authentication,
+                       HttpServletRequest request,
                        Model model) {
+        ZoneId vz = viewerZone.resolve(request);
         LocalDateTime now = LocalDateTime.now();
-        LocalDate today = now.toLocalDate();
+        LocalDate today = viewerZone.today(vz);
         LocalDateTime liveThreshold = now.minusMinutes(46);
 
-        List<LocalDate> matchDates;
         List<MatchDto> dateMatches = null;
         List<MatchDto> recentMatches = List.of();
         List<MatchDto> upcomingMatches = List.of();
         LocalDate selectedDate = date;
 
-        List<MatchDto> allFiltered;
-        if (league == null && team == null) {
-            matchDates = matchService.findAllMatchDates();
-            allFiltered = date != null ? List.of() : matchService.findAll(Sort.by(Sort.Direction.ASC, "playedAt"));
-        } else {
-            allFiltered = league != null
-                    ? matchService.findByLeague(league)
-                    : matchService.findAll(Sort.by(Sort.Direction.ASC, "playedAt"));
-            if (team != null) {
-                final UUID t = team;
-                allFiltered = allFiltered.stream()
-                        .filter(m -> t.equals(m.getHomeTeamId()) || t.equals(m.getAwayTeamId()))
-                        .toList();
-            }
-            matchDates = allFiltered.stream()
-                    .map(m -> m.getPlayedAt().toLocalDate())
-                    .distinct()
-                    .sorted()
+        List<MatchDto> allFiltered = league != null
+                ? matchService.findByLeague(league)
+                : matchService.findAll(Sort.by(Sort.Direction.ASC, "playedAt"));
+        if (team != null) {
+            final UUID t = team;
+            allFiltered = allFiltered.stream()
+                    .filter(m -> t.equals(m.getHomeTeamId()) || t.equals(m.getAwayTeamId()))
                     .toList();
         }
 
+        List<LocalDate> matchDates = allFiltered.stream()
+                .map(m -> viewerZone.dateOf(m.getPlayedAt(), vz))
+                .distinct()
+                .sorted()
+                .toList();
+
         if (date != null) {
-            if (league == null && team == null) {
-                dateMatches = sortByStatus(matchService.findByDate(date), now, liveThreshold);
-            } else {
-                final LocalDate d = date;
-                dateMatches = sortByStatus(
-                        allFiltered.stream().filter(m -> m.getPlayedAt().toLocalDate().equals(d)).toList(),
-                        now, liveThreshold);
-            }
+            final LocalDate d = date;
+            dateMatches = sortByStatus(
+                    allFiltered.stream()
+                            .filter(m -> viewerZone.dateOf(m.getPlayedAt(), vz).equals(d))
+                            .toList(),
+                    now, liveThreshold);
         } else {
             recentMatches = allFiltered.stream()
-                    .filter(m -> !m.getPlayedAt().isAfter(now) && m.getPlayedAt().toLocalDate().equals(today))
+                    .filter(m -> !m.getPlayedAt().isAfter(now)
+                            && viewerZone.dateOf(m.getPlayedAt(), vz).equals(today))
                     .sorted(Comparator.comparing(MatchDto::getPlayedAt).reversed())
                     .toList();
             upcomingMatches = allFiltered.stream()
@@ -165,6 +166,7 @@ public class MatchController {
                     return Map.<String, Object>of(
                             "id", m.getId().toString(),
                             "elapsedMin", Duration.between(m.getPlayedAt(), now).toMinutes(),
+                            "elapsedSec", Duration.between(m.getPlayedAt(), now).getSeconds(),
                             "goals", goals);
                 })
                 .toList();
@@ -196,6 +198,10 @@ public class MatchController {
                     .toList();
         }
         model.addAttribute("allMatchUtcIsos", allMatchUtcIsos);
+        model.addAttribute("subscribedMatchIds", matchFollowSupport.subscribedMatchIds(authentication));
+        model.addAttribute("currentUrl", request.getQueryString() == null
+                ? request.getRequestURI()
+                : request.getRequestURI() + "?" + request.getQueryString());
         return "matches/list";
     }
 
@@ -215,16 +221,6 @@ public class MatchController {
         if (m.getPlayedAt().isBefore(now) && m.getPlayedAt().isAfter(liveThreshold)) return 0;
         if (!m.getPlayedAt().isBefore(now)) return 1;
         return 2;
-    }
-
-    private LocalDate resolveDate(LocalDate requested, List<LocalDate> matchDates, LocalDate today) {
-        if (requested != null) return requested;
-        if (matchDates.isEmpty()) return null;
-        if (matchDates.contains(today)) return today;
-        return matchDates.stream()
-                .filter(d -> !d.isAfter(today))
-                .max(Comparator.naturalOrder())
-                .orElse(matchDates.get(0));
     }
 
     @PreAuthorize("hasRole('ADMIN')")

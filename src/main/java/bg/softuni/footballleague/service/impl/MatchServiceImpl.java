@@ -1,5 +1,7 @@
 package bg.softuni.footballleague.service.impl;
 
+import bg.softuni.footballleague.client.BroadcastRequest;
+import bg.softuni.footballleague.client.NotificationClient;
 import bg.softuni.footballleague.dto.GoalDto;
 import bg.softuni.footballleague.dto.GoalEventDto;
 import bg.softuni.footballleague.dto.MatchDto;
@@ -37,6 +39,7 @@ public class MatchServiceImpl implements MatchService {
     private final TeamRepository teamRepository;
     private final GoalRepository goalRepository;
     private final PlayerRepository playerRepository;
+    private final NotificationClient notificationClient;
 
     @Override
     public List<MatchDto> findAll() {
@@ -72,6 +75,22 @@ public class MatchServiceImpl implements MatchService {
         mapToEntity(matchDto, match);
         MatchDto saved = toDto(matchRepository.save(match));
         log.info("Updated match {}", id);
+        try {
+            UUID leagueId = match.getHomeTeam().getLeague() != null
+                    ? match.getHomeTeam().getLeague().getId() : null;
+            String message = match.getHomeTeam().getName() + " vs " + match.getAwayTeam().getName()
+                    + ": " + match.getHomeScore() + "-" + match.getAwayScore();
+            notificationClient.broadcast(new BroadcastRequest(
+                    match.getId(),
+                    match.getHomeTeam().getId(),
+                    match.getAwayTeam().getId(),
+                    leagueId,
+                    message,
+                    "MATCH_RESULT"
+            ));
+        } catch (Exception e) {
+            log.warn("Failed to broadcast notification for match {}: {}", id, e.getMessage());
+        }
         return saved;
     }
 
@@ -114,6 +133,28 @@ public class MatchServiceImpl implements MatchService {
         applyHalfAndMinute(goal, dto.getMinute());
         goalRepository.save(goal);
         log.info("Recorded goal for match {} by player {}", matchId, dto.getScorerId());
+        try {
+            UUID leagueId = match.getHomeTeam().getLeague() != null
+                    ? match.getHomeTeam().getLeague().getId() : null;
+            String scorerName = scorer.getFirstName() + " " + scorer.getLastName();
+            String scoringTeam = creditedToHome
+                    ? match.getHomeTeam().getName()
+                    : match.getAwayTeam().getName();
+            String message = "GOAL for " + scoringTeam + "! " + scorerName
+                    + (goal.getMinute() != null ? " " + (goal.getHalf() == Half.SECOND ? goal.getMinute() + 20 : goal.getMinute()) + "'" : "")
+                    + (goal.isOwnGoal() ? " (own goal)" : goal.isPenalty() ? " (penalty)" : "")
+                    + " — " + match.getHomeTeam().getName() + " vs " + match.getAwayTeam().getName();
+            notificationClient.broadcast(new BroadcastRequest(
+                    match.getId(),
+                    match.getHomeTeam().getId(),
+                    match.getAwayTeam().getId(),
+                    leagueId,
+                    message,
+                    "GOAL"
+            ));
+        } catch (Exception e) {
+            log.warn("Failed to broadcast goal notification for match {}: {}", matchId, e.getMessage());
+        }
     }
 
     @Override

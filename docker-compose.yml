@@ -1,11 +1,25 @@
 services:
+  notifications:
+    build: ../kickoff-notifications
+    container_name: kickoff-notifications
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://host.docker.internal:3306/kickoff_notifications?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-12345}
+    ports:
+      - "8081:8081"
+
   app:
     build: .
     container_name: kickoff-sim-app
     restart: unless-stopped
+    depends_on:
+      - notifications
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://host.docker.internal:3306/kickoff_sim?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-12345}
+      NOTIFICATIONS_SERVICE_URL: http://notifications:8081
     ports:
       - "8080:8080"

@@ -2,43 +2,254 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <body>
-<header th:fragment="topbar" class="topbar">
-    <a th:href="@{/}" class="brand"><span class="ball">&#9917;</span>Kickoff Sim</a>
+<th:block th:fragment="topbar">
+<aside class="sidebar">
+    <div class="sidebar-header">
+        <a th:href="@{/}" class="sidebar-brand"><span class="ball">&#9917;</span>Kickoff Sim</a>
+        <button class="hamburger-btn" id="sidebarToggle" aria-label="Toggle navigation">
+            <span></span><span></span><span></span>
+        </button>
+    </div>
 
-    <nav>
+    <nav class="sidebar-nav">
+        <div class="sidebar-section-label">Browse</div>
         <a th:href="@{/leagues}">&#127942; Leagues</a>
         <a th:href="@{/teams}">&#128737; Teams</a>
         <a th:href="@{/matches}">&#9917; Matches</a>
-        <a th:href="@{/admin/change-requests}" sec:authorize="hasRole('ADMIN')">&#128203; Pending changes<span
-                th:if="${pendingChangeCount != null and pendingChangeCount > 0}"
-                class="nav-badge" th:text="${pendingChangeCount}"></span></a>
-        <a th:href="@{/admin/users}" sec:authorize="hasRole('ADMIN')">&#9881; Users</a>
-        <a th:href="@{/my-change-requests}" sec:authorize="isAuthenticated() and !hasRole('ADMIN')">&#128221; My proposals<span
-                th:if="${myPendingCount != null and myPendingCount > 0}"
-                class="nav-badge" th:text="${myPendingCount}"></span></a>
+
+        <div class="sidebar-section-label" sec:authorize="isAuthenticated()">My Account</div>
+        <a th:href="@{/feed}" sec:authorize="isAuthenticated()">&#127897; My Feed</a>
+        <a th:href="@{/notifications}" sec:authorize="isAuthenticated()" id="notif-link">
+            &#128276; Notifications
+            <span class="nav-badge sidebar-badge" id="notif-badge" style="display:none"></span>
+        </a>
+        <a th:href="@{/my-change-requests}" sec:authorize="isAuthenticated() and !hasRole('ADMIN')">
+            &#128221; My proposals
+            <span th:if="${myPendingCount != null and myPendingCount > 0}"
+                  class="nav-badge sidebar-badge" th:text="${myPendingCount}"></span>
+        </a>
         <a th:href="@{/profile}" sec:authorize="isAuthenticated()">&#128100; My profile</a>
+
+        <div class="sidebar-section-label sidebar-section-admin" sec:authorize="hasRole('ADMIN')">Administration</div>
+        <a th:href="@{/admin/change-requests}" sec:authorize="hasRole('ADMIN')">
+            &#128203; Pending changes
+            <span th:if="${pendingChangeCount != null and pendingChangeCount > 0}"
+                  class="nav-badge sidebar-badge" th:text="${pendingChangeCount}"></span>
+        </a>
+        <a th:href="@{/admin/users}" sec:authorize="hasRole('ADMIN')">&#9881; Users</a>
     </nav>
 
-    <div class="auth-box" sec:authorize="isAnonymous()">
-        <a th:href="@{/login}">Login</a>
-        <a th:href="@{/register}">Register</a>
-    </div>
-
-    <div class="auth-box" sec:authorize="isAuthenticated()">
-        <a th:href="@{/profile}" class="welcome">Welcome, <span sec:authentication="name"></span>!</a>
-        <span sec:authorize="hasRole('ADMIN')" class="topbar-role-badge tbr-admin">ADMIN</span>
-        <span sec:authorize="!hasRole('ADMIN')" class="topbar-role-badge tbr-user">USER</span>
-        <form th:action="@{/logout}" method="post">
-            <button type="submit">Logout</button>
+    <div class="sidebar-auth" sec:authorize="isAuthenticated()">
+        <a th:href="@{/profile}" class="sidebar-welcome">
+            Welcome, <strong sec:authentication="name"></strong>!
+        </a>
+        <div style="display:flex;gap:0.4rem;align-items:center;margin-top:0.2rem;">
+            <span sec:authorize="hasRole('ADMIN')" class="topbar-role-badge tbr-admin">ADMIN</span>
+            <span sec:authorize="!hasRole('ADMIN')" class="topbar-role-badge tbr-user">USER</span>
+        </div>
+        <form th:action="@{/logout}" method="post" style="margin-top:0.5rem;">
+            <button type="submit" class="sidebar-logout">Logout</button>
         </form>
     </div>
-</header>
+
+    <div class="sidebar-auth" sec:authorize="isAnonymous()">
+        <a th:href="@{/login}" class="sidebar-auth-link">Login</a>
+        <a th:href="@{/register}" class="sidebar-auth-link">Register</a>
+    </div>
+</aside>
+
+<div id="goal-toasts" class="goal-toast-wrap" sec:authorize="isAuthenticated()"></div>
+<script>
+(function() {
+    var tz;
+    try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) { return; }
+    if (!tz) return;
+    var m = document.cookie.match(/(?:^|;\s*)tz=([^;]+)/);
+    if (m && decodeURIComponent(m[1]) === tz) return;
+    document.cookie = 'tz=' + encodeURIComponent(tz) + ';path=/;max-age=31536000;SameSite=Lax';
+    location.reload();
+}());
+</script>
+<script>
+(function() {
+    var btn = document.getElementById('sidebarToggle');
+    var sidebar = document.querySelector('.sidebar');
+    if (!btn || !sidebar) return;
+    btn.addEventListener('click', function() {
+        sidebar.classList.toggle('open');
+    });
+    sidebar.querySelectorAll('.sidebar-nav a').forEach(function(link) {
+        link.addEventListener('click', function() { sidebar.classList.remove('open'); });
+    });
+}());
+</script>
+<script sec:authorize="isAuthenticated()">
+(function() {
+    var SHOWN_KEY = 'kickoffShownToasts';
+
+    function shownIds() {
+        try { return JSON.parse(localStorage.getItem(SHOWN_KEY) || '[]'); } catch (e) { return []; }
+    }
+
+    function remember(id) {
+        var ids = shownIds();
+        ids.push(id);
+        if (ids.length > 50) ids = ids.slice(-50);
+        try { localStorage.setItem(SHOWN_KEY, JSON.stringify(ids)); } catch (e) {}
+    }
+
+    function showToast(message, type) {
+        var wrap = document.getElementById('goal-toasts');
+        if (!wrap) return;
+        var el = document.createElement('div');
+        el.className = 'goal-toast' + (type ? ' t-' + type.toLowerCase() : '');
+        var text = document.createElement('span');
+        text.className = 'goal-toast-msg';
+        text.textContent = message;
+        var close = document.createElement('button');
+        close.className = 'goal-toast-close';
+        close.type = 'button';
+        close.setAttribute('aria-label', 'Dismiss');
+        close.textContent = '×';
+        el.appendChild(text);
+        el.appendChild(close);
+        wrap.appendChild(el);
+        requestAnimationFrame(function() { el.classList.add('show'); });
+
+        var timer = setTimeout(dismiss, 8000);
+        function dismiss() {
+            clearTimeout(timer);
+            el.classList.remove('show');
+            setTimeout(function() { if (el.parentNode) el.parentNode.removeChild(el); }, 300);
+        }
+        close.addEventListener('click', dismiss);
+    }
+
+    function refreshBadge() {
+        fetch('/notifications/unread-count')
+            .then(function(r) { return r.ok ? r.json() : 0; })
+            .then(function(n) {
+                var b = document.getElementById('notif-badge');
+                if (!b) return;
+                if (n > 0) { b.textContent = n; b.style.display = ''; }
+                else { b.style.display = 'none'; }
+            })
+            .catch(function() {});
+    }
+
+    function pollToasts() {
+        fetch('/notifications/toasts')
+            .then(function(r) { return r.ok ? r.json() : []; })
+            .then(function(list) {
+                if (!list || !list.length) return;
+                var seen = shownIds();
+                list.forEach(function(n) {
+                    if (seen.indexOf(n.id) !== -1) return;
+                    remember(n.id);
+                    showToast(n.message, n.type);
+                });
+            })
+            .catch(function() {});
+    }
+
+    function tick() { refreshBadge(); pollToasts(); }
+    tick();
+    setInterval(tick, 5000);
+}());
+</script>
+<script sec:authorize="isAuthenticated()">
+(function() {
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest ? e.target.closest('.match-star') : null;
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        var form = btn.closest('form');
+        if (!form || btn.disabled) return;
+
+        btn.disabled = true;
+        fetch(form.action, {
+            method: 'POST',
+            body: new FormData(form),
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+            .then(function(r) { return r.ok ? r.json() : Promise.reject(); })
+            .then(function(data) {
+                btn.classList.toggle('followed', data.following);
+                btn.setAttribute('aria-pressed', data.following);
+                btn.title = data.following ? 'Stop following this match' : 'Follow this match';
+            })
+            .catch(function() {})
+            .then(function() { btn.disabled = false; });
+    }, true);
+}());
+</script>
+</th:block>
 
 <th:block th:fragment="messages">
     <div th:if="${statusMessage}" class="status-message" th:text="${statusMessage}"></div>
     <div th:if="${warnMessage}" class="warn-message" th:text="${warnMessage}"></div>
     <div th:if="${errorMessage}" class="error-message" th:text="${errorMessage}"></div>
     <div th:if="${scheduleError}" class="error-message" th:text="${scheduleError}"></div>
+</th:block>
+
+<th:block th:fragment="goalRow(m, g)">
+    <div class="half-label" th:if="${g.firstInHalf}" th:attr="data-half=${g.half.name()}">
+        <span th:text="${g.half.name() == 'FIRST' ? '1st Half' : '2nd Half'}"></span>
+        <span class="half-score" th:if="${g.half.name() == 'FIRST'}"
+              th:text="${m.homeHalfScore} + ':' + ${m.awayHalfScore}"></span>
+        <span class="half-score" th:unless="${g.half.name() == 'FIRST'}"
+              th:text="${m.homeScore - m.homeHalfScore} + ':' + ${m.awayScore - m.awayHalfScore}"></span>
+    </div>
+    <div class="timeline-row"
+         th:attr="data-half=${g.half.name()},data-minute=${g.minute != null ? g.minute : 0}">
+        <div class="tl-home">
+            <th:block th:if="${g.homeGoal}">
+                <span class="goal-icon">&#9917;</span>
+                <span class="goal-minute" th:if="${g.minute != null}"
+                      th:text="${(g.half.name() == 'FIRST' ? g.minute : g.minute + 20)} + '\'' + ' '"></span>
+                <span class="goal-scorer-name" th:text="${g.scorerName}"></span>
+                <span class="goal-type-badge og" th:if="${g.ownGoal}">OG</span>
+                <span class="goal-type-badge pen" th:if="${g.penalty}">pen.</span>
+                <span class="goal-assist" th:if="${g.assistantName != null}"
+                      th:text="' (' + ${g.assistantName} + ')'"></span>
+                <span class="running-score"
+                      th:text="${g.runningHomeScore} + ':' + ${g.runningAwayScore}"></span>
+            </th:block>
+        </div>
+        <div class="tl-away">
+            <th:block th:unless="${g.homeGoal}">
+                <span class="running-score"
+                      th:text="${g.runningHomeScore} + ':' + ${g.runningAwayScore}"></span>
+                <span class="goal-assist" th:if="${g.assistantName != null}"
+                      th:text="'(' + ${g.assistantName} + ') '"></span>
+                <span class="goal-scorer-name" th:text="${g.scorerName}"></span>
+                <span class="goal-type-badge og" th:if="${g.ownGoal}">OG</span>
+                <span class="goal-type-badge pen" th:if="${g.penalty}">pen.</span>
+                <span class="goal-minute" th:if="${g.minute != null}"
+                      th:text="' ' + ${(g.half.name() == 'FIRST' ? g.minute : g.minute + 20)} + '\''"></span>
+                <span class="goal-icon">&#9917;</span>
+            </th:block>
+        </div>
+    </div>
+</th:block>
+
+<th:block th:fragment="matchStar(matchId)"
+          th:with="followed=${subscribedMatchIds != null and subscribedMatchIds.contains(matchId)}">
+    <form sec:authorize="isAuthenticated()"
+          th:action="@{/notifications/match/{id}/toggle(id=${matchId})}" method="post"
+          class="match-star-form">
+        <button type="submit" class="match-star"
+                th:classappend="${followed} ? ' followed' : ''"
+                th:title="${followed} ? 'Stop following this match' : 'Follow this match'"
+                th:attr="aria-pressed=${followed}">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+        </button>
+    </form>
 </th:block>
 </body>
 </html>

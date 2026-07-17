@@ -1,5 +1,7 @@
 package bg.softuni.footballleague.service.impl;
 
+import bg.softuni.footballleague.client.BroadcastRequest;
+import bg.softuni.footballleague.client.NotificationClient;
 import bg.softuni.footballleague.exception.EntityNotFoundException;
 import bg.softuni.footballleague.exception.InvalidLeagueOperationException;
 import bg.softuni.footballleague.model.*;
@@ -38,6 +40,7 @@ public class ScheduleServiceImpl implements ScheduleService {
     private final MatchRepository matchRepository;
     private final PlayerRepository playerRepository;
     private final GoalRepository goalRepository;
+    private final NotificationClient notificationClient;
 
     @Override
     @Transactional(noRollbackFor = InvalidLeagueOperationException.class)
@@ -158,6 +161,22 @@ public class ScheduleServiceImpl implements ScheduleService {
             matchRepository.save(match);
             allNewGoals.addAll(match.getGoals());
             count++;
+            try {
+                UUID leagueId = match.getHomeTeam().getLeague() != null
+                        ? match.getHomeTeam().getLeague().getId() : null;
+                String message = match.getHomeTeam().getName() + " vs " + match.getAwayTeam().getName()
+                        + ": " + match.getHomeScore() + "-" + match.getAwayScore();
+                notificationClient.broadcast(new BroadcastRequest(
+                        match.getId(),
+                        match.getHomeTeam().getId(),
+                        match.getAwayTeam().getId(),
+                        leagueId,
+                        message,
+                        "MATCH_RESULT"
+                ));
+            } catch (Exception e) {
+                log.warn("Failed to broadcast notification for match {}: {}", match.getId(), e.getMessage());
+            }
         }
         if (!allNewGoals.isEmpty()) {
             goalRepository.saveAll(allNewGoals);
@@ -165,6 +184,136 @@ public class ScheduleServiceImpl implements ScheduleService {
         if (count > 0) {
             log.info("Auto-simulated {} match result(s)", count);
         }
+    }
+
+    @Override
+    @Transactional
+    public void notifyMatchEvents() {
+        LocalDateTime now = LocalDateTime.now();
+        notifyKickoffs(now);
+        notifyHalftimes(now);
+        notifyFulltimes(now);
+    }
+
+    private void notifyKickoffs(LocalDateTime now) {
+        for (Match match : matchRepository.findForKickoffNotification(now.minusMinutes(5), now)) {
+            try {
+                broadcast(match,
+                        teamLabel(match.getHomeTeam()) + " vs " + teamLabel(match.getAwayTeam()) + " — KICK OFF!",
+                        "MATCH_KICKOFF");
+                match.setKickoffNotified(true);
+                matchRepository.save(match);
+            } catch (Exception e) {
+                log.warn("Failed to send kick-off notification for match {}: {}", match.getId(), e.getMessage());
+            }
+        }
+    }
+
+    private void notifyHalftimes(LocalDateTime now) {
+        for (Match match : matchRepository.findForHalftimeNotification(now.minusMinutes(26), now.minusMinutes(21))) {
+            try {
+                int homeHalf = 0;
+                int awayHalf = 0;
+                for (Goal g : match.getGoals()) {
+                    if (!Half.FIRST.equals(g.getHalf())) continue;
+                    if (benefitsHome(g, match)) homeHalf++;
+                    else awayHalf++;
+                }
+                broadcast(match,
+                        teamLabel(match.getHomeTeam()) + " vs " + teamLabel(match.getAwayTeam())
+                                + " — HALF TIME " + homeHalf + "-" + awayHalf,
+                        "MATCH_HALFTIME");
+                match.setHalftimeNotified(true);
+                matchRepository.save(match);
+            } catch (Exception e) {
+                log.warn("Failed to send half-time notification for match {}: {}", match.getId(), e.getMessage());
+            }
+        }
+    }
+
+    private void notifyFulltimes(LocalDateTime now) {
+        for (Match match : matchRepository.findForFulltimeNotification(now.minusMinutes(51), now.minusMinutes(46))) {
+            try {
+                broadcast(match,
+                        teamLabel(match.getHomeTeam()) + " vs " + teamLabel(match.getAwayTeam())
+                                + " — FULL TIME " + match.getHomeScore() + "-" + match.getAwayScore(),
+                        "MATCH_FULLTIME");
+                match.setFulltimeNotified(true);
+                matchRepository.save(match);
+            } catch (Exception e) {
+                log.warn("Failed to send full-time notification for match {}: {}", match.getId(), e.getMessage());
+            }
+        }
+    }
+
+    private String teamLabel(Team team) {
+        return team.getCity() != null ? team.getName() + " (" + team.getCity() + ")" : team.getName();
+    }
+
+    @Override
+    @Transactional
+    public void notifyGoals() {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime toastWindowStart = now.minusMinutes(5);
+
+        for (Goal goal : goalRepository.findUnnotifiedForMatchesStartedBetween(now.minusMinutes(50), now)) {
+            LocalDateTime goalTime = realGoalTime(goal);
+            if (goalTime.isAfter(now) || goalTime.isBefore(toastWindowStart)) {
+                continue;
+            }
+
+            Match match = goal.getMatch();
+            int homeScore = 0;
+            int awayScore = 0;
+            for (Goal other : match.getGoals()) {
+                if (realGoalTime(other).isAfter(goalTime)) continue;
+                if (benefitsHome(other, match)) homeScore++;
+                else awayScore++;
+            }
+
+            int minute = goal.getMinute() != null ? goal.getMinute() : 0;
+            int displayMinute = Half.SECOND.equals(goal.getHalf()) ? minute + 20 : minute;
+            String scorerName = goal.getScorer().getFirstName() + " " + goal.getScorer().getLastName();
+            String scoringTeam = benefitsHome(goal, match)
+                    ? teamLabel(match.getHomeTeam())
+                    : teamLabel(match.getAwayTeam());
+            String message = "GOAL for " + scoringTeam + "! " + scorerName + " " + displayMinute + "'"
+                    + (goal.isOwnGoal() ? " (own goal)" : goal.isPenalty() ? " (penalty)" : "")
+                    + " — " + teamLabel(match.getHomeTeam()) + " " + homeScore + ":" + awayScore
+                    + " " + teamLabel(match.getAwayTeam());
+
+            try {
+                broadcast(match, message, "GOAL");
+                goal.setNotified(true);
+                goalRepository.save(goal);
+            } catch (Exception e) {
+                log.warn("Failed to send goal notification for goal {}: {}", goal.getId(), e.getMessage());
+            }
+        }
+    }
+
+    private LocalDateTime realGoalTime(Goal goal) {
+        int minute = goal.getMinute() != null ? goal.getMinute() : 0;
+        int offset = Half.SECOND.equals(goal.getHalf()) ? 25 + minute : minute;
+        return goal.getMatch().getPlayedAt().plusMinutes(offset);
+    }
+
+    private boolean benefitsHome(Goal goal, Match match) {
+        boolean scorerIsHome = goal.getScorer().getTeam().getId().equals(match.getHomeTeam().getId());
+        return goal.isOwnGoal() ? !scorerIsHome : scorerIsHome;
+    }
+
+    private void broadcast(Match match, String message, String type) {
+        UUID leagueId = match.getHomeTeam().getLeague() != null
+                ? match.getHomeTeam().getLeague().getId() : null;
+        notificationClient.broadcast(new BroadcastRequest(
+                match.getId(),
+                match.getHomeTeam().getId(),
+                match.getAwayTeam().getId(),
+                leagueId,
+                message,
+                type
+        ));
     }
 
     private void simulateResult(Match match, List<Player> homePlayers, List<Player> awayPlayers) {
@@ -217,11 +366,11 @@ public class ScheduleServiceImpl implements ScheduleService {
     private int randomTotalGoals() {
         int r = ThreadLocalRandom.current().nextInt(100);
         int cumulative = 0;
-        for (int i = 0; i < TOTAL_GOAL_WEIGHTS.length; i++) {
+        for (int i = 0; i < TOTAL_GOAL_WEIGHTS.length - 1; i++) {
             cumulative += TOTAL_GOAL_WEIGHTS[i];
             if (r < cumulative) return i;
         }
-        return 0;
+        return TOTAL_GOAL_WEIGHTS.length - 1;
     }
 
     private void validateStartTime(LocalTime startTime, int matchesPerRound) {

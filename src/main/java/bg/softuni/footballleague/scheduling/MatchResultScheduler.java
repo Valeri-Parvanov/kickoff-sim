@@ -15,4 +15,14 @@ public class MatchResultScheduler {
     public void simulatePastMatches() {
         scheduleService.simulatePastMatches();
     }
+
+    @Scheduled(cron = "*/5 * * * * *")
+    public void notifyMatchEvents() {
+        scheduleService.notifyMatchEvents();
+    }
+
+    @Scheduled(cron = "*/5 * * * * *")
+    public void notifyGoals() {
+        scheduleService.notifyGoals();
+    }
 }

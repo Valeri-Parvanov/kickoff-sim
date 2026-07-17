@@ -195,6 +195,7 @@ public class LeagueServiceImpl implements LeagueService {
         }
 
         List<StandingRow> standings = sortWithTiebreakers(new ArrayList<>(rowMap.values()), intraLeagueMatches);
+        markChampion(standings, LeagueFormat.forTeamCount(league.getTeams().size()).orElse(null));
 
         List<TeamDto> teamDtos = league.getTeams().stream()
                 .sorted(Comparator.comparing(Team::getName))
@@ -214,12 +215,28 @@ public class LeagueServiceImpl implements LeagueService {
         view.setStandings(standings);
         view.setMatches(allMatches.stream()
                 .sorted(Comparator.comparingInt((MatchDto m) -> m.getRoundNumber() == null ? Integer.MAX_VALUE : m.getRoundNumber())
-                        .thenComparing(MatchDto::getPlayedAt))
+                        .thenComparing(MatchDto::getPlayedAt, Comparator.nullsLast(Comparator.naturalOrder())))
                 .toList());
         view.setFormat(LeagueFormat.forTeamCount(league.getTeams().size()).orElse(null));
         view.setScheduleStartDate(league.getScheduleStartDate());
         view.setScheduleStartTime(league.getScheduleStartTime());
         return view;
+    }
+
+    void markChampion(List<StandingRow> standings, LeagueFormat format) {
+        if (format == null || standings.size() < 2) return;
+
+        StandingRow leader = standings.get(0);
+        if (leader.getPlayed() == 0) return;
+
+        int matchesPerTeam = format.getTotalRounds();
+        for (int i = 1; i < standings.size(); i++) {
+            StandingRow rival = standings.get(i);
+            int rivalRemaining = Math.max(0, matchesPerTeam - rival.getPlayed());
+            int rivalMaxPoints = rival.getPoints() + 3 * rivalRemaining;
+            if (leader.getPoints() <= rivalMaxPoints) return;
+        }
+        leader.setChampion(true);
     }
 
     private List<StandingRow> sortWithTiebreakers(List<StandingRow> rows, List<MatchDto> intraLeagueMatches) {
@@ -294,7 +311,6 @@ public class LeagueServiceImpl implements LeagueService {
 
     private int[] computeLiveScore(MatchDto m, LocalDateTime now) {
         long realMin = Duration.between(m.getPlayedAt(), now).toMinutes();
-        if (realMin < 0) return new int[]{0, 0};
         int hs = 0, as = 0;
         for (GoalDto g : m.getGoalTimeline()) {
             if (g.getMinute() == null || g.getHalf() == null) continue;

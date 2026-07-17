@@ -1,6 +1,8 @@
 package bg.softuni.footballleague.service.impl;
 
+import bg.softuni.footballleague.dto.ProfileDto;
 import bg.softuni.footballleague.dto.RegisterDto;
+import bg.softuni.footballleague.exception.EntityNotFoundException;
 import bg.softuni.footballleague.exception.StaleSessionException;
 import bg.softuni.footballleague.exception.UsernameAlreadyExistsException;
 import bg.softuni.footballleague.model.Role;
@@ -24,6 +26,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -104,6 +108,90 @@ class UserServiceImplTest {
         assertThatThrownBy(() -> userService.findByUsername("ghost"))
                 .isInstanceOf(StaleSessionException.class)
                 .hasMessageContaining("ghost");
+    }
+
+    @Test
+    void updateProfile_setsEmailAndSaves() {
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setUsername("alice");
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(userRepository.existsByEmailAndIdNot("alice@example.com", user.getId())).thenReturn(false);
+
+        ProfileDto dto = new ProfileDto();
+        dto.setEmail("alice@example.com");
+        userService.updateProfile("alice", dto);
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(captor.capture());
+        assertThat(captor.getValue().getEmail()).isEqualTo("alice@example.com");
+    }
+
+    @Test
+    void updateProfile_emailAlreadyTaken_throwsIllegalArgumentException() {
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setUsername("alice");
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(userRepository.existsByEmailAndIdNot("taken@example.com", user.getId())).thenReturn(true);
+
+        ProfileDto dto = new ProfileDto();
+        dto.setEmail("taken@example.com");
+
+        assertThatThrownBy(() -> userService.updateProfile("alice", dto))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("taken@example.com");
+    }
+
+    @Test
+    void changeRole_notFound_throwsEntityNotFoundException() {
+        UUID id = UUID.randomUUID();
+        when(userRepository.findById(id)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.changeRole(id, Role.ADMIN, "admin"))
+                .isInstanceOf(EntityNotFoundException.class);
+    }
+
+    @Test
+    void changeRole_sameRole_doesNotSave() {
+        UUID id = UUID.randomUUID();
+        User user = new User();
+        user.setId(id);
+        user.setRole(Role.USER);
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+
+        userService.changeRole(id, Role.USER, "admin");
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void changeRole_lastAdmin_cannotDemoteThrowsIllegalStateException() {
+        UUID id = UUID.randomUUID();
+        User user = new User();
+        user.setId(id);
+        user.setRole(Role.ADMIN);
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+        when(userRepository.countByRole(Role.ADMIN)).thenReturn(1L);
+
+        assertThatThrownBy(() -> userService.changeRole(id, Role.USER, "admin"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("last administrator");
+    }
+
+    @Test
+    void changeRole_promoteToAdmin_savesUserWithNewRole() {
+        UUID id = UUID.randomUUID();
+        User user = new User();
+        user.setId(id);
+        user.setRole(Role.USER);
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+
+        userService.changeRole(id, Role.ADMIN, "superAdmin");
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(captor.capture());
+        assertThat(captor.getValue().getRole()).isEqualTo(Role.ADMIN);
     }
 
     private RegisterDto registerDto(String username, String password) {

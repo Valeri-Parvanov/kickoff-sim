@@ -31,26 +31,19 @@
             <div class="team-hero-meta" th:if="${league.format == null}" style="color:var(--warn,#e67e22);">
                 &#9888; Invalid team count (<span th:text="${league.teams.size()}"></span>) &mdash; need 6, 8, 10, or 16
             </div>
-            <div class="ldp-wrap" th:if="${totalMatchCount != null and totalMatchCount > 0}">
-                <div class="ldp-header">
-                    <span class="ldp-label">League progress</span>
-                    <span class="ldp-counts">
-                        <strong th:text="${playedMatchCount}"></strong> / <span th:text="${totalMatchCount}"></span> matches played
-                        &nbsp;&middot;&nbsp;
-                        <strong class="ldp-pct" th:text="${playedMatchCount * 100 / totalMatchCount} + '%'"></strong>
-                    </span>
-                </div>
-                <div class="ldp-track">
-                    <div class="ldp-fill" th:style="'width:' + ${playedMatchCount * 100 / totalMatchCount} + '%'"></div>
-                </div>
-            </div>
+            <div th:replace="~{fragments/standings :: leagueProgress(${totalMatchCount}, ${playedMatchCount})}"></div>
         </div>
     </div>
     <div class="team-detail-actions">
         <a th:href="@{/leagues}" class="btn-back">&#8592; All Leagues</a>
-        <a th:href="@{/leagues/{id}/form(id=${league.id})}" class="btn-edit" sec:authorize="hasRole('ADMIN')">Edit</a>
         <form th:action="@{/leagues/{id}(id=${league.id})}" th:method="delete" style="display:inline" sec:authorize="hasRole('ADMIN')">
             <button type="submit" class="btn-del">Delete</button>
+        </form>
+        <form th:action="@{/notifications/subscribe}" method="post" style="display:inline" sec:authorize="isAuthenticated()">
+            <input type="hidden" name="entityId" th:value="${league.id}"/>
+            <input type="hidden" name="entityType" value="LEAGUE"/>
+            <input type="hidden" name="returnUrl" th:value="'/leagues/' + ${league.id}"/>
+            <button type="submit" class="btn-goal">Follow league</button>
         </form>
     </div>
 </div>
@@ -73,49 +66,9 @@
 <!-- ── STANDINGS ── -->
 <section id="standings" class="team-tab-section">
     <div th:if="${#lists.isEmpty(league.standings)}" class="no-matches">No teams in this league yet.</div>
-    <div class="table-wrapper" th:if="${!#lists.isEmpty(league.standings)}">
-        <table border="1" cellpadding="6">
-            <thead>
-            <tr>
-                <th>#</th>
-                <th>Team</th>
-                <th>P</th>
-                <th>W</th>
-                <th>D</th>
-                <th>L</th>
-                <th>GF</th>
-                <th>GA</th>
-                <th>GD</th>
-                <th>Pts</th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr th:each="row, stat : ${league.standings}"
-                th:attr="data-team-id=${row.teamId}">
-                <td th:text="${stat.index + 1}"></td>
-                <td>
-                    <img th:src="@{/teams/{id}/logo(id=${row.teamId})}" class="team-logo-sm" alt=""/>
-                    <a th:href="@{/teams/{id}(id=${row.teamId})}"
-                       th:text="${row.teamName + (row.teamCity != null ? ' (' + row.teamCity + ')' : '')}"></a>
-                    <a class="standings-live-badge"
-                       th:if="${liveTeamIds != null and liveTeamIds.contains(row.teamId)}">
-                        <span class="slb-label">LIVE</span>
-                        <span class="slb-score"></span>
-                    </a>
-                </td>
-                <td th:text="${row.played}"></td>
-                <td class="cell-w" th:text="${row.wins}"></td>
-                <td class="cell-d" th:text="${row.draws}"></td>
-                <td class="cell-l" th:text="${row.losses}"></td>
-                <td th:text="${row.goalsFor}"></td>
-                <td th:text="${row.goalsAgainst}"></td>
-                <td th:classappend="${row.goalDiff > 0} ? 'cell-gd-pos' : (${row.goalDiff < 0} ? 'cell-gd-neg' : '')"
-                    th:text="${row.goalDiff}"></td>
-                <td><strong class="cell-pts" th:text="${row.points}"></strong></td>
-            </tr>
-            </tbody>
-        </table>
-    </div>
+    <th:block th:unless="${#lists.isEmpty(league.standings)}">
+        <div th:replace="~{fragments/standings :: standingsTable(${league.standings}, null)}"></div>
+    </th:block>
 </section>
 
 <!-- ── SCHEDULE ── -->
@@ -183,6 +136,7 @@
 
                 <div class="match-card upcoming" th:if="${match.playedAt.isAfter(now)}">
                     <div class="match-meta">
+                        <div th:replace="~{fragments/topbar :: matchStar(${match.id})}"></div>
                         <span class="match-round" th:if="${match.roundNumber != null}" th:text="'Round ' + ${match.roundNumber}"></span>
                     </div>
                     <div class="match-scoreline">
@@ -205,6 +159,9 @@
                     <summary class="match-card-summary">
 
                         <div class="match-meta">
+                            <th:block th:if="${match.playedAt.isAfter(liveThreshold)}">
+                                <div th:replace="~{fragments/topbar :: matchStar(${match.id})}"></div>
+                            </th:block>
                             <span class="match-round" th:if="${match.roundNumber != null}" th:text="'Round ' + ${match.roundNumber}"></span>
                         </div>
 

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<th:block th:fragment="standingsTable(rows, highlightTeamId)">
+<div class="table-wrapper">
+    <table border="1" cellpadding="6">
+        <thead>
+        <tr>
+            <th>#</th>
+            <th>Team</th>
+            <th>P</th>
+            <th>W</th>
+            <th>D</th>
+            <th>L</th>
+            <th>GF</th>
+            <th>GA</th>
+            <th>GD</th>
+            <th>Pts</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="row, stat : ${rows}"
+            th:classappend="${(row.champion ? 'standings-champion ' : '')
+                             + ((highlightTeamId != null and row.teamId != null and row.teamId == highlightTeamId) ? 'standings-highlight' : '')}"
+            th:attr="data-team-id=${row.teamId}">
+            <td th:text="${stat.index + 1}"></td>
+            <td>
+                <img th:src="@{/teams/{id}/logo(id=${row.teamId})}" class="team-logo-sm" alt=""/>
+                <a th:href="@{/teams/{id}(id=${row.teamId})}"
+                   th:text="${row.teamName + (row.teamCity != null ? ' (' + row.teamCity + ')' : '')}"></a>
+                <span class="champion-badge" th:if="${row.champion}"
+                      title="Mathematically secured — cannot be caught">&#127942; Champion</span>
+                <a class="standings-live-badge"
+                   th:if="${liveTeamIds != null and liveTeamIds.contains(row.teamId)}">
+                    <span class="slb-label">LIVE</span>
+                    <span class="slb-score"></span>
+                </a>
+                <a class="standings-live-badge" style="display:none"
+                   th:if="${liveTeamIds == null}">
+                    <span class="slb-label">LIVE</span>
+                    <span class="slb-score"></span>
+                </a>
+            </td>
+            <td th:text="${row.played}"></td>
+            <td class="cell-w" th:text="${row.wins}"></td>
+            <td class="cell-d" th:text="${row.draws}"></td>
+            <td class="cell-l" th:text="${row.losses}"></td>
+            <td th:text="${row.goalsFor}"></td>
+            <td th:text="${row.goalsAgainst}"></td>
+            <td th:classappend="${row.goalDiff > 0} ? 'cell-gd-pos' : (${row.goalDiff < 0} ? 'cell-gd-neg' : '')"
+                th:text="${row.goalDiff}"></td>
+            <td><strong class="cell-pts" th:text="${row.points}"></strong></td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+</th:block>
+
+<th:block th:fragment="leagueProgress(total, played)">
+<div class="ldp-wrap" th:if="${total != null and total > 0}">
+    <div class="ldp-header">
+        <span class="ldp-label">League progress</span>
+        <span class="ldp-counts">
+            <strong th:text="${played}"></strong> / <span th:text="${total}"></span> matches played
+            &nbsp;&middot;&nbsp;
+            <strong class="ldp-pct" th:text="${played * 100 / total} + '%'"></strong>
+        </span>
+    </div>
+    <div class="ldp-track">
+        <div class="ldp-fill" th:style="'width:' + ${played * 100 / total} + '%'"></div>
+    </div>
+</div>
+</th:block>
+
+</body>
+</html>

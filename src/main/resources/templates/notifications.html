@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notifications</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"/>
+    <link rel="stylesheet" th:href="@{/css/style.css}"/>
+</head>
+<body>
+<div th:replace="~{fragments/topbar :: topbar}"></div>
+
+<main class="page">
+<div th:replace="~{fragments/topbar :: messages}"></div>
+
+<h1 style="margin-bottom:1rem;">&#128276; Notifications</h1>
+
+<div class="cr-status-tabs">
+    <a th:href="@{/notifications}"
+       th:classappend="${status == 'all'} ? ' active' : ''">
+        All <span class="cr-tab-count" th:text="${countAll}"></span>
+    </a>
+    <a th:href="@{/notifications(status='unread')}"
+       th:classappend="${status == 'unread'} ? ' active' : ''">
+        Unread <span class="cr-tab-count" th:text="${countUnread}"></span>
+    </a>
+    <a th:href="@{/notifications(status='read')}"
+       th:classappend="${status == 'read'} ? ' active' : ''">
+        Read <span class="cr-tab-count" th:text="${countRead}"></span>
+    </a>
+</div>
+
+<div class="notif-toolbar" th:if="${countAll > 0}">
+    <form th:if="${countUnread > 0}" th:action="@{/notifications/read-all}" method="post">
+        <input type="hidden" name="status" th:value="${status}"/>
+        <button type="submit" class="btn-mark-all">&#10003; Mark all as read</button>
+    </form>
+    <form th:action="@{/notifications/clear}" method="post">
+        <input type="hidden" name="_method" value="DELETE"/>
+        <button type="submit" class="btn-del" style="font-size:0.78rem;padding:4px 11px;">Clear all</button>
+    </form>
+</div>
+
+<div class="notif-list" th:if="${!notifications.isEmpty()}">
+    <div th:each="n : ${notifications}"
+         th:classappend="${n.read} ? ' notif-read' : ''"
+         class="notif-item">
+
+        <span class="notif-type-badge"
+              th:classappend="${n.type == 'GOAL'} ? ' nt-goal' : ''"
+              th:text="${#strings.replace(n.type, '_', ' ')}"></span>
+
+        <div class="notif-item-body">
+            <div class="notif-msg" th:text="${n.message}"></div>
+
+            <div class="notif-context" th:if="${n.homeTeamName != null}">
+                <a class="notif-team" th:href="@{/teams/{id}(id=${n.homeTeamId})}"
+                   th:text="${n.homeTeamName}"></a>
+                <span class="notif-vs">vs</span>
+                <a class="notif-team" th:href="@{/teams/{id}(id=${n.awayTeamId})}"
+                   th:text="${n.awayTeamName}"></a>
+                <a class="notif-league" th:if="${n.leagueId != null}"
+                   th:href="@{/leagues/{id}(id=${n.leagueId})}" th:text="${n.leagueName}"></a>
+                <a class="notif-match-link" th:if="${n.matchId != null}"
+                   th:href="@{/matches/{id}(id=${n.matchId})}">Match &#8250;</a>
+            </div>
+
+            <div class="notif-time"
+                 th:text="${#temporals.format(n.createdAt, 'dd.MM.yyyy HH:mm')}"></div>
+        </div>
+
+        <form th:unless="${n.read}"
+              th:action="@{/notifications/{id}/read(id=${n.id})}"
+              method="post" class="notif-read-form">
+            <input type="hidden" name="status" th:value="${status}"/>
+            <input type="hidden" name="page" th:value="${currentPage}"/>
+            <button type="submit" class="btn-edit"
+                    style="font-size:0.72rem;padding:2px 8px;">Mark read</button>
+        </form>
+    </div>
+</div>
+
+<div class="notif-pager" th:if="${totalPages > 1}">
+    <a th:if="${currentPage > 0}"
+       th:href="@{/notifications(status=${status}, page=${currentPage - 1})}"
+       class="notif-page-btn">&#8249; Newer</a>
+    <span th:unless="${currentPage > 0}" class="notif-page-btn disabled">&#8249; Newer</span>
+
+    <span class="notif-page-info"
+          th:text="|Page ${currentPage + 1} of ${totalPages} · ${filteredCount} total|"></span>
+
+    <a th:if="${currentPage + 1 < totalPages}"
+       th:href="@{/notifications(status=${status}, page=${currentPage + 1})}"
+       class="notif-page-btn">Older &#8250;</a>
+    <span th:unless="${currentPage + 1 < totalPages}" class="notif-page-btn disabled">Older &#8250;</span>
+</div>
+
+<p th:if="${notifications.isEmpty()}" class="no-notif">No notifications yet.</p>
+
+<div style="margin-top:1.5rem;">
+    <a th:href="@{/notifications/subscriptions}" class="btn-follow-team"
+       style="text-decoration:none;">&#128276; My subscriptions</a>
+</div>
+
+</main>
+</body>
+</html>

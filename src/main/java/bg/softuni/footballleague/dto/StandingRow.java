@@ -18,6 +18,7 @@ public class StandingRow {
     private int losses;
     private int goalsFor;
     private int goalsAgainst;
+    private boolean champion;
 
     public int getGoalDiff() {
         return goalsFor - goalsAgainst;

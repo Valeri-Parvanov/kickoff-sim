@@ -41,6 +41,10 @@ public class Match {
 
     private Integer roundNumber;
 
+    private boolean kickoffNotified;
+    private boolean halftimeNotified;
+    private boolean fulltimeNotified;
+
     @OneToMany(mappedBy = "match", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("half ASC, minute ASC")
     private List<Goal> goals = new ArrayList<>();

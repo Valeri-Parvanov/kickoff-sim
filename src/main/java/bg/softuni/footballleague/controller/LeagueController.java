@@ -12,7 +12,9 @@ import bg.softuni.footballleague.service.ChangeRequestService;
 import bg.softuni.footballleague.service.LeagueService;
 import bg.softuni.footballleague.service.ScheduleService;
 import bg.softuni.footballleague.service.TeamService;
+import bg.softuni.footballleague.web.MatchFollowSupport;
 import bg.softuni.footballleague.web.SortSupport;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -46,9 +48,11 @@ public class LeagueController {
     private final TeamService teamService;
     private final ChangeRequestService changeRequestService;
     private final ScheduleService scheduleService;
+    private final MatchFollowSupport matchFollowSupport;
 
     @GetMapping("/{id}")
-    public String detail(@PathVariable UUID id, @RequestParam(required = false) Integer round, Model model) {
+    public String detail(@PathVariable UUID id, @RequestParam(required = false) Integer round,
+                         Authentication authentication, HttpServletRequest request, Model model) {
         var league = leagueService.findDetail(id);
         model.addAttribute("league", league);
         if (!model.containsAttribute("scheduleForm")) {
@@ -139,6 +143,10 @@ public class LeagueController {
                     .count());
         }
 
+        model.addAttribute("subscribedMatchIds", matchFollowSupport.subscribedMatchIds(authentication));
+        model.addAttribute("currentUrl", request.getQueryString() == null
+                ? request.getRequestURI()
+                : request.getRequestURI() + "?" + request.getQueryString());
         return "leagues/detail";
     }
 
@@ -229,14 +237,12 @@ public class LeagueController {
                 && leagueDto.getTeamIds() != null && !leagueDto.getTeamIds().isEmpty()
                 && LeagueFormat.forTeamCount(leagueDto.getTeamIds().size()).isPresent()) {
             int matchesPerRound = leagueDto.getTeamIds().size() / 2;
-            if (matchesPerRound > 1) {
-                LocalTime lastStart = leagueDto.getScheduleStartTime().plusMinutes((matchesPerRound - 1) * 60L);
-                if (lastStart.isAfter(LocalTime.of(23, 30))) {
-                    LocalTime maxStart = LocalTime.of(23, 30).minusMinutes((matchesPerRound - 1) * 60L);
-                    bindingResult.rejectValue("scheduleStartTime", "schedule.time.toolate",
-                            "With " + leagueDto.getTeamIds().size() + " teams, last match starts at " +
-                            lastStart + ". Use " + maxStart + " or earlier, or choose the next day.");
-                }
+            LocalTime lastStart = leagueDto.getScheduleStartTime().plusMinutes((matchesPerRound - 1) * 60L);
+            if (lastStart.isAfter(LocalTime.of(23, 30))) {
+                LocalTime maxStart = LocalTime.of(23, 30).minusMinutes((matchesPerRound - 1) * 60L);
+                bindingResult.rejectValue("scheduleStartTime", "schedule.time.toolate",
+                        "With " + leagueDto.getTeamIds().size() + " teams, last match starts at " +
+                        lastStart + ". Use " + maxStart + " or earlier, or choose the next day.");
             }
         }
         if (bindingResult.hasErrors()) {
@@ -284,35 +290,6 @@ public class LeagueController {
 
         redirectAttributes.addFlashAttribute("statusMessage",
                 executed ? "League created." : "Submitted for admin approval.");
-        return "redirect:/leagues";
-    }
-
-    @GetMapping("/{id}/form")
-    public String editForm(@PathVariable UUID id, @RequestParam(required = false) UUID fromRequest, Model model,
-                            Authentication authentication) {
-        LeagueDto leagueDto = fromRequest != null
-                ? (LeagueDto) changeRequestService.getPayloadForResubmit(fromRequest, authentication)
-                : leagueService.findById(id);
-        leagueDto.setId(id);
-        model.addAttribute("leagueDto", leagueDto);
-        if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
-        return "leagues/form";
-    }
-
-    @PutMapping("/{id}")
-    public String edit(@PathVariable UUID id, @Valid @ModelAttribute("leagueDto") LeagueDto leagueDto,
-                        BindingResult bindingResult,
-                        @RequestParam(required = false) UUID fromRequest,
-                        Authentication authentication, RedirectAttributes redirectAttributes) {
-        if (bindingResult.hasErrors()) {
-            return "leagues/form";
-        }
-
-        boolean executed = changeRequestService.submitOrExecute(
-                EntityType.LEAGUE, ChangeAction.UPDATE, leagueDto, id, authentication);
-        if (fromRequest != null) changeRequestService.cancelIfPending(fromRequest, authentication);
-        redirectAttributes.addFlashAttribute("statusMessage",
-                executed ? "League updated." : "Submitted for admin approval.");
         return "redirect:/leagues";
     }
 

@@ -1,5 +1,7 @@
 package bg.softuni.footballleague.controller;
 
+import bg.softuni.footballleague.client.NotificationClient;
+import bg.softuni.footballleague.client.SubscriptionDto;
 import bg.softuni.footballleague.dto.*;
 import bg.softuni.footballleague.model.ChangeAction;
 import bg.softuni.footballleague.model.EntityType;
@@ -7,6 +9,7 @@ import bg.softuni.footballleague.service.*;
 import bg.softuni.footballleague.web.LogoGenerator;
 import bg.softuni.footballleague.web.SortSupport;
 import bg.softuni.footballleague.web.SquadRowValidator;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -44,6 +47,8 @@ public class TeamController {
     private final ChangeRequestService changeRequestService;
     private final PlayerService playerService;
     private final MatchService matchService;
+    private final UserService userService;
+    private final NotificationClient notificationClient;
 
     @GetMapping("/{id}/logo")
     @ResponseBody
@@ -57,7 +62,8 @@ public class TeamController {
     }
 
     @GetMapping("/{id}")
-    public String detail(@PathVariable UUID id, Model model) {
+    public String detail(@PathVariable UUID id, Model model, Authentication authentication,
+                         HttpServletRequest request) {
         TeamDto team = teamService.findById(id);
         model.addAttribute("team", team);
         model.addAttribute("players", playerService.findAllByTeam(id));
@@ -73,6 +79,10 @@ public class TeamController {
         if (team.getLeagueId() != null) {
             LeagueDetailView league = leagueService.findDetail(team.getLeagueId());
             model.addAttribute("leagueStandings", league.getStandings());
+            model.addAttribute("totalMatchCount", (long) league.getMatches().size());
+            model.addAttribute("playedMatchCount", league.getMatches().stream()
+                    .filter(m -> m.getPlayedAt().isBefore(liveThreshold))
+                    .count());
 
             List<Map<String, Object>> liveMatchesForJs = league.getMatches().stream()
                     .filter(m -> m.getPlayedAt().isBefore(now) && m.getPlayedAt().isAfter(liveThreshold))
@@ -99,6 +109,25 @@ public class TeamController {
                     .collect(Collectors.toMap(MatchDto::getId, m -> Duration.between(m.getPlayedAt(), now).toMinutes()));
             model.addAttribute("elapsedByMatchId", elapsedByMatchId);
         }
+
+        if (authentication != null) {
+            try {
+                UUID userId = userService.findByUsername(authentication.getName()).getId();
+                List<SubscriptionDto> subs = notificationClient.getSubscriptions(userId);
+                subs.stream()
+                        .filter(s -> "TEAM".equals(s.getEntityType()) && id.equals(s.getEntityId()))
+                        .findFirst()
+                        .ifPresent(s -> model.addAttribute("followedSubscriptionId", s.getId()));
+                model.addAttribute("subscribedMatchIds", subs.stream()
+                        .filter(s -> "MATCH".equals(s.getEntityType()))
+                        .map(SubscriptionDto::getEntityId)
+                        .collect(Collectors.toSet()));
+            } catch (Exception ignored) {}
+        }
+
+        model.addAttribute("currentUrl", request.getQueryString() == null
+                ? request.getRequestURI()
+                : request.getRequestURI() + "?" + request.getQueryString());
 
         List<MatchDto> all = matchService.findAll(Sort.by(Sort.Direction.ASC, "playedAt"));
         model.addAttribute("teamResults", all.stream()

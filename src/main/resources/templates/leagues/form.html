@@ -14,17 +14,17 @@
 
 <main class="page">
 <div th:replace="~{fragments/topbar :: messages}"></div>
-<h1 th:text="${leagueDto.id} ? 'Edit league' : 'Add league'"></h1>
+<h1>Add league</h1>
 
-<form th:action="${leagueDto.id} ? @{/leagues/{id}(id=${leagueDto.id},fromRequest=${fromRequest})} : @{/leagues(fromRequest=${fromRequest})}"
-      th:object="${leagueDto}" th:method="${leagueDto.id} ? 'put' : 'post'"
-      class="card-form" th:classappend="${leagueDto.id == null} ? ' league-create-form' : ''">
+<form th:action="@{/leagues(fromRequest=${fromRequest})}"
+      th:object="${leagueDto}" method="post"
+      class="card-form league-create-form">
 
     <div th:if="${#fields.hasGlobalErrors()}" style="margin-bottom:12px;">
         <div class="error-message" th:each="err : ${#fields.globalErrors()}" th:text="${err}"></div>
     </div>
 
-    <div th:if="${leagueDto.id == null and eligibleCount >= 6}" class="league-ready-banner" style="margin-bottom:20px;">
+    <div th:if="${eligibleCount >= 6}" class="league-ready-banner" style="margin-bottom:20px;">
         <div class="league-ready-icon">&#127942;</div>
         <div class="league-ready-body">
             <div class="league-ready-title">Ready to create a league!</div>
@@ -34,7 +34,7 @@
             </div>
         </div>
     </div>
-    <div th:if="${leagueDto.id == null and eligibleCount < 6}" class="league-warn-banner" style="margin-bottom:20px;">
+    <div th:if="${eligibleCount < 6}" class="league-warn-banner" style="margin-bottom:20px;">
         <div class="league-ready-icon">&#9888;</div>
         <div class="league-ready-body">
             <div class="league-warn-title">Not enough eligible teams yet</div>
@@ -87,7 +87,7 @@
         </div>
     </fieldset>
 
-    <div th:if="${leagueDto.id == null}" style="margin-top:20px;">
+    <div style="margin-top:20px;">
         <label>Teams <span style="font-weight:400;font-size:0.82rem;text-transform:none;letter-spacing:0;">(select exactly 6, 8, 10, or 16 — each must have at least 6 players)</span></label>
 
         <div th:if="${#lists.isEmpty(availableTeams)}" class="team-picker-empty">
