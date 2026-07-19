@@ -421,18 +421,11 @@ class LeagueServiceImplTest {
         MatchDto aDrawsB = matchDto(teamA.getId(), teamB.getId(), old, 0, 0);
         MatchDto aVsBHomeScoreOnly = matchDto(teamA.getId(), teamB.getId(), old, 1, null);
         MatchDto aVsBBothNull = matchDto(teamA.getId(), teamB.getId(), old, null, null);
-        // Future-dated: excluded from the standings loop (line 162) but still visible to
-        // sortByH2H (no date filter there), so these exercise the home-win/away-win h2h
-        // branches without disturbing the points/goalDiff/goalsFor tie between A and B.
         LocalDateTime future = LocalDateTime.now().plusDays(1);
         MatchDto futureHomeWin = matchDto(teamA.getId(), teamB.getId(), future, 2, 0);
         MatchDto futureAwayWin = matchDto(teamB.getId(), teamA.getId(), future, 0, 2);
-        // Same points (3) as each other, but different goalDiff — exercises samePrimaryKey's
-        // goalDiff== check evaluating false after points== was true.
         MatchDto eBeatsC = matchDto(teamE.getId(), teamC.getId(), old, 2, 0);
         MatchDto fBeatsD = matchDto(teamF.getId(), teamD.getId(), old, 1, 0);
-        // Same points (3) and goalDiff (+2) as each other, but different goalsFor — exercises
-        // samePrimaryKey's goalsFor== check evaluating false after points==/goalDiff== were true.
         MatchDto gBeatsC = matchDto(teamG.getId(), teamC.getId(), old, 3, 1);
         MatchDto hBeatsD = matchDto(teamH.getId(), teamD.getId(), old, 2, 0);
 

@@ -1,7 +1,6 @@
 package com.kickoffsim.service.impl;
 
 import com.kickoffsim.client.NotificationClient;
-import com.kickoffsim.dto.GoalDto;
 import com.kickoffsim.dto.GoalEventDto;
 import com.kickoffsim.dto.MatchDto;
 import com.kickoffsim.exception.EntityNotFoundException;

@@ -2,6 +2,8 @@ package com.kickoffsim.service.impl;
 
 import com.kickoffsim.client.BroadcastRequest;
 import com.kickoffsim.client.NotificationClient;
+import com.kickoffsim.client.SubscriptionDto;
+import com.kickoffsim.client.SubscriptionRequest;
 import com.kickoffsim.exception.EntityNotFoundException;
 import com.kickoffsim.exception.InvalidLeagueOperationException;
 import com.kickoffsim.model.Goal;
@@ -151,6 +153,103 @@ class ScheduleServiceImplTest {
         verify(matchRepository).saveAll(captor.capture());
         long totalGoals = captor.getValue().stream().mapToLong(m -> m.getGoals().size()).sum();
         assertThat(totalGoals).isGreaterThan(0);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void generate_leagueAndTeamFollowers_autoSubscribesToRelevantMatchesOnly() {
+        UUID id = UUID.randomUUID();
+        League league = leagueWith(id, 6);
+        when(leagueRepository.findByIdWithTeams(id)).thenReturn(Optional.of(league));
+        when(matchRepository.existsByLeagueId(id)).thenReturn(false);
+        when(playerRepository.findAllByTeam(any())).thenReturn(List.of());
+        when(matchRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        UUID leagueFollowerUserId = UUID.randomUUID();
+        UUID teamFollowerUserId = UUID.randomUUID();
+        Team followedTeam = league.getTeams().get(0);
+
+        SubscriptionDto leagueSub = new SubscriptionDto();
+        leagueSub.setUserId(leagueFollowerUserId);
+        leagueSub.setEntityType("LEAGUE");
+        leagueSub.setEntityId(id);
+        SubscriptionDto teamSub = new SubscriptionDto();
+        teamSub.setUserId(teamFollowerUserId);
+        teamSub.setEntityType("TEAM");
+        teamSub.setEntityId(followedTeam.getId());
+        when(notificationClient.getSubscriptionsForEntities(any())).thenReturn(List.of(leagueSub, teamSub));
+
+        scheduleService.generate(id, START_DATE, VALID_TIME);
+
+        ArgumentCaptor<SubscriptionRequest> captor = ArgumentCaptor.forClass(SubscriptionRequest.class);
+        verify(notificationClient, org.mockito.Mockito.atLeastOnce()).subscribe(captor.capture());
+        List<SubscriptionRequest> matchSubs = captor.getAllValues().stream()
+                .filter(r -> "MATCH".equals(r.getEntityType()))
+                .toList();
+
+        long leagueFollowerMatchCount = matchSubs.stream()
+                .filter(r -> leagueFollowerUserId.equals(r.getUserId())).count();
+        long teamFollowerMatchCount = matchSubs.stream()
+                .filter(r -> teamFollowerUserId.equals(r.getUserId())).count();
+
+        assertThat(leagueFollowerMatchCount).isEqualTo(45);
+        assertThat(teamFollowerMatchCount).isEqualTo(15);
+    }
+
+    @Test
+    void generate_leagueSubscriptionForDifferentLeague_notSubscribed() {
+        UUID id = UUID.randomUUID();
+        League league = leagueWith(id, 6);
+        when(leagueRepository.findByIdWithTeams(id)).thenReturn(Optional.of(league));
+        when(matchRepository.existsByLeagueId(id)).thenReturn(false);
+        when(playerRepository.findAllByTeam(any())).thenReturn(List.of());
+        when(matchRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        SubscriptionDto wrongLeagueSub = new SubscriptionDto();
+        wrongLeagueSub.setUserId(UUID.randomUUID());
+        wrongLeagueSub.setEntityType("LEAGUE");
+        wrongLeagueSub.setEntityId(UUID.randomUUID());
+        when(notificationClient.getSubscriptionsForEntities(any())).thenReturn(List.of(wrongLeagueSub));
+
+        scheduleService.generate(id, START_DATE, VALID_TIME);
+
+        verify(notificationClient, never()).subscribe(any());
+    }
+
+    @Test
+    void generate_autoSubscribeFails_logsWarningAndContinues() {
+        UUID id = UUID.randomUUID();
+        League league = leagueWith(id, 6);
+        when(leagueRepository.findByIdWithTeams(id)).thenReturn(Optional.of(league));
+        when(matchRepository.existsByLeagueId(id)).thenReturn(false);
+        when(playerRepository.findAllByTeam(any())).thenReturn(List.of());
+        when(matchRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        SubscriptionDto leagueSub = new SubscriptionDto();
+        leagueSub.setUserId(UUID.randomUUID());
+        leagueSub.setEntityType("LEAGUE");
+        leagueSub.setEntityId(id);
+        when(notificationClient.getSubscriptionsForEntities(any())).thenReturn(List.of(leagueSub));
+        doThrow(new RuntimeException("subscribe failed")).when(notificationClient).subscribe(any());
+
+        scheduleService.generate(id, START_DATE, VALID_TIME);
+
+        verify(matchRepository).saveAll(any());
+    }
+
+    @Test
+    void generate_followersLookupFails_generationStillSucceeds() {
+        UUID id = UUID.randomUUID();
+        when(leagueRepository.findByIdWithTeams(id)).thenReturn(Optional.of(leagueWith(id, 6)));
+        when(matchRepository.existsByLeagueId(id)).thenReturn(false);
+        when(playerRepository.findAllByTeam(any())).thenReturn(List.of());
+        when(matchRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(notificationClient.getSubscriptionsForEntities(any())).thenThrow(new RuntimeException("down"));
+
+        scheduleService.generate(id, START_DATE, VALID_TIME);
+
+        verify(matchRepository).saveAll(any());
+        verify(notificationClient, never()).subscribe(any());
     }
 
     private List<Player> squadFor(Team team) {
@@ -394,6 +493,85 @@ class ScheduleServiceImplTest {
 
         verify(notificationClient, never()).broadcast(any());
         assertThat(goal.isNotified()).isFalse();
+    }
+
+    @Test
+    void notifyGoals_noUnnotifiedGoals_doesNothing() {
+        when(goalRepository.findUnnotifiedForMatchesStartedBetween(any(), any())).thenReturn(List.of());
+
+        scheduleService.notifyGoals();
+
+        verify(notificationClient, never()).broadcast(any());
+    }
+
+    @Test
+    void notifyGoals_secondHalfGoal_broadcastsWithOffsetMinute() {
+        Goal goal = liveGoal(29, Half.SECOND, 3);
+        when(goalRepository.findUnnotifiedForMatchesStartedBetween(any(), any())).thenReturn(List.of(goal));
+        when(goalRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        scheduleService.notifyGoals();
+
+        ArgumentCaptor<BroadcastRequest> captor = ArgumentCaptor.forClass(BroadcastRequest.class);
+        verify(notificationClient).broadcast(captor.capture());
+        assertThat(captor.getValue().getMessage()).contains(" 23'");
+    }
+
+    @Test
+    void notifyGoals_laterGoalInSameMatch_excludedFromRunningScore() {
+        Goal goalA = liveGoal(9, Half.FIRST, 6);
+        Match match = goalA.getMatch();
+        Player laterScorer = new Player();
+        laterScorer.setId(UUID.randomUUID());
+        laterScorer.setFirstName("Later");
+        laterScorer.setLastName("Scorer");
+        laterScorer.setTeam(match.getHomeTeam());
+        Goal goalB = new Goal();
+        goalB.setId(UUID.randomUUID());
+        goalB.setMatch(match);
+        goalB.setScorer(laterScorer);
+        goalB.setHalf(Half.FIRST);
+        goalB.setMinute(8);
+        match.getGoals().add(goalB);
+
+        when(goalRepository.findUnnotifiedForMatchesStartedBetween(any(), any())).thenReturn(List.of(goalA));
+        when(goalRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        scheduleService.notifyGoals();
+
+        ArgumentCaptor<BroadcastRequest> captor = ArgumentCaptor.forClass(BroadcastRequest.class);
+        verify(notificationClient).broadcast(captor.capture());
+        assertThat(captor.getValue().getMessage()).contains("1:0");
+    }
+
+    @Test
+    void notifyGoals_explicitOffsetSeconds_usedInsteadOfMinute() {
+        Goal goal = liveGoal(2, Half.FIRST, 1);
+        goal.setOffsetSeconds(30);
+        when(goalRepository.findUnnotifiedForMatchesStartedBetween(any(), any())).thenReturn(List.of(goal));
+        when(goalRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        scheduleService.notifyGoals();
+
+        verify(notificationClient).broadcast(any());
+    }
+
+    @Test
+    void notifyGoals_withAssistant_includesAssistNameInMessage() {
+        Goal goal = liveGoal(6, Half.FIRST, 5);
+        Player assistant = new Player();
+        assistant.setId(UUID.randomUUID());
+        assistant.setFirstName("Assist");
+        assistant.setLastName("Provider");
+        goal.setAssistant(assistant);
+        when(goalRepository.findUnnotifiedForMatchesStartedBetween(any(), any())).thenReturn(List.of(goal));
+        when(goalRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        scheduleService.notifyGoals();
+
+        ArgumentCaptor<BroadcastRequest> captor = ArgumentCaptor.forClass(BroadcastRequest.class);
+        verify(notificationClient).broadcast(captor.capture());
+        assertThat(captor.getValue().getMessage()).contains("assist: Assist Provider");
     }
 
     @Test

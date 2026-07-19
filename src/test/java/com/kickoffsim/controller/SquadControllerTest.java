@@ -49,13 +49,15 @@ class SquadControllerTest {
     private SquadController squadController;
 
     private UUID teamId;
+    private TeamDto team;
 
     @BeforeEach
     void setUp() {
         teamId = UUID.randomUUID();
-        TeamDto team = new TeamDto();
+        team = new TeamDto();
         team.setId(teamId);
         team.setName("Test FC");
+        team.setLeagueId(UUID.randomUUID());
 
         when(teamService.findById(teamId)).thenReturn(team);
         when(playerService.squadRemainingSlots(teamId)).thenReturn(12);
@@ -260,11 +262,114 @@ class SquadControllerTest {
         verify(changeRequestService, never()).submitOrExecute(any(), any(), any(), any(), any());
     }
 
+    @Test
+    void form_leaguelessTeam_setsEditModeAndLoadsExistingPlayersPaddedToTwelve() {
+        team.setLeagueId(null);
+        PlayerDto existing = new PlayerDto();
+        existing.setId(UUID.randomUUID());
+        existing.setShirtNumber(1);
+        existing.setFirstName("Ivan");
+        existing.setLastName("Ivanov");
+        when(playerService.findAllByTeam(teamId)).thenReturn(List.of(existing));
+        Model model = new ExtendedModelMap();
+
+        String view = squadController.form(teamId, model);
+
+        assertThat(view).isEqualTo("teams/squad");
+        assertThat(model.getAttribute("editMode")).isEqualTo(true);
+        SquadForm squadForm = (SquadForm) model.getAttribute("squadForm");
+        assertThat(squadForm.getRows()).hasSize(12);
+        assertThat(squadForm.getRows().get(0).getId()).isEqualTo(existing.getId());
+        assertThat(squadForm.getRows().get(0).getFirstName()).isEqualTo("Ivan");
+        assertThat(squadForm.getRows().get(1).getId()).isNull();
+        assertThat(squadForm.getRows().get(1).getShirtNumber()).isEqualTo(2);
+    }
+
+    @Test
+    void submit_leaguelessTeam_admin_sendsUpdateActionWithTeamIdAsTarget() {
+        team.setLeagueId(null);
+        when(changeRequestService.submitOrExecute(any(), any(), any(), any(), any())).thenReturn(true);
+
+        SquadForm form = squadFormOf(row(1, "Ivan", "Ivanov"), row(2, "Georgi", "Petrov"),
+                row(3, "Petar", "Petrov"), row(4, "Stoyan", "Stoyanov"),
+                row(5, "Dimitar", "Dimitrov"), row(6, "Hristo", "Hristov"));
+        BindingResult binding = binding(form);
+
+        String view = squadController.submit(teamId, form, binding, new ExtendedModelMap(),
+                authentication, new RedirectAttributesModelMap());
+
+        assertThat(view).isEqualTo("redirect:/teams");
+        ArgumentCaptor<Object> payload = ArgumentCaptor.forClass(Object.class);
+        verify(changeRequestService).submitOrExecute(eq(EntityType.TEAM_SQUAD), eq(ChangeAction.UPDATE),
+                payload.capture(), eq(teamId), eq(authentication));
+        assertThat(((TeamSquadPayload) payload.getValue()).getPlayers()).hasSize(6);
+    }
+
+    @Test
+    void submit_leaguelessTeam_preservesRowIdForEditedExistingPlayer() {
+        team.setLeagueId(null);
+        when(changeRequestService.submitOrExecute(any(), any(), any(), any(), any())).thenReturn(true);
+        UUID existingId = UUID.randomUUID();
+
+        SquadForm form = squadFormOf(
+                rowWithId(existingId, 1, "Ivan", "Renamed"), row(2, "Georgi", "Petrov"),
+                row(3, "Petar", "Petrov"), row(4, "Stoyan", "Stoyanov"),
+                row(5, "Dimitar", "Dimitrov"), row(6, "Hristo", "Hristov"));
+        BindingResult binding = binding(form);
+
+        squadController.submit(teamId, form, binding, new ExtendedModelMap(),
+                authentication, new RedirectAttributesModelMap());
+
+        ArgumentCaptor<Object> payload = ArgumentCaptor.forClass(Object.class);
+        verify(changeRequestService).submitOrExecute(eq(EntityType.TEAM_SQUAD), eq(ChangeAction.UPDATE),
+                payload.capture(), any(), any());
+        assertThat(((TeamSquadPayload) payload.getValue()).getPlayers())
+                .anyMatch(p -> existingId.equals(p.getId()) && "Renamed".equals(p.getLastName()));
+    }
+
+    @Test
+    void submit_leaguelessTeam_belowMinimumSquadSize_addsGlobalError() {
+        team.setLeagueId(null);
+
+        SquadForm form = squadFormOf(row(1, "Ivan", "Ivanov"), row(2, "Georgi", "Petrov"));
+        BindingResult binding = binding(form);
+
+        String view = squadController.submit(teamId, form, binding, new ExtendedModelMap(),
+                authentication, new RedirectAttributesModelMap());
+
+        assertThat(view).isEqualTo("teams/squad");
+        assertThat(binding.getGlobalErrorCount()).isGreaterThan(0);
+        verify(changeRequestService, never()).submitOrExecute(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void submit_leaguelessTeam_user_submitsForApproval() {
+        team.setLeagueId(null);
+        when(changeRequestService.submitOrExecute(any(), any(), any(), any(), any())).thenReturn(false);
+
+        SquadForm form = squadFormOf(row(1, "Ivan", "Ivanov"), row(2, "Georgi", "Petrov"),
+                row(3, "Petar", "Petrov"), row(4, "Stoyan", "Stoyanov"),
+                row(5, "Dimitar", "Dimitrov"), row(6, "Hristo", "Hristov"));
+        BindingResult binding = binding(form);
+        RedirectAttributesModelMap redirect = new RedirectAttributesModelMap();
+
+        squadController.submit(teamId, form, binding, new ExtendedModelMap(),
+                authentication, redirect);
+
+        assertThat((String) redirect.getFlashAttributes().get("statusMessage")).contains("approval");
+    }
+
     private static PlayerRowDto row(Integer shirtNumber, String firstName, String lastName) {
         PlayerRowDto r = new PlayerRowDto();
         r.setShirtNumber(shirtNumber);
         r.setFirstName(firstName);
         r.setLastName(lastName);
+        return r;
+    }
+
+    private static PlayerRowDto rowWithId(UUID id, Integer shirtNumber, String firstName, String lastName) {
+        PlayerRowDto r = row(shirtNumber, firstName, lastName);
+        r.setId(id);
         return r;
     }
 

@@ -6,6 +6,7 @@ import com.kickoffsim.exception.EntityNotFoundException;
 import com.kickoffsim.exception.SquadLimitExceededException;
 import com.kickoffsim.model.Player;
 import com.kickoffsim.model.Team;
+import com.kickoffsim.repository.GoalRepository;
 import com.kickoffsim.repository.PlayerRepository;
 import com.kickoffsim.repository.TeamRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,6 +35,7 @@ class PlayerServiceImplTest {
 
     @Mock private PlayerRepository playerRepository;
     @Mock private TeamRepository teamRepository;
+    @Mock private GoalRepository goalRepository;
 
     @InjectMocks
     private PlayerServiceImpl playerService;
@@ -47,6 +49,8 @@ class PlayerServiceImplTest {
         team = new Team();
         team.setId(teamId);
         team.setName("Test FC");
+        when(goalRepository.countGoalsByTeamGroupedByScorer(any())).thenReturn(List.of());
+        when(goalRepository.countAssistsByTeamGroupedByAssistant(any())).thenReturn(List.of());
     }
 
     @Test
@@ -107,6 +111,39 @@ class PlayerServiceImplTest {
         List<PlayerDto> result = playerService.findAllByTeam(teamId);
 
         assertThat(result).extracting(PlayerDto::getShirtNumber).containsExactly(1, 9);
+    }
+
+    @Test
+    void findAllByTeam_populatesGoalsAndAssistsFromRepository() {
+        Player p9 = new Player();
+        p9.setId(UUID.randomUUID());
+        p9.setFirstName("A");
+        p9.setLastName("B");
+        p9.setShirtNumber(9);
+        p9.setTeam(team);
+
+        Player p1 = new Player();
+        p1.setId(UUID.randomUUID());
+        p1.setFirstName("C");
+        p1.setLastName("D");
+        p1.setShirtNumber(1);
+        p1.setTeam(team);
+
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        when(playerRepository.findAllByTeam(team)).thenReturn(List.of(p9, p1));
+        when(goalRepository.countGoalsByTeamGroupedByScorer(teamId))
+                .thenReturn(List.<Object[]>of(new Object[]{p9.getId(), 5L}));
+        when(goalRepository.countAssistsByTeamGroupedByAssistant(teamId))
+                .thenReturn(List.<Object[]>of(new Object[]{p1.getId(), 3L}));
+
+        List<PlayerDto> result = playerService.findAllByTeam(teamId);
+
+        PlayerDto dtoP1 = result.stream().filter(d -> d.getId().equals(p1.getId())).findFirst().orElseThrow();
+        PlayerDto dtoP9 = result.stream().filter(d -> d.getId().equals(p9.getId())).findFirst().orElseThrow();
+        assertThat(dtoP9.getGoals()).isEqualTo(5);
+        assertThat(dtoP9.getAssists()).isZero();
+        assertThat(dtoP1.getAssists()).isEqualTo(3);
+        assertThat(dtoP1.getGoals()).isZero();
     }
 
     @Test

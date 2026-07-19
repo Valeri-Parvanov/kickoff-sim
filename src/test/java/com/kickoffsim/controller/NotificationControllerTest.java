@@ -32,7 +32,6 @@ import org.springframework.ui.Model;
 import org.springframework.web.servlet.mvc.support.RedirectAttributesModelMap;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -40,6 +39,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -105,103 +105,16 @@ class NotificationControllerTest {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
-    void notificationsPage_showsTenPerPage() {
-        UUID userId = UUID.randomUUID();
-        Authentication auth = authFor("alice", userId);
-
-        List<NotificationDto> many = new ArrayList<>();
-        for (int i = 0; i < 25; i++) {
-            NotificationDto n = new NotificationDto();
-            n.setId(UUID.randomUUID());
-            n.setMessage("msg " + i);
-            n.setType("GOAL");
-            n.setCreatedAt(LocalDateTime.now().minusMinutes(i));
-            many.add(n);
-        }
-        when(notificationClient.getNotifications(userId)).thenReturn(many);
-
-        Model model = new ExtendedModelMap();
-        controller.notificationsPage(auth, model, "all", 0);
-
-        assertThat((List<Object>) model.getAttribute("notifications")).hasSize(10);
-        assertThat(model.getAttribute("totalPages")).isEqualTo(3);
-        assertThat(model.getAttribute("filteredCount")).isEqualTo(25);
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void notificationsPage_enrichesNotificationWithTeamAndLeagueLinks() {
-        UUID userId = UUID.randomUUID();
-        UUID matchId = UUID.randomUUID();
-        Authentication auth = authFor("alice", userId);
-
-        NotificationDto n = new NotificationDto();
-        n.setId(UUID.randomUUID());
-        n.setMatchId(matchId);
-        n.setMessage("GOAL for Home! Ivan Petrov 5'");
-        n.setType("GOAL");
-        n.setCreatedAt(LocalDateTime.now());
-        when(notificationClient.getNotifications(userId)).thenReturn(List.of(n));
-
-        MatchDto match = new MatchDto();
-        match.setId(matchId);
-        match.setHomeTeamId(UUID.randomUUID());
-        match.setHomeTeamName("Home");
-        match.setHomeTeamCity("Sofia");
-        match.setAwayTeamId(UUID.randomUUID());
-        match.setAwayTeamName("Away");
-        match.setLeagueId(UUID.randomUUID());
-        match.setLeagueName("Premier Cup");
-        when(matchService.findById(matchId)).thenReturn(match);
-
-        Model model = new ExtendedModelMap();
-        controller.notificationsPage(auth, model, "all", 0);
-
-        List<NotificationController.NotificationView> views =
-                (List<NotificationController.NotificationView>) model.getAttribute("notifications");
-        assertThat(views).hasSize(1);
-        assertThat(views.get(0).homeTeamName()).isEqualTo("Home (Sofia)");
-        assertThat(views.get(0).awayTeamName()).isEqualTo("Away");
-        assertThat(views.get(0).leagueName()).isEqualTo("Premier Cup");
-        assertThat(views.get(0).matchId()).isEqualTo(matchId);
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void notificationsPage_matchLookupFails_notificationWithoutMatchDetails() {
-        UUID userId = UUID.randomUUID();
-        UUID matchId = UUID.randomUUID();
-        Authentication auth = authFor("alice", userId);
-
-        NotificationDto n = new NotificationDto();
-        n.setId(UUID.randomUUID());
-        n.setMatchId(matchId);
-        n.setMessage("GOAL for Home!");
-        n.setType("GOAL");
-        n.setCreatedAt(LocalDateTime.now());
-        when(notificationClient.getNotifications(userId)).thenReturn(List.of(n));
-        when(matchService.findById(matchId)).thenThrow(new RuntimeException("gone"));
-
-        Model model = new ExtendedModelMap();
-        controller.notificationsPage(auth, model, "all", 0);
-
-        List<NotificationController.NotificationView> views =
-                (List<NotificationController.NotificationView>) model.getAttribute("notifications");
-        assertThat(views.get(0).homeTeamName()).isNull();
-    }
-
-    @Test
     void liveToasts_includesGoalHalftimeAndFulltimeButNotOtherTypes() {
         UUID userId = UUID.randomUUID();
         Authentication auth = authFor("alice", userId);
 
         when(notificationClient.getNotifications(userId)).thenReturn(List.of(
-                unreadNotification("GOAL", "GOAL for Home!"),
-                unreadNotification("MATCH_HALFTIME", "HALF TIME 1-0"),
-                unreadNotification("MATCH_FULLTIME", "FULL TIME 2-1"),
-                unreadNotification("MATCH_KICKOFF", "KICK OFF!"),
-                unreadNotification("MATCH_UPDATE", "LIVE: Home 1:0 Away")));
+                recentNotification("GOAL", "GOAL for Home!"),
+                recentNotification("MATCH_HALFTIME", "HALF TIME 1-0"),
+                recentNotification("MATCH_FULLTIME", "FULL TIME 2-1"),
+                recentNotification("MATCH_KICKOFF", "KICK OFF!"),
+                recentNotification("MATCH_UPDATE", "LIVE: Home 1:0 Away")));
 
         List<Map<String, Object>> toasts = controller.liveToasts(auth);
 
@@ -209,60 +122,13 @@ class NotificationControllerTest {
                 .containsExactlyInAnyOrder("GOAL", "MATCH_HALFTIME", "MATCH_FULLTIME");
     }
 
-    @Test
-    void liveToasts_skipsAlreadyReadNotifications() {
-        UUID userId = UUID.randomUUID();
-        Authentication auth = authFor("alice", userId);
-
-        NotificationDto read = unreadNotification("GOAL", "GOAL for Home!");
-        read.setRead(true);
-        when(notificationClient.getNotifications(userId)).thenReturn(List.of(read));
-
-        assertThat(controller.liveToasts(auth)).isEmpty();
-    }
-
-    private NotificationDto unreadNotification(String type, String message) {
+    private NotificationDto recentNotification(String type, String message) {
         NotificationDto n = new NotificationDto();
         n.setId(UUID.randomUUID());
         n.setType(type);
         n.setMessage(message);
-        n.setRead(false);
         n.setCreatedAt(LocalDateTime.now());
         return n;
-    }
-
-    @Test
-    void markAllRead_callsClientAndKeepsStatusTab() {
-        UUID userId = UUID.randomUUID();
-        Authentication auth = authFor("alice", userId);
-
-        String view = controller.markAllRead("unread", auth, new RedirectAttributesModelMap());
-
-        verify(notificationClient).markAllRead(userId);
-        assertThat(view).isEqualTo("redirect:/notifications?status=unread");
-    }
-
-    @Test
-    void unreadCount_nullAuth_returnsZero() {
-        assertThat(controller.unreadCount(null)).isZero();
-    }
-
-    @Test
-    void unreadCount_returnsClientValue() {
-        UUID userId = UUID.randomUUID();
-        Authentication auth = authFor("alice", userId);
-        when(notificationClient.getUnreadCount(userId)).thenReturn(7L);
-
-        assertThat(controller.unreadCount(auth)).isEqualTo(7L);
-    }
-
-    @Test
-    void unreadCount_serviceDown_returnsZero() {
-        UUID userId = UUID.randomUUID();
-        Authentication auth = authFor("alice", userId);
-        when(notificationClient.getUnreadCount(userId)).thenThrow(new RuntimeException("down"));
-
-        assertThat(controller.unreadCount(auth)).isZero();
     }
 
     @Test
@@ -289,8 +155,151 @@ class NotificationControllerTest {
 
         String view = controller.subscribe(entityId, "LEAGUE", null, auth, ra);
 
-        assertThat(view).isEqualTo("redirect:/notifications");
+        assertThat(view).isEqualTo("redirect:/feed");
         assertThat(ra.getFlashAttributes()).containsKey("warnMessage");
+    }
+
+    @Test
+    void subscribe_team_backfillsMatchSubscriptionsForThatTeamOnly() {
+        UUID userId = UUID.randomUUID();
+        UUID teamId = UUID.randomUUID();
+        UUID leagueId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+        RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
+
+        TeamDto team = new TeamDto();
+        team.setId(teamId);
+        team.setLeagueId(leagueId);
+        when(teamService.findById(teamId)).thenReturn(team);
+
+        MatchDto teamMatch = feedMatch(teamId, LocalDateTime.now().plusDays(1));
+        MatchDto otherMatch = feedMatch(UUID.randomUUID(), LocalDateTime.now().plusDays(2));
+        LeagueDetailView league = org.mockito.Mockito.mock(LeagueDetailView.class);
+        when(league.getMatches()).thenReturn(List.of(teamMatch, otherMatch));
+        when(leagueService.findDetail(leagueId)).thenReturn(league);
+
+        when(notificationClient.getSubscriptions(userId)).thenReturn(List.of());
+
+        controller.subscribe(teamId, "TEAM", null, auth, ra);
+
+        verify(notificationClient).subscribe(subReq(userId, "TEAM", teamId));
+        verify(notificationClient).subscribe(subReq(userId, "MATCH", teamMatch.getId()));
+        verify(notificationClient, never()).subscribe(subReq(userId, "MATCH", otherMatch.getId()));
+    }
+
+    @Test
+    void subscribe_team_backfillsMatchWhereTeamIsAwaySide() {
+        UUID userId = UUID.randomUUID();
+        UUID teamId = UUID.randomUUID();
+        UUID leagueId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+        RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
+
+        TeamDto team = new TeamDto();
+        team.setId(teamId);
+        team.setLeagueId(leagueId);
+        when(teamService.findById(teamId)).thenReturn(team);
+
+        MatchDto awayMatch = feedMatch(UUID.randomUUID(), LocalDateTime.now().plusDays(1));
+        awayMatch.setAwayTeamId(teamId);
+        LeagueDetailView league = org.mockito.Mockito.mock(LeagueDetailView.class);
+        when(league.getMatches()).thenReturn(List.of(awayMatch));
+        when(leagueService.findDetail(leagueId)).thenReturn(league);
+
+        when(notificationClient.getSubscriptions(userId)).thenReturn(List.of());
+
+        controller.subscribe(teamId, "TEAM", null, auth, ra);
+
+        verify(notificationClient).subscribe(subReq(userId, "MATCH", awayMatch.getId()));
+    }
+
+    @Test
+    void subscribe_otherEntityType_noBackfillAttempted() {
+        UUID userId = UUID.randomUUID();
+        UUID entityId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+        RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
+
+        controller.subscribe(entityId, "MATCH", null, auth, ra);
+
+        verify(notificationClient, never()).getSubscriptions(any());
+    }
+
+    @Test
+    void subscribe_backfillIndividualMatchSubscribeFails_continuesAndStillSucceeds() {
+        UUID userId = UUID.randomUUID();
+        UUID leagueId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+        RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
+
+        MatchDto m1 = feedMatch(UUID.randomUUID(), LocalDateTime.now().plusDays(1));
+        LeagueDetailView league = org.mockito.Mockito.mock(LeagueDetailView.class);
+        when(league.getMatches()).thenReturn(List.of(m1));
+        when(leagueService.findDetail(leagueId)).thenReturn(league);
+        when(notificationClient.getSubscriptions(userId)).thenReturn(List.of());
+        doThrow(new RuntimeException("down"))
+                .when(notificationClient).subscribe(subReq(userId, "MATCH", m1.getId()));
+
+        String view = controller.subscribe(leagueId, "LEAGUE", null, auth, ra);
+
+        assertThat(view).isEqualTo("redirect:/feed");
+        assertThat(ra.getFlashAttributes()).containsKey("statusMessage");
+    }
+
+    @Test
+    void subscribe_league_backfillsAllLeagueMatchesSkippingAlreadyFollowed() {
+        UUID userId = UUID.randomUUID();
+        UUID leagueId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+        RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
+
+        MatchDto m1 = feedMatch(UUID.randomUUID(), LocalDateTime.now().plusDays(1));
+        MatchDto m2 = feedMatch(UUID.randomUUID(), LocalDateTime.now().plusDays(2));
+        LeagueDetailView league = org.mockito.Mockito.mock(LeagueDetailView.class);
+        when(league.getMatches()).thenReturn(List.of(m1, m2));
+        when(leagueService.findDetail(leagueId)).thenReturn(league);
+
+        SubscriptionDto alreadyFollowedMatch = new SubscriptionDto();
+        alreadyFollowedMatch.setEntityType("MATCH");
+        alreadyFollowedMatch.setEntityId(m1.getId());
+        when(notificationClient.getSubscriptions(userId)).thenReturn(List.of(alreadyFollowedMatch));
+
+        controller.subscribe(leagueId, "LEAGUE", null, auth, ra);
+
+        verify(notificationClient, never()).subscribe(subReq(userId, "MATCH", m1.getId()));
+        verify(notificationClient).subscribe(subReq(userId, "MATCH", m2.getId()));
+    }
+
+    @Test
+    void subscribe_backfillServiceDown_stillShowsSuccess() {
+        UUID userId = UUID.randomUUID();
+        UUID leagueId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+        RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
+        when(leagueService.findDetail(leagueId)).thenThrow(new RuntimeException("down"));
+
+        String view = controller.subscribe(leagueId, "LEAGUE", null, auth, ra);
+
+        assertThat(view).isEqualTo("redirect:/feed");
+        assertThat(ra.getFlashAttributes()).containsKey("statusMessage");
+        assertThat(ra.getFlashAttributes()).doesNotContainKey("warnMessage");
+    }
+
+    @Test
+    void subscribe_teamWithoutLeague_noBackfillAttempted() {
+        UUID userId = UUID.randomUUID();
+        UUID teamId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+        RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
+
+        TeamDto team = new TeamDto();
+        team.setId(teamId);
+        team.setLeagueId(null);
+        when(teamService.findById(teamId)).thenReturn(team);
+
+        controller.subscribe(teamId, "TEAM", null, auth, ra);
+
+        verify(notificationClient, never()).getSubscriptions(userId);
     }
 
     @Test
@@ -315,89 +324,8 @@ class NotificationControllerTest {
 
         String view = controller.unsubscribe(id, null, auth, ra);
 
-        assertThat(view).isEqualTo("redirect:/notifications");
+        assertThat(view).isEqualTo("redirect:/feed");
         assertThat(ra.getFlashAttributes()).containsKey("warnMessage");
-    }
-
-    @Test
-    void markRead_buildsRedirectWithStatusAndPage() {
-        UUID id = UUID.randomUUID();
-        Authentication auth = authFor("alice", UUID.randomUUID());
-
-        String view = controller.markRead(id, "unread", 2, auth);
-
-        verify(notificationClient).markRead(id);
-        assertThat(view).isEqualTo("redirect:/notifications?status=unread&page=2");
-    }
-
-    @Test
-    void markRead_serviceDown_stillRedirects() {
-        UUID id = UUID.randomUUID();
-        Authentication auth = authFor("alice", UUID.randomUUID());
-        doThrow(new RuntimeException("down")).when(notificationClient).markRead(id);
-
-        String view = controller.markRead(id, null, null, auth);
-
-        assertThat(view).isEqualTo("redirect:/notifications");
-    }
-
-    @Test
-    void clearAll_success_setsStatusMessage() {
-        UUID userId = UUID.randomUUID();
-        Authentication auth = authFor("alice", userId);
-        RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
-
-        String view = controller.clearAll(auth, ra);
-
-        verify(notificationClient).clearAll(userId);
-        assertThat(view).isEqualTo("redirect:/notifications");
-        assertThat(ra.getFlashAttributes()).containsKey("statusMessage");
-    }
-
-    @Test
-    void clearAll_serviceDown_setsWarn() {
-        UUID userId = UUID.randomUUID();
-        Authentication auth = authFor("alice", userId);
-        RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
-        doThrow(new RuntimeException("down")).when(notificationClient).clearAll(userId);
-
-        controller.clearAll(auth, ra);
-
-        assertThat(ra.getFlashAttributes()).containsKey("warnMessage");
-    }
-
-    @Test
-    void subscriptionsPage_serviceDown_setsWarn() {
-        UUID userId = UUID.randomUUID();
-        Authentication auth = authFor("alice", userId);
-        Model model = new ExtendedModelMap();
-        when(notificationClient.getSubscriptions(userId)).thenThrow(new RuntimeException("down"));
-
-        assertThat(controller.subscriptionsPage(auth, model)).isEqualTo("subscriptions");
-        assertThat(model.getAttribute("warnMessage")).isNotNull();
-    }
-
-    @Test
-    void subscriptionsPage_teamSubscription_buildsView() {
-        UUID userId = UUID.randomUUID();
-        UUID teamId = UUID.randomUUID();
-        Authentication auth = authFor("alice", userId);
-        Model model = new ExtendedModelMap();
-
-        SubscriptionDto sub = new SubscriptionDto();
-        sub.setId(UUID.randomUUID());
-        sub.setEntityType("TEAM");
-        sub.setEntityId(teamId);
-        when(notificationClient.getSubscriptions(userId)).thenReturn(List.of(sub));
-
-        TeamDto team = new TeamDto();
-        team.setId(teamId);
-        team.setName("SofiaFC");
-        team.setLeagueId(null);
-        when(teamService.findById(teamId)).thenReturn(team);
-
-        assertThat(controller.subscriptionsPage(auth, model)).isEqualTo("subscriptions");
-        assertThat((List<?>) model.getAttribute("subscriptions")).hasSize(1);
     }
 
     @Test
@@ -472,80 +400,130 @@ class NotificationControllerTest {
     }
 
     @Test
-    void subscriptionsPage_enrichFails_usesFallbackView() {
+    void feedPage_teamStandingsWithMultipleRows_findsCorrectPosition() {
         UUID userId = UUID.randomUUID();
         UUID teamId = UUID.randomUUID();
+        UUID otherTeamId = UUID.randomUUID();
+        UUID leagueId = UUID.randomUUID();
         Authentication auth = authFor("alice", userId);
-        SubscriptionDto sub = new SubscriptionDto();
-        sub.setId(UUID.randomUUID());
-        sub.setEntityType("TEAM");
-        sub.setEntityId(teamId);
-        when(notificationClient.getSubscriptions(userId)).thenReturn(List.of(sub));
-        when(teamService.findById(teamId)).thenThrow(new RuntimeException("gone"));
+
+        SubscriptionDto teamSub = new SubscriptionDto();
+        teamSub.setId(UUID.randomUUID());
+        teamSub.setEntityType("TEAM");
+        teamSub.setEntityId(teamId);
+        when(notificationClient.getSubscriptions(userId)).thenReturn(List.of(teamSub));
+
+        TeamDto team = new TeamDto();
+        team.setId(teamId);
+        team.setName("SofiaFC");
+        team.setLeagueId(leagueId);
+        when(teamService.findById(teamId)).thenReturn(team);
+
+        LeagueDetailView league = org.mockito.Mockito.mock(LeagueDetailView.class);
+        StandingRow other = new StandingRow();
+        other.setTeamId(otherTeamId);
+        StandingRow mine = new StandingRow();
+        mine.setTeamId(teamId);
+        when(league.getName()).thenReturn("Premier");
+        when(league.getStandings()).thenReturn(List.of(other, mine));
+        when(league.getMatches()).thenReturn(List.of());
+        when(leagueService.findDetail(leagueId)).thenReturn(league);
+        when(matchFollowSupport.subscribedMatchIds(auth)).thenReturn(Set.of());
 
         Model model = new ExtendedModelMap();
-        assertThat(controller.subscriptionsPage(auth, model)).isEqualTo("subscriptions");
-        assertThat((List<?>) model.getAttribute("subscriptions")).hasSize(1);
+        controller.feedPage(auth, model);
+
+        @SuppressWarnings("unchecked")
+        List<NotificationController.SubscriptionView> teamViews =
+                (List<NotificationController.SubscriptionView>) model.getAttribute("teamViews");
+        assertThat(teamViews).hasSize(1);
+        assertThat(teamViews.get(0).standingPosition()).isEqualTo(2);
     }
 
     @Test
-    void notificationsPage_statusFilters_countCorrectly() {
+    void feedPage_followedMatchAlreadyInFollowedLeague_skipsRedundantLookup() {
         UUID userId = UUID.randomUUID();
-        Authentication auth = authFor("alice", userId);
-        NotificationDto unread = unreadNotification("GOAL", "a");
-        NotificationDto read = unreadNotification("GOAL", "b");
-        read.setRead(true);
-        when(notificationClient.getNotifications(userId)).thenReturn(List.of(unread, read));
-
-        Model m1 = new ExtendedModelMap();
-        controller.notificationsPage(auth, m1, "unread", 0);
-        assertThat(m1.getAttribute("filteredCount")).isEqualTo(1);
-
-        Model m2 = new ExtendedModelMap();
-        controller.notificationsPage(auth, m2, "read", 0);
-        assertThat(m2.getAttribute("filteredCount")).isEqualTo(1);
-    }
-
-    @Test
-    void toggleMatchFollow_livePhases_sendInstantStatus() {
-        assertThat(toggleLive(10, liveGoal(5, Half.FIRST, 1, 0)).getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(toggleLive(22).getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(toggleLive(30, liveGoal(5, Half.FIRST, 1, 0), liveGoal(3, Half.SECOND, 1, 1))
-                .getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(toggleLive(50).getStatusCode()).isEqualTo(HttpStatus.OK);
-    }
-
-    @Test
-    void notificationsPage_pageBeyondRange_clampsToLastPage() {
-        UUID userId = UUID.randomUUID();
-        Authentication auth = authFor("alice", userId);
-        when(notificationClient.getNotifications(userId))
-                .thenReturn(List.of(unreadNotification("GOAL", "one")));
-        Model model = new ExtendedModelMap();
-
-        controller.notificationsPage(auth, model, "all", 7);
-
-        assertThat(model.getAttribute("currentPage")).isEqualTo(0);
-    }
-
-    @Test
-    void markAllRead_nullStatus_redirectsPlain() {
-        UUID userId = UUID.randomUUID();
-        Authentication auth = authFor("alice", userId);
-
-        assertThat(controller.markAllRead(null, auth, new RedirectAttributesModelMap()))
-                .isEqualTo("redirect:/notifications");
-    }
-
-    @Test
-    void toggleMatchFollow_instantStatusFails_stillReturnsOk() {
+        UUID leagueId = UUID.randomUUID();
         UUID matchId = UUID.randomUUID();
-        UUID userId = UUID.randomUUID();
         Authentication auth = authFor("alice", userId);
-        when(notificationClient.getSubscriptions(userId)).thenReturn(List.of());
-        when(matchService.findById(matchId)).thenThrow(new RuntimeException("gone"));
 
-        assertThat(controller.toggleMatchFollow(matchId, auth).getStatusCode()).isEqualTo(HttpStatus.OK);
+        SubscriptionDto leagueSub = new SubscriptionDto();
+        leagueSub.setId(UUID.randomUUID());
+        leagueSub.setEntityType("LEAGUE");
+        leagueSub.setEntityId(leagueId);
+        SubscriptionDto matchSub = new SubscriptionDto();
+        matchSub.setId(UUID.randomUUID());
+        matchSub.setEntityType("MATCH");
+        matchSub.setEntityId(matchId);
+        when(notificationClient.getSubscriptions(userId)).thenReturn(List.of(leagueSub, matchSub));
+
+        MatchDto match = feedMatch(UUID.randomUUID(), LocalDateTime.now().plusDays(1));
+        match.setId(matchId);
+        LeagueDetailView league = org.mockito.Mockito.mock(LeagueDetailView.class);
+        when(league.getName()).thenReturn("Premier");
+        when(league.getStandings()).thenReturn(List.of());
+        when(league.getTeams()).thenReturn(List.of());
+        when(league.getMatches()).thenReturn(List.of(match));
+        when(leagueService.findDetail(leagueId)).thenReturn(league);
+        when(matchFollowSupport.subscribedMatchIds(auth)).thenReturn(Set.of(matchId));
+
+        Model model = new ExtendedModelMap();
+        controller.feedPage(auth, model);
+
+        verify(matchService, never()).findById(any());
+        assertThat((List<?>) model.getAttribute("upcomingMatches")).hasSize(1);
+    }
+
+    @Test
+    void feedPage_starredMatchWithoutTeamFollow_includedInUpcoming() {
+        UUID userId = UUID.randomUUID();
+        UUID matchId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+
+        SubscriptionDto matchSub = new SubscriptionDto();
+        matchSub.setId(UUID.randomUUID());
+        matchSub.setEntityType("MATCH");
+        matchSub.setEntityId(matchId);
+        when(notificationClient.getSubscriptions(userId)).thenReturn(List.of(matchSub));
+
+        MatchDto starredUpcoming = new MatchDto();
+        starredUpcoming.setId(matchId);
+        starredUpcoming.setHomeTeamId(UUID.randomUUID());
+        starredUpcoming.setAwayTeamId(UUID.randomUUID());
+        starredUpcoming.setPlayedAt(LocalDateTime.now().plusDays(1));
+        when(matchService.findById(matchId)).thenReturn(starredUpcoming);
+        when(matchFollowSupport.subscribedMatchIds(auth)).thenReturn(Set.of(matchId));
+
+        Model model = new ExtendedModelMap();
+        controller.feedPage(auth, model);
+
+        assertThat((List<?>) model.getAttribute("upcomingMatches")).hasSize(1);
+    }
+
+    @Test
+    void feedPage_starredMatchWithoutTeamFollow_includedInRecent() {
+        UUID userId = UUID.randomUUID();
+        UUID matchId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+
+        SubscriptionDto matchSub = new SubscriptionDto();
+        matchSub.setId(UUID.randomUUID());
+        matchSub.setEntityType("MATCH");
+        matchSub.setEntityId(matchId);
+        when(notificationClient.getSubscriptions(userId)).thenReturn(List.of(matchSub));
+
+        MatchDto starredRecent = new MatchDto();
+        starredRecent.setId(matchId);
+        starredRecent.setHomeTeamId(UUID.randomUUID());
+        starredRecent.setAwayTeamId(UUID.randomUUID());
+        starredRecent.setPlayedAt(LocalDateTime.now().minusDays(2));
+        when(matchService.findById(matchId)).thenReturn(starredRecent);
+        when(matchFollowSupport.subscribedMatchIds(auth)).thenReturn(Set.of(matchId));
+
+        Model model = new ExtendedModelMap();
+        controller.feedPage(auth, model);
+
+        assertThat((List<?>) model.getAttribute("recentMatches")).hasSize(1);
     }
 
     @Test
@@ -564,6 +542,71 @@ class NotificationControllerTest {
 
         assertThat(controller.feedPage(auth, model)).isEqualTo("feed");
         assertThat((List<?>) model.getAttribute("leagueViews")).hasSize(1);
+    }
+
+    @Test
+    void feedPage_starredMatchWithoutTeamFollow_includedInAllWindows() {
+        UUID userId = UUID.randomUUID();
+        UUID matchId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+
+        SubscriptionDto matchSub = new SubscriptionDto();
+        matchSub.setId(UUID.randomUUID());
+        matchSub.setEntityType("MATCH");
+        matchSub.setEntityId(matchId);
+        when(notificationClient.getSubscriptions(userId)).thenReturn(List.of(matchSub));
+
+        MatchDto starredLive = new MatchDto();
+        starredLive.setId(matchId);
+        starredLive.setHomeTeamId(UUID.randomUUID());
+        starredLive.setAwayTeamId(UUID.randomUUID());
+        starredLive.setPlayedAt(LocalDateTime.now().minusMinutes(10));
+        when(matchService.findById(matchId)).thenReturn(starredLive);
+        when(matchFollowSupport.subscribedMatchIds(auth)).thenReturn(Set.of(matchId));
+
+        Model model = new ExtendedModelMap();
+        assertThat(controller.feedPage(auth, model)).isEqualTo("feed");
+        assertThat((List<?>) model.getAttribute("teamViews")).isEmpty();
+        assertThat((List<?>) model.getAttribute("liveMatches")).hasSize(1);
+    }
+
+    @Test
+    void feedPage_starredMatchLookupFails_isSkipped() {
+        UUID userId = UUID.randomUUID();
+        UUID matchId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+
+        SubscriptionDto matchSub = new SubscriptionDto();
+        matchSub.setId(UUID.randomUUID());
+        matchSub.setEntityType("MATCH");
+        matchSub.setEntityId(matchId);
+        when(notificationClient.getSubscriptions(userId)).thenReturn(List.of(matchSub));
+        when(matchService.findById(matchId)).thenThrow(new RuntimeException("gone"));
+        when(matchFollowSupport.subscribedMatchIds(auth)).thenReturn(Set.of(matchId));
+
+        Model model = new ExtendedModelMap();
+        assertThat(controller.feedPage(auth, model)).isEqualTo("feed");
+        assertThat((List<?>) model.getAttribute("liveMatches")).isEmpty();
+    }
+
+    @Test
+    void toggleMatchFollow_livePhases_sendInstantStatus() {
+        assertThat(toggleLive(10, liveGoal(5, Half.FIRST, 1, 0)).getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(toggleLive(22).getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(toggleLive(30, liveGoal(5, Half.FIRST, 1, 0), liveGoal(3, Half.SECOND, 1, 1))
+                .getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(toggleLive(50).getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    void toggleMatchFollow_instantStatusFails_stillReturnsOk() {
+        UUID matchId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+        when(notificationClient.getSubscriptions(userId)).thenReturn(List.of());
+        when(matchService.findById(matchId)).thenThrow(new RuntimeException("gone"));
+
+        assertThat(controller.toggleMatchFollow(matchId, auth).getStatusCode()).isEqualTo(HttpStatus.OK);
     }
 
     private ResponseEntity<Map<String, Object>> toggleLive(long minutesAgo, GoalDto... goals) {
@@ -600,40 +643,6 @@ class NotificationControllerTest {
     }
 
     @Test
-    void notificationsPage_serviceDown_setsWarn() {
-        UUID userId = UUID.randomUUID();
-        Authentication auth = authFor("alice", userId);
-        when(notificationClient.getNotifications(userId)).thenThrow(new RuntimeException("down"));
-        Model model = new ExtendedModelMap();
-
-        controller.notificationsPage(auth, model, "all", 0);
-
-        assertThat(model.getAttribute("warnMessage")).isNotNull();
-        assertThat(model.getAttribute("countAll")).isEqualTo(0L);
-    }
-
-    @Test
-    void markAllRead_serviceDown_setsWarn() {
-        UUID userId = UUID.randomUUID();
-        Authentication auth = authFor("alice", userId);
-        doThrow(new RuntimeException("down")).when(notificationClient).markAllRead(userId);
-        RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
-
-        controller.markAllRead("unread", auth, ra);
-
-        assertThat(ra.getFlashAttributes()).containsKey("warnMessage");
-    }
-
-    @Test
-    void markAllRead_blankStatus_redirectsPlain() {
-        UUID userId = UUID.randomUUID();
-        Authentication auth = authFor("alice", userId);
-
-        assertThat(controller.markAllRead("   ", auth, new RedirectAttributesModelMap()))
-                .isEqualTo("redirect:/notifications");
-    }
-
-    @Test
     void liveToasts_nullAuth_returnsEmpty() {
         assertThat(controller.liveToasts(null)).isEmpty();
     }
@@ -651,9 +660,9 @@ class NotificationControllerTest {
     void liveToasts_excludesNullAndStaleCreatedAt() {
         UUID userId = UUID.randomUUID();
         Authentication auth = authFor("alice", userId);
-        NotificationDto nullCreated = unreadNotification("GOAL", "x");
+        NotificationDto nullCreated = recentNotification("GOAL", "x");
         nullCreated.setCreatedAt(null);
-        NotificationDto stale = unreadNotification("GOAL", "y");
+        NotificationDto stale = recentNotification("GOAL", "y");
         stale.setCreatedAt(LocalDateTime.now().minusMinutes(10));
         when(notificationClient.getNotifications(userId)).thenReturn(List.of(nullCreated, stale));
 
@@ -700,61 +709,6 @@ class NotificationControllerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
         assertThat(response.getBody()).containsKey("error");
-    }
-
-    @Test
-    void markRead_blankStatusWithPage_usesQuestionMarkForPage() {
-        UUID id = UUID.randomUUID();
-        Authentication auth = authFor("alice", UUID.randomUUID());
-
-        String view = controller.markRead(id, "", 3, auth);
-
-        assertThat(view).isEqualTo("redirect:/notifications?page=3");
-    }
-
-    @Test
-    void markRead_pageZero_omittedFromUrl() {
-        UUID id = UUID.randomUUID();
-        Authentication auth = authFor("alice", UUID.randomUUID());
-
-        String view = controller.markRead(id, "unread", 0, auth);
-
-        assertThat(view).isEqualTo("redirect:/notifications?status=unread");
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void subscriptionsPage_teamNotInStandings_positionNull() {
-        UUID userId = UUID.randomUUID();
-        UUID teamId = UUID.randomUUID();
-        UUID leagueId = UUID.randomUUID();
-        Authentication auth = authFor("alice", userId);
-        SubscriptionDto sub = new SubscriptionDto();
-        sub.setId(UUID.randomUUID());
-        sub.setEntityType("TEAM");
-        sub.setEntityId(teamId);
-        when(notificationClient.getSubscriptions(userId)).thenReturn(List.of(sub));
-
-        TeamDto team = new TeamDto();
-        team.setId(teamId);
-        team.setName("SofiaFC");
-        team.setLeagueId(leagueId);
-        when(teamService.findById(teamId)).thenReturn(team);
-
-        LeagueDetailView league = org.mockito.Mockito.mock(LeagueDetailView.class);
-        StandingRow otherRow = new StandingRow();
-        otherRow.setTeamId(UUID.randomUUID());
-        when(league.getStandings()).thenReturn(List.of(otherRow));
-        when(league.getMatches()).thenReturn(List.of());
-        when(league.getName()).thenReturn("Premier");
-        when(leagueService.findDetail(leagueId)).thenReturn(league);
-
-        Model model = new ExtendedModelMap();
-        controller.subscriptionsPage(auth, model);
-
-        List<NotificationController.SubscriptionView> views =
-                (List<NotificationController.SubscriptionView>) model.getAttribute("subscriptions");
-        assertThat(views.get(0).standingPosition()).isNull();
     }
 
     @Test
@@ -905,6 +859,13 @@ class NotificationControllerTest {
         }
         m.setPlayedAt(playedAt);
         return m;
+    }
+
+    private SubscriptionRequest subReq(UUID userId, String entityType, UUID entityId) {
+        return argThat(r -> r != null
+                && userId.equals(r.getUserId())
+                && entityType.equals(r.getEntityType())
+                && entityId.equals(r.getEntityId()));
     }
 
     private Authentication authFor(String username, UUID userId) {

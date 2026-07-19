@@ -437,4 +437,171 @@ class LeagueServiceImplCoverageTest {
 
         assertThat(service.findById(league.getId()).getName()).isEqualTo("First League");
     }
+
+    @Test
+    void findDetail_finishedMatch_tallyTopScorersAndAssistsExcludingOwnGoal() {
+        Team alpha = team("Alpha");
+        Team beta = team("Beta");
+        League league = leagueWith(alpha, beta);
+        when(leagueRepository.findById(league.getId())).thenReturn(java.util.Optional.of(league));
+
+        MatchDto finished = new MatchDto();
+        finished.setId(UUID.randomUUID());
+        finished.setHomeTeamId(alpha.getId());
+        finished.setAwayTeamId(beta.getId());
+        finished.setHomeScore(1);
+        finished.setAwayScore(0);
+        finished.setRoundNumber(1);
+        finished.setPlayedAt(LocalDateTime.now().minusHours(3));
+
+        GoalDto scored = new GoalDto();
+        scored.setScorerId(UUID.randomUUID());
+        scored.setScorerName("Ivan Petrov");
+        scored.setAssistantId(UUID.randomUUID());
+        scored.setAssistantName("Georgi Ivanov");
+        scored.setTeamId(alpha.getId());
+        scored.setOwnGoal(false);
+        finished.getGoalTimeline().add(scored);
+
+        GoalDto ownGoal = new GoalDto();
+        ownGoal.setScorerId(UUID.randomUUID());
+        ownGoal.setScorerName("Petar Georgiev");
+        ownGoal.setTeamId(beta.getId());
+        ownGoal.setOwnGoal(true);
+        finished.getGoalTimeline().add(ownGoal);
+
+        when(matchService.findByLeague(league.getId())).thenReturn(List.of(finished));
+
+        LeagueDetailView view = service.findDetail(league.getId());
+
+        assertThat(view.getTopScorers()).hasSize(1);
+        assertThat(view.getTopScorers().get(0).getPlayerName()).isEqualTo("Ivan Petrov");
+        assertThat(view.getTopScorers().get(0).getTeamName()).isEqualTo("Alpha");
+        assertThat(view.getTopScorers().get(0).getCount()).isEqualTo(1);
+
+        assertThat(view.getTopAssists()).hasSize(1);
+        assertThat(view.getTopAssists().get(0).getPlayerName()).isEqualTo("Georgi Ivanov");
+    }
+
+    @Test
+    void findDetail_liveMatch_tallyOnlyRevealedGoals() {
+        Team alpha = team("Alpha");
+        Team beta = team("Beta");
+        League league = leagueWith(alpha, beta);
+        when(leagueRepository.findById(league.getId())).thenReturn(java.util.Optional.of(league));
+
+        MatchDto live = new MatchDto();
+        live.setId(UUID.randomUUID());
+        live.setHomeTeamId(alpha.getId());
+        live.setAwayTeamId(beta.getId());
+        live.setRoundNumber(1);
+        live.setPlayedAt(LocalDateTime.now().minusMinutes(10));
+
+        GoalDto revealed = new GoalDto();
+        revealed.setMinute(5);
+        revealed.setHalf(Half.FIRST);
+        revealed.setScorerId(UUID.randomUUID());
+        revealed.setScorerName("Early Scorer");
+        revealed.setTeamId(alpha.getId());
+        live.getGoalTimeline().add(revealed);
+
+        GoalDto notYet = new GoalDto();
+        notYet.setMinute(35);
+        notYet.setHalf(Half.FIRST);
+        notYet.setScorerId(UUID.randomUUID());
+        notYet.setScorerName("Late Scorer");
+        notYet.setTeamId(alpha.getId());
+        live.getGoalTimeline().add(notYet);
+
+        when(matchService.findByLeague(league.getId())).thenReturn(List.of(live));
+
+        LeagueDetailView view = service.findDetail(league.getId());
+
+        assertThat(view.getTopScorers()).extracting("playerName").containsExactly("Early Scorer");
+    }
+
+    @Test
+    void findDetail_moreThanFiveScorers_limitsToTopFive() {
+        Team alpha = team("Alpha");
+        Team beta = team("Beta");
+        League league = leagueWith(alpha, beta);
+        when(leagueRepository.findById(league.getId())).thenReturn(java.util.Optional.of(league));
+
+        MatchDto finished = new MatchDto();
+        finished.setId(UUID.randomUUID());
+        finished.setHomeTeamId(alpha.getId());
+        finished.setAwayTeamId(beta.getId());
+        finished.setHomeScore(6);
+        finished.setAwayScore(0);
+        finished.setRoundNumber(1);
+        finished.setPlayedAt(LocalDateTime.now().minusHours(3));
+
+        for (int i = 0; i < 6; i++) {
+            GoalDto g = new GoalDto();
+            g.setScorerId(UUID.randomUUID());
+            g.setScorerName("Scorer" + i);
+            g.setTeamId(alpha.getId());
+            finished.getGoalTimeline().add(g);
+        }
+
+        when(matchService.findByLeague(league.getId())).thenReturn(List.of(finished));
+
+        LeagueDetailView view = service.findDetail(league.getId());
+
+        assertThat(view.getTopScorers()).hasSize(5);
+    }
+
+    @Test
+    void findDetail_sameScorerMultipleGoals_accumulatesCount() {
+        Team alpha = team("Alpha");
+        Team beta = team("Beta");
+        League league = leagueWith(alpha, beta);
+        when(leagueRepository.findById(league.getId())).thenReturn(java.util.Optional.of(league));
+
+        MatchDto finished = new MatchDto();
+        finished.setId(UUID.randomUUID());
+        finished.setHomeTeamId(alpha.getId());
+        finished.setAwayTeamId(beta.getId());
+        finished.setHomeScore(2);
+        finished.setAwayScore(0);
+        finished.setRoundNumber(1);
+        finished.setPlayedAt(LocalDateTime.now().minusHours(3));
+
+        UUID scorerId = UUID.randomUUID();
+        for (int i = 0; i < 2; i++) {
+            GoalDto g = new GoalDto();
+            g.setScorerId(scorerId);
+            g.setScorerName("Hat Trick Hero");
+            g.setTeamId(alpha.getId());
+            finished.getGoalTimeline().add(g);
+        }
+
+        when(matchService.findByLeague(league.getId())).thenReturn(List.of(finished));
+
+        LeagueDetailView view = service.findDetail(league.getId());
+
+        assertThat(view.getTopScorers()).hasSize(1);
+        assertThat(view.getTopScorers().get(0).getCount()).isEqualTo(2);
+    }
+
+    @Test
+    void deleteFinishedOlderThan_deletesEachFinishedLeague() {
+        Team t = team("Alpha");
+        League league = leagueWith(t);
+        when(leagueRepository.findFinishedBefore(any())).thenReturn(List.of(league));
+        when(leagueRepository.findById(league.getId())).thenReturn(java.util.Optional.of(league));
+        when(matchRepository.findAllByHomeTeamOrAwayTeam(t, t)).thenReturn(List.<Match>of());
+
+        int count = service.deleteFinishedOlderThan(90);
+
+        assertThat(count).isEqualTo(1);
+        verify(leagueRepository).delete(league);
+    }
+
+    @Test
+    void deleteFinishedOlderThan_noneFound_returnsZero() {
+        when(leagueRepository.findFinishedBefore(any())).thenReturn(List.of());
+
+        assertThat(service.deleteFinishedOlderThan(90)).isZero();
+    }
 }

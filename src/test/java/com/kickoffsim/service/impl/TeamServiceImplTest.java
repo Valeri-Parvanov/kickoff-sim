@@ -182,6 +182,17 @@ class TeamServiceImplTest {
     }
 
     @Test
+    void create_setsStrengthWithinExpectedRange() {
+        when(teamRepository.save(any(Team.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        TeamDto dto = teamDto();
+        dto.setLeagueId(null);
+        TeamDto result = teamService.create(dto);
+
+        assertThat(result.getStrength()).isBetween(20, 95);
+    }
+
+    @Test
     void update_existingTeam_mapsAndSaves() {
         UUID id = UUID.randomUUID();
         Team existing = new Team();
@@ -193,8 +204,26 @@ class TeamServiceImplTest {
 
         TeamDto result = teamService.update(id, teamDto());
 
-        assertThat(result.getName()).isEqualTo("Test FC");
         assertThat(result.getLeagueId()).isEqualTo(leagueId);
+    }
+
+    @Test
+    void update_ignoresProposedNameChange_keepsOriginalName() {
+        UUID id = UUID.randomUUID();
+        Team existing = new Team();
+        existing.setId(id);
+        existing.setName("Old Name");
+        when(teamRepository.findById(id)).thenReturn(Optional.of(existing));
+        when(leagueRepository.findById(leagueId)).thenReturn(Optional.of(league));
+        when(teamRepository.save(existing)).thenReturn(existing);
+
+        TeamDto dto = teamDto();
+        dto.setName("Renamed FC");
+
+        TeamDto result = teamService.update(id, dto);
+
+        assertThat(result.getName()).isEqualTo("Old Name");
+        assertThat(existing.getName()).isEqualTo("Old Name");
     }
 
     @Test

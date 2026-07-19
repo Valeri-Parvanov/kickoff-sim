@@ -94,8 +94,6 @@ class ChangeRequestServiceImplTest {
         when(validator.validate(any())).thenReturn(Set.of());
     }
 
-    // ---- approve/reject not-found & already-resolved (pre-existing) ----
-
     @Test
     void approve_alreadyApproved_throwsChangeRequestApprovalException() {
         when(changeRequestRepository.findById(approvedRequest.getId()))
@@ -167,8 +165,6 @@ class ChangeRequestServiceImplTest {
         assertThat(pending.getRejectionReason()).isEqualTo("not good");
         verify(changeRequestRepository).save(pending);
     }
-
-    // ---- submitOrExecute ----
 
     @Test
     void submitOrExecute_adminUser_appliesDirectlyAndReturnsTrue() {
@@ -407,6 +403,29 @@ class ChangeRequestServiceImplTest {
     }
 
     @Test
+    void submitOrExecute_regularUser_enrichLeagueBundle_isNoOp() {
+        when(authentication.getName()).thenReturn("user");
+        when(userService.findByUsername("user")).thenReturn(regularUser);
+
+        LeagueBundlePayload payload = leagueBundlePayload("Bundle League", 6, List.of(), List.of());
+        boolean result = changeRequestService.submitOrExecute(
+                EntityType.LEAGUE_BUNDLE, ChangeAction.CREATE, payload, null, authentication);
+
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    void submitOrExecute_regularUser_leagueBundleDelete_throwsChangeRequestApprovalException() {
+        when(authentication.getName()).thenReturn("user");
+        when(userService.findByUsername("user")).thenReturn(regularUser);
+
+        assertThatThrownBy(() -> changeRequestService.submitOrExecute(
+                EntityType.LEAGUE_BUNDLE, ChangeAction.DELETE, null, UUID.randomUUID(), authentication))
+                .isInstanceOf(ChangeRequestApprovalException.class)
+                .hasMessageContaining("cannot be resubmitted");
+    }
+
+    @Test
     void submitOrExecute_regularUser_toJsonFailure_wrapsAsChangeRequestApprovalException() {
         when(authentication.getName()).thenReturn("user");
         when(userService.findByUsername("user")).thenReturn(regularUser);
@@ -418,8 +437,6 @@ class ChangeRequestServiceImplTest {
                 .isInstanceOf(ChangeRequestApprovalException.class)
                 .hasMessageContaining("Failed to serialize");
     }
-
-    // ---- countPending / countMyPending ----
 
     @Test
     void countPending_delegatesToRepository() {
@@ -434,8 +451,6 @@ class ChangeRequestServiceImplTest {
 
         assertThat(changeRequestService.countMyPending(authentication)).isEqualTo(3L);
     }
-
-    // ---- findPending / findMine / toView / buildDetails ----
 
     @Test
     void findPending_mapsToViewWithLeagueDetails() throws Exception {
@@ -674,6 +689,99 @@ class ChangeRequestServiceImplTest {
     }
 
     @Test
+    void buildDetails_teamSquad_updateAction_showsUpdateSquadMessage() throws Exception {
+        TeamDto team = teamDto("Alpha", "Sofia", null);
+        team.setId(UUID.randomUUID());
+        TeamSquadPayload payload = squadPayload(team, List.of(playerDto("F", "L", 9, null)));
+        ChangeRequest cr = changeRequest(ChangeRequestStatus.PENDING, EntityType.TEAM_SQUAD, ChangeAction.UPDATE, json(payload), admin);
+        when(changeRequestRepository.findAllByStatusOrderByRequestedAtAsc(ChangeRequestStatus.PENDING)).thenReturn(List.of(cr));
+
+        List<String> details = changeRequestService.findPending().get(0).getDetails();
+
+        assertThat(details).contains("Update squad for: Alpha");
+    }
+
+    @Test
+    void buildDetails_leagueBundle_withExistingAndNewTeams() throws Exception {
+        UUID knownId = UUID.randomUUID();
+        UUID unknownId = UUID.randomUUID();
+        Team known = new Team();
+        known.setId(knownId);
+        known.setName("Alpha");
+        known.setCity("Sofia");
+        when(teamRepository.findById(knownId)).thenReturn(Optional.of(known));
+        when(teamRepository.findById(unknownId)).thenReturn(Optional.empty());
+
+        TeamDto newTeam = teamDto("Gamma", "Varna", null);
+        TeamSquadPayload newTeamSquad = squadPayload(newTeam, List.of(playerDto("F", "L", 9, null)));
+
+        LeagueBundlePayload payload = leagueBundlePayload("Bundle League", 6,
+                List.of(knownId, unknownId), List.of(newTeamSquad));
+        payload.setScheduleStartDate(LocalDate.of(2026, 8, 1));
+        payload.setScheduleStartTime(LocalTime.of(10, 0));
+
+        ChangeRequest cr = changeRequest(ChangeRequestStatus.PENDING, EntityType.LEAGUE_BUNDLE, ChangeAction.CREATE,
+                json(payload), admin);
+        when(changeRequestRepository.findAllByStatusOrderByRequestedAtAsc(ChangeRequestStatus.PENDING)).thenReturn(List.of(cr));
+
+        List<String> details = changeRequestService.findPending().get(0).getDetails();
+
+        assertThat(details).contains("==League", "Name: Bundle League", "Format: 6 teams",
+                "Round 1 date: 2026-08-01", "First kick-off: 10:00",
+                "==Summary", "1 new team(s), 2 existing team(s)",
+                "==Existing teams (2)", "· Alpha (Sofia)", "· [unknown team]",
+                "==New teams (1)", "· Gamma (Varna) — 1 players");
+    }
+
+    @Test
+    void buildDetails_leagueBundle_existingTeamWithoutCity_omitsCitySuffix() throws Exception {
+        UUID knownId = UUID.randomUUID();
+        Team known = new Team();
+        known.setId(knownId);
+        known.setName("Alpha");
+        when(teamRepository.findById(knownId)).thenReturn(Optional.of(known));
+
+        LeagueBundlePayload payload = leagueBundlePayload("Bundle League", 6, List.of(knownId), List.of());
+        ChangeRequest cr = changeRequest(ChangeRequestStatus.PENDING, EntityType.LEAGUE_BUNDLE, ChangeAction.CREATE,
+                json(payload), admin);
+        when(changeRequestRepository.findAllByStatusOrderByRequestedAtAsc(ChangeRequestStatus.PENDING)).thenReturn(List.of(cr));
+
+        List<String> details = changeRequestService.findPending().get(0).getDetails();
+
+        assertThat(details).contains("· Alpha");
+        assertThat(details).noneMatch(line -> line.contains("Alpha ("));
+    }
+
+    @Test
+    void buildDetails_leagueBundle_newTeamWithoutCity_omitsCitySuffix() throws Exception {
+        TeamDto newTeam = teamDto("Gamma", null, null);
+        TeamSquadPayload newTeamSquad = squadPayload(newTeam, List.of());
+
+        LeagueBundlePayload payload = leagueBundlePayload("Bundle League", 6, List.of(), List.of(newTeamSquad));
+        ChangeRequest cr = changeRequest(ChangeRequestStatus.PENDING, EntityType.LEAGUE_BUNDLE, ChangeAction.CREATE,
+                json(payload), admin);
+        when(changeRequestRepository.findAllByStatusOrderByRequestedAtAsc(ChangeRequestStatus.PENDING)).thenReturn(List.of(cr));
+
+        List<String> details = changeRequestService.findPending().get(0).getDetails();
+
+        assertThat(details).contains("· Gamma — 0 players");
+        assertThat(details).noneMatch(line -> line.contains("Gamma ("));
+    }
+
+    @Test
+    void buildDetails_leagueBundle_noScheduleNoTeams_omitsOptionalSections() throws Exception {
+        LeagueBundlePayload payload = leagueBundlePayload("Empty Bundle", 6, List.of(), List.of());
+        ChangeRequest cr = changeRequest(ChangeRequestStatus.PENDING, EntityType.LEAGUE_BUNDLE, ChangeAction.CREATE,
+                json(payload), admin);
+        when(changeRequestRepository.findAllByStatusOrderByRequestedAtAsc(ChangeRequestStatus.PENDING)).thenReturn(List.of(cr));
+
+        List<String> details = changeRequestService.findPending().get(0).getDetails();
+
+        assertThat(details).containsExactly("==League", "Name: Empty Bundle", "Format: 6 teams",
+                "==Summary", "0 new team(s), 0 existing team(s)");
+    }
+
+    @Test
     void buildDetails_unreadablePayload_returnsFallbackMessage() {
         ChangeRequest cr = changeRequest(ChangeRequestStatus.PENDING, EntityType.LEAGUE, ChangeAction.CREATE, "not-json", admin);
         when(changeRequestRepository.findAllByStatusOrderByRequestedAtAsc(ChangeRequestStatus.PENDING)).thenReturn(List.of(cr));
@@ -682,8 +790,6 @@ class ChangeRequestServiceImplTest {
 
         assertThat(details).containsExactly("(unable to read change details)");
     }
-
-    // ---- getPayloadForResubmit ----
 
     @Test
     void getPayloadForResubmit_pendingOwnedNonDelete_returnsPayload() throws Exception {
@@ -754,7 +860,29 @@ class ChangeRequestServiceImplTest {
                 .isInstanceOf(EntityNotFoundException.class);
     }
 
-    // ---- approve: happy paths per entity type ----
+    @Test
+    void getRejectionReason_ownedRequest_returnsReason() {
+        when(authentication.getName()).thenReturn("user");
+        when(userService.findByUsername("user")).thenReturn(regularUser);
+        ChangeRequest cr = changeRequest(ChangeRequestStatus.REJECTED, EntityType.TEAM, ChangeAction.CREATE, "{}", regularUser);
+        cr.setRejectionReason("Team name already exists");
+        when(changeRequestRepository.findById(cr.getId())).thenReturn(Optional.of(cr));
+
+        String reason = changeRequestService.getRejectionReason(cr.getId(), authentication);
+
+        assertThat(reason).isEqualTo("Team name already exists");
+    }
+
+    @Test
+    void getRejectionReason_notOwner_throws() {
+        when(authentication.getName()).thenReturn("user");
+        when(userService.findByUsername("user")).thenReturn(regularUser);
+        ChangeRequest cr = changeRequest(ChangeRequestStatus.REJECTED, EntityType.TEAM, ChangeAction.CREATE, "{}", admin);
+        when(changeRequestRepository.findById(cr.getId())).thenReturn(Optional.of(cr));
+
+        assertThatThrownBy(() -> changeRequestService.getRejectionReason(cr.getId(), authentication))
+                .isInstanceOf(EntityNotFoundException.class);
+    }
 
     @Test
     void approve_league_create_withScheduleDates_generatesSchedule() throws Exception {
@@ -843,6 +971,98 @@ class ChangeRequestServiceImplTest {
         changeRequestService.approve(cr.getId(), authentication);
 
         verify(leagueService).delete(targetId);
+    }
+
+    @Test
+    void approve_leagueBundle_createsNewTeamsThenLeagueAndGeneratesSchedule() throws Exception {
+        UUID existingTeamId = UUID.randomUUID();
+        UUID newTeamId = UUID.randomUUID();
+        UUID newLeagueId = UUID.randomUUID();
+
+        TeamDto newTeamDto = teamDto("Gamma", "Varna", null);
+        TeamSquadPayload newTeamSquad = squadPayload(newTeamDto, List.of(playerDto("F1", "L1", 1, null)));
+
+        LeagueBundlePayload payload = leagueBundlePayload("Bundle League", 6,
+                List.of(existingTeamId), List.of(newTeamSquad));
+        payload.setScheduleStartDate(LocalDate.of(2026, 8, 1));
+        payload.setScheduleStartTime(LocalTime.of(10, 0));
+
+        ChangeRequest cr = changeRequest(ChangeRequestStatus.PENDING, EntityType.LEAGUE_BUNDLE, ChangeAction.CREATE,
+                json(payload), regularUser);
+        when(changeRequestRepository.findById(cr.getId())).thenReturn(Optional.of(cr));
+
+        TeamDto createdTeam = teamDto("Gamma", "Varna", null);
+        createdTeam.setId(newTeamId);
+        when(teamService.create(any(TeamDto.class))).thenReturn(createdTeam);
+
+        LeagueDto savedLeague = new LeagueDto();
+        savedLeague.setId(newLeagueId);
+        when(leagueService.create(any(LeagueDto.class))).thenReturn(savedLeague);
+
+        changeRequestService.approve(cr.getId(), authentication);
+
+        ArgumentCaptor<TeamDto> teamCaptor = ArgumentCaptor.forClass(TeamDto.class);
+        verify(teamService).create(teamCaptor.capture());
+        assertThat(teamCaptor.getValue().getName()).isEqualTo("Gamma");
+
+        ArgumentCaptor<PlayerDto> playerCaptor = ArgumentCaptor.forClass(PlayerDto.class);
+        verify(playerService).create(playerCaptor.capture());
+        assertThat(playerCaptor.getValue().getTeamId()).isEqualTo(newTeamId);
+
+        ArgumentCaptor<LeagueDto> leagueCaptor = ArgumentCaptor.forClass(LeagueDto.class);
+        verify(leagueService).create(leagueCaptor.capture());
+        assertThat(leagueCaptor.getValue().getTeamIds()).containsExactlyInAnyOrder(existingTeamId, newTeamId);
+
+        verify(scheduleService).generate(newLeagueId, LocalDate.of(2026, 8, 1), LocalTime.of(10, 0));
+        assertThat(cr.getStatus()).isEqualTo(ChangeRequestStatus.APPROVED);
+    }
+
+    @Test
+    void approve_leagueBundle_withoutScheduleDates_usesDefaults() throws Exception {
+        LeagueBundlePayload payload = leagueBundlePayload("Bundle League", 6, List.of(), List.of());
+        ChangeRequest cr = changeRequest(ChangeRequestStatus.PENDING, EntityType.LEAGUE_BUNDLE, ChangeAction.CREATE,
+                json(payload), regularUser);
+        when(changeRequestRepository.findById(cr.getId())).thenReturn(Optional.of(cr));
+        UUID newLeagueId = UUID.randomUUID();
+        LeagueDto saved = new LeagueDto();
+        saved.setId(newLeagueId);
+        when(leagueService.create(any(LeagueDto.class))).thenReturn(saved);
+
+        changeRequestService.approve(cr.getId(), authentication);
+
+        verify(scheduleService).generate(eq(newLeagueId), eq(LocalDate.now()), eq(LocalTime.of(11, 0)));
+    }
+
+    @Test
+    void approve_leagueBundle_scheduleGenerationThrows_stillApproves() throws Exception {
+        LeagueBundlePayload payload = leagueBundlePayload("Bundle League", 6, List.of(), List.of());
+        ChangeRequest cr = changeRequest(ChangeRequestStatus.PENDING, EntityType.LEAGUE_BUNDLE, ChangeAction.CREATE,
+                json(payload), regularUser);
+        when(changeRequestRepository.findById(cr.getId())).thenReturn(Optional.of(cr));
+        UUID newLeagueId = UUID.randomUUID();
+        LeagueDto saved = new LeagueDto();
+        saved.setId(newLeagueId);
+        when(leagueService.create(any(LeagueDto.class))).thenReturn(saved);
+        org.mockito.Mockito.doThrow(new RuntimeException("boom"))
+                .when(scheduleService).generate(any(), any(), any());
+
+        changeRequestService.approve(cr.getId(), authentication);
+
+        assertThat(cr.getStatus()).isEqualTo(ChangeRequestStatus.APPROVED);
+    }
+
+    @Test
+    void approve_dataIntegrityViolation_leagueBundle_throwsBundleMessage() throws Exception {
+        LeagueBundlePayload payload = leagueBundlePayload("Dup Bundle", 6, List.of(), List.of());
+        ChangeRequest cr = changeRequest(ChangeRequestStatus.PENDING, EntityType.LEAGUE_BUNDLE, ChangeAction.CREATE,
+                json(payload), regularUser);
+        when(changeRequestRepository.findById(cr.getId())).thenReturn(Optional.of(cr));
+        org.mockito.Mockito.doThrow(new DataIntegrityViolationException("dup"))
+                .when(leagueService).create(any());
+
+        assertThatThrownBy(() -> changeRequestService.approve(cr.getId(), authentication))
+                .isInstanceOf(ChangeRequestApprovalException.class)
+                .hasMessage("A team or league name in this bundle already exists. Choose different names.");
     }
 
     @Test
@@ -949,7 +1169,45 @@ class ChangeRequestServiceImplTest {
         assertThat(captor.getValue().getTeamId()).isEqualTo(existingTeamId);
     }
 
-    // ---- approve: violation / exception branches ----
+    @Test
+    void approve_teamSquad_update_replacesSquad_deletesUpdatesAndCreates() throws Exception {
+        UUID teamId = UUID.randomUUID();
+        TeamDto team = teamDto("Alpha", "Sofia", null);
+        team.setId(teamId);
+
+        UUID keepId = UUID.randomUUID();
+        UUID removeId = UUID.randomUUID();
+        PlayerDto keep = new PlayerDto();
+        keep.setId(keepId);
+        PlayerDto remove = new PlayerDto();
+        remove.setId(removeId);
+        when(playerService.findAllByTeam(teamId)).thenReturn(List.of(keep, remove));
+
+        PlayerDto keptUpdated = new PlayerDto();
+        keptUpdated.setId(keepId);
+        keptUpdated.setFirstName("F1");
+        keptUpdated.setLastName("Renamed");
+        keptUpdated.setShirtNumber(1);
+        PlayerDto brandNew = playerDto("New", "Player", 2, null);
+
+        TeamSquadPayload payload = squadPayload(team, List.of(keptUpdated, brandNew));
+        ChangeRequest cr = changeRequest(ChangeRequestStatus.PENDING, EntityType.TEAM_SQUAD, ChangeAction.UPDATE, json(payload), regularUser);
+        cr.setTargetId(teamId);
+        when(changeRequestRepository.findById(cr.getId())).thenReturn(Optional.of(cr));
+
+        changeRequestService.approve(cr.getId(), authentication);
+
+        verify(playerService).delete(removeId);
+        verify(playerService, never()).delete(keepId);
+        ArgumentCaptor<PlayerDto> updateCaptor = ArgumentCaptor.forClass(PlayerDto.class);
+        verify(playerService).update(eq(keepId), updateCaptor.capture());
+        assertThat(updateCaptor.getValue().getLastName()).isEqualTo("Renamed");
+        assertThat(updateCaptor.getValue().getTeamId()).isEqualTo(teamId);
+        ArgumentCaptor<PlayerDto> createCaptor = ArgumentCaptor.forClass(PlayerDto.class);
+        verify(playerService).create(createCaptor.capture());
+        assertThat(createCaptor.getValue().getFirstName()).isEqualTo("New");
+        assertThat(createCaptor.getValue().getTeamId()).isEqualTo(teamId);
+    }
 
     @Test
     void approve_validationViolation_throwsWithJoinedMessages() throws Exception {
@@ -1083,8 +1341,6 @@ class ChangeRequestServiceImplTest {
                 .hasMessageContaining("Failed to read");
     }
 
-    // ---- cancelMine / cancelIfPending (pre-existing) ----
-
     @Test
     void cancelMine_ownPendingRequest_deletesIt() {
         ChangeRequest pending = changeRequest(ChangeRequestStatus.PENDING, EntityType.LEAGUE, ChangeAction.CREATE, "{}", admin);
@@ -1169,8 +1425,6 @@ class ChangeRequestServiceImplTest {
         verify(changeRequestRepository, never()).deleteById(any());
     }
 
-    // ---- expireStalePending / purgeResolvedOlderThan ----
-
     @Test
     void expireStalePending_withStaleRequests_expiresThem() {
         ChangeRequest stale = changeRequest(ChangeRequestStatus.PENDING, EntityType.LEAGUE, ChangeAction.CREATE, "{}", admin);
@@ -1213,8 +1467,6 @@ class ChangeRequestServiceImplTest {
 
         assertThat(removed).isZero();
     }
-
-    // ---- helpers ----
 
     private ChangeRequest changeRequest(ChangeRequestStatus status, EntityType entityType, ChangeAction action,
                                          String payload, User requestedBy) {
@@ -1266,6 +1518,16 @@ class ChangeRequestServiceImplTest {
         TeamSquadPayload payload = new TeamSquadPayload();
         payload.setTeam(team);
         payload.setPlayers(new java.util.ArrayList<>(players));
+        return payload;
+    }
+
+    private LeagueBundlePayload leagueBundlePayload(String leagueName, int format,
+                                                      List<UUID> existingTeamIds, List<TeamSquadPayload> newTeams) {
+        LeagueBundlePayload payload = new LeagueBundlePayload();
+        payload.setLeagueName(leagueName);
+        payload.setFormat(format);
+        payload.setExistingTeamIds(new java.util.ArrayList<>(existingTeamIds));
+        payload.setNewTeams(new java.util.ArrayList<>(newTeams));
         return payload;
     }
 

@@ -1,5 +1,7 @@
 package com.kickoffsim.controller;
 
+import com.kickoffsim.client.NotificationClient;
+import com.kickoffsim.client.SubscriptionDto;
 import com.kickoffsim.dto.GoalDto;
 import com.kickoffsim.dto.LeagueDetailView;
 import com.kickoffsim.dto.LeagueDto;
@@ -8,10 +10,12 @@ import com.kickoffsim.dto.ScheduleForm;
 import com.kickoffsim.dto.TeamDto;
 import com.kickoffsim.exception.InvalidLeagueOperationException;
 import com.kickoffsim.model.Half;
+import com.kickoffsim.model.User;
 import com.kickoffsim.service.ChangeRequestService;
 import com.kickoffsim.service.LeagueService;
 import com.kickoffsim.service.ScheduleService;
 import com.kickoffsim.service.TeamService;
+import com.kickoffsim.service.UserService;
 import com.kickoffsim.web.MatchFollowSupport;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
@@ -56,6 +60,8 @@ class LeagueControllerTest {
     @Mock private ChangeRequestService changeRequestService;
     @Mock private ScheduleService scheduleService;
     @Mock private MatchFollowSupport matchFollowSupport;
+    @Mock private NotificationClient notificationClient;
+    @Mock private UserService userService;
 
     @InjectMocks private LeagueController controller;
 
@@ -371,6 +377,84 @@ class LeagueControllerTest {
 
         assertThat(controller.detail(id, null, auth, request, model)).isEqualTo("leagues/detail");
         assertThat(model.getAttribute("league")).isSameAs(league);
+    }
+
+    @Test
+    void detail_authenticated_followingLeague_setsFollowedSubscriptionId() {
+        UUID id = UUID.randomUUID();
+        Authentication a = authWithSubs("bob", UUID.randomUUID());
+        LeagueDetailView league = mock(LeagueDetailView.class);
+        when(league.getMatches()).thenReturn(List.of());
+        when(leagueService.findDetail(id)).thenReturn(league);
+        when(matchFollowSupport.subscribedMatchIds(a)).thenReturn(Set.of());
+
+        SubscriptionDto leagueSub = new SubscriptionDto();
+        leagueSub.setId(UUID.randomUUID());
+        leagueSub.setEntityType("LEAGUE");
+        leagueSub.setEntityId(id);
+        SubscriptionDto otherLeagueSub = new SubscriptionDto();
+        otherLeagueSub.setId(UUID.randomUUID());
+        otherLeagueSub.setEntityType("LEAGUE");
+        otherLeagueSub.setEntityId(UUID.randomUUID());
+        SubscriptionDto teamSub = new SubscriptionDto();
+        teamSub.setId(UUID.randomUUID());
+        teamSub.setEntityType("TEAM");
+        teamSub.setEntityId(id);
+        when(notificationClient.getSubscriptions(any())).thenReturn(List.of(teamSub, otherLeagueSub, leagueSub));
+
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getQueryString()).thenReturn(null);
+        when(request.getRequestURI()).thenReturn("/leagues/" + id);
+        Model model = new ExtendedModelMap();
+
+        assertThat(controller.detail(id, null, a, request, model)).isEqualTo("leagues/detail");
+        assertThat(model.getAttribute("followedSubscriptionId")).isEqualTo(leagueSub.getId());
+    }
+
+    @Test
+    void detail_authenticated_subscriptionLookupFails_ignoresError() {
+        UUID id = UUID.randomUUID();
+        Authentication a = authWithSubs("bob", UUID.randomUUID());
+        LeagueDetailView league = mock(LeagueDetailView.class);
+        when(league.getMatches()).thenReturn(List.of());
+        when(leagueService.findDetail(id)).thenReturn(league);
+        when(matchFollowSupport.subscribedMatchIds(a)).thenReturn(Set.of());
+        when(notificationClient.getSubscriptions(any())).thenThrow(new RuntimeException("down"));
+
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getQueryString()).thenReturn(null);
+        when(request.getRequestURI()).thenReturn("/leagues/" + id);
+        Model model = new ExtendedModelMap();
+
+        assertThat(controller.detail(id, null, a, request, model)).isEqualTo("leagues/detail");
+        assertThat(model.getAttribute("followedSubscriptionId")).isNull();
+    }
+
+    @Test
+    void detail_anonymous_skipsSubscriptionLookup() {
+        UUID id = UUID.randomUUID();
+        LeagueDetailView league = mock(LeagueDetailView.class);
+        when(league.getMatches()).thenReturn(List.of());
+        when(leagueService.findDetail(id)).thenReturn(league);
+        when(matchFollowSupport.subscribedMatchIds(null)).thenReturn(Set.of());
+
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getQueryString()).thenReturn(null);
+        when(request.getRequestURI()).thenReturn("/leagues/" + id);
+        Model model = new ExtendedModelMap();
+
+        assertThat(controller.detail(id, null, null, request, model)).isEqualTo("leagues/detail");
+        assertThat(model.getAttribute("followedSubscriptionId")).isNull();
+        verify(notificationClient, never()).getSubscriptions(any());
+    }
+
+    private Authentication authWithSubs(String username, UUID userId) {
+        User user = new User();
+        user.setId(userId);
+        when(userService.findByUsername(username)).thenReturn(user);
+        Authentication a = mock(Authentication.class);
+        when(a.getName()).thenReturn(username);
+        return a;
     }
 
     @Test
