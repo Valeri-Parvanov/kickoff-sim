@@ -1,7 +1,7 @@
-package bg.softuni.footballleague.repository;
+package com.kickoffsim.repository;
 
-import bg.softuni.footballleague.model.Role;
-import bg.softuni.footballleague.model.User;
+import com.kickoffsim.model.Role;
+import com.kickoffsim.model.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;

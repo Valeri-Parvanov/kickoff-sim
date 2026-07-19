@@ -1,7 +1,7 @@
-package bg.softuni.footballleague.security;
+package com.kickoffsim.security;
 
-import bg.softuni.footballleague.model.User;
-import bg.softuni.footballleague.repository.UserRepository;
+import com.kickoffsim.model.User;
+import com.kickoffsim.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;

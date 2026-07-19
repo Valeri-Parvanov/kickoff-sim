@@ -1,16 +1,16 @@
-package bg.softuni.footballleague.service.impl;
+package com.kickoffsim.service.impl;
 
-import bg.softuni.footballleague.dto.TeamDto;
-import bg.softuni.footballleague.exception.EntityNotFoundException;
-import bg.softuni.footballleague.model.League;
-import bg.softuni.footballleague.model.Match;
-import bg.softuni.footballleague.model.Team;
-import bg.softuni.footballleague.repository.LeagueRepository;
-import bg.softuni.footballleague.repository.MatchRepository;
-import bg.softuni.footballleague.repository.PlayerRepository;
-import bg.softuni.footballleague.repository.TeamRepository;
-import bg.softuni.footballleague.scheduling.TeamCreatedEvent;
-import bg.softuni.footballleague.service.TeamService;
+import com.kickoffsim.dto.TeamDto;
+import com.kickoffsim.exception.EntityNotFoundException;
+import com.kickoffsim.model.League;
+import com.kickoffsim.model.Match;
+import com.kickoffsim.model.Team;
+import com.kickoffsim.repository.LeagueRepository;
+import com.kickoffsim.repository.MatchRepository;
+import com.kickoffsim.repository.PlayerRepository;
+import com.kickoffsim.repository.TeamRepository;
+import com.kickoffsim.scheduling.TeamCreatedEvent;
+import com.kickoffsim.service.TeamService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 @Slf4j
@@ -28,6 +29,11 @@ import java.util.UUID;
 public class TeamServiceImpl implements TeamService {
 
     private static final Sort DEFAULT_SORT = Sort.by("league.name").and(Sort.by("name"));
+
+    private static final int STRENGTH_MEAN = 60;
+    private static final int STRENGTH_STDDEV = 20;
+    private static final int STRENGTH_MIN = 20;
+    private static final int STRENGTH_MAX = 95;
 
     private final TeamRepository teamRepository;
     private final LeagueRepository leagueRepository;
@@ -86,6 +92,7 @@ public class TeamServiceImpl implements TeamService {
     public TeamDto create(TeamDto teamDto) {
         Team team = new Team();
         mapToEntity(teamDto, team);
+        team.setStrength(rollStrength());
         Team saved = teamRepository.save(team);
         if (saved.getLeague() != null) {
             eventPublisher.publishEvent(new TeamCreatedEvent(saved.getLeague().getId()));
@@ -98,6 +105,7 @@ public class TeamServiceImpl implements TeamService {
     @Transactional
     public TeamDto update(UUID id, TeamDto teamDto) {
         Team team = getTeamOrThrow(id);
+        teamDto.setName(team.getName());
         mapToEntity(teamDto, team);
         TeamDto saved = toDto(teamRepository.save(team));
         log.info("Updated team {}", id);
@@ -130,6 +138,11 @@ public class TeamServiceImpl implements TeamService {
         team.setLeague(teamDto.getLeagueId() != null ? getLeagueOrThrow(teamDto.getLeagueId()) : null);
     }
 
+    private int rollStrength() {
+        int value = (int) Math.round(STRENGTH_MEAN + ThreadLocalRandom.current().nextGaussian() * STRENGTH_STDDEV);
+        return Math.max(STRENGTH_MIN, Math.min(STRENGTH_MAX, value));
+    }
+
     private TeamDto toDto(Team team) {
         TeamDto teamDto = new TeamDto();
         teamDto.setId(team.getId());
@@ -138,6 +151,7 @@ public class TeamServiceImpl implements TeamService {
         teamDto.setLeagueId(team.getLeague() != null ? team.getLeague().getId() : null);
         teamDto.setLeagueName(team.getLeague() != null ? team.getLeague().getName() : null);
         teamDto.setPlayerCount(playerRepository.countByTeam(team));
+        teamDto.setStrength(team.getStrength());
         return teamDto;
     }
 }

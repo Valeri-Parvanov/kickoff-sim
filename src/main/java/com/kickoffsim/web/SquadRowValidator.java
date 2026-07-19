@@ -1,7 +1,7 @@
-package bg.softuni.footballleague.web;
+package com.kickoffsim.web;
 
-import bg.softuni.footballleague.dto.PlayerDto;
-import bg.softuni.footballleague.dto.PlayerRowDto;
+import com.kickoffsim.dto.PlayerDto;
+import com.kickoffsim.dto.PlayerRowDto;
 import org.springframework.validation.BindingResult;
 
 import java.util.ArrayList;
@@ -50,11 +50,25 @@ public final class SquadRowValidator {
         return filledRows;
     }
 
+    public static void autoFillShirtNumbers(List<PlayerRowDto> rows, Set<Integer> takenNumbers, int remaining) {
+        int next = 1;
+        while (rows.size() < remaining) {
+            PlayerRowDto row = new PlayerRowDto();
+            while (next <= 99 && takenNumbers.contains(next)) next++;
+            if (next <= 99) {
+                row.setShirtNumber(next);
+                takenNumbers.add(next++);
+            }
+            rows.add(row);
+        }
+    }
+
     public static List<PlayerDto> toPlayers(List<PlayerRowDto> rows, List<Integer> filledRows) {
         List<PlayerDto> players = new ArrayList<>();
         for (int index : filledRows) {
             PlayerRowDto row = rows.get(index);
             PlayerDto dto = new PlayerDto();
+            dto.setId(row.getId());
             dto.setFirstName(row.getFirstName().trim());
             dto.setLastName(row.getLastName().trim());
             dto.setShirtNumber(row.getShirtNumber());

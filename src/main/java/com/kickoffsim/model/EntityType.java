@@ -1,9 +1,10 @@
-package bg.softuni.footballleague.model;
+package com.kickoffsim.model;
 
 public enum EntityType {
     LEAGUE,
     TEAM,
     PLAYER,
     MATCH,
-    TEAM_SQUAD
+    TEAM_SQUAD,
+    LEAGUE_BUNDLE
 }

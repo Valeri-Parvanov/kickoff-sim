@@ -1,14 +1,15 @@
-package bg.softuni.footballleague.service.impl;
+package com.kickoffsim.service.impl;
 
-import bg.softuni.footballleague.dto.PlayerDto;
-import bg.softuni.footballleague.exception.DuplicateShirtNumberException;
-import bg.softuni.footballleague.exception.EntityNotFoundException;
-import bg.softuni.footballleague.exception.SquadLimitExceededException;
-import bg.softuni.footballleague.model.Player;
-import bg.softuni.footballleague.model.Team;
-import bg.softuni.footballleague.repository.PlayerRepository;
-import bg.softuni.footballleague.repository.TeamRepository;
-import bg.softuni.footballleague.service.PlayerService;
+import com.kickoffsim.dto.PlayerDto;
+import com.kickoffsim.exception.DuplicateShirtNumberException;
+import com.kickoffsim.exception.EntityNotFoundException;
+import com.kickoffsim.exception.SquadLimitExceededException;
+import com.kickoffsim.model.Player;
+import com.kickoffsim.model.Team;
+import com.kickoffsim.repository.GoalRepository;
+import com.kickoffsim.repository.PlayerRepository;
+import com.kickoffsim.repository.TeamRepository;
+import com.kickoffsim.service.PlayerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
@@ -16,7 +17,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -30,6 +33,7 @@ public class PlayerServiceImpl implements PlayerService {
 
     private final PlayerRepository playerRepository;
     private final TeamRepository teamRepository;
+    private final GoalRepository goalRepository;
 
     @Override
     public List<PlayerDto> findAll() {
@@ -46,10 +50,25 @@ public class PlayerServiceImpl implements PlayerService {
     @Override
     public List<PlayerDto> findAllByTeam(UUID teamId) {
         Team team = getTeamOrThrow(teamId);
+        Map<UUID, Long> goalsByPlayer = toCountMap(goalRepository.countGoalsByTeamGroupedByScorer(teamId));
+        Map<UUID, Long> assistsByPlayer = toCountMap(goalRepository.countAssistsByTeamGroupedByAssistant(teamId));
+
         return playerRepository.findAllByTeam(team).stream()
                 .map(this::toDto)
+                .peek(dto -> {
+                    dto.setGoals(goalsByPlayer.getOrDefault(dto.getId(), 0L).intValue());
+                    dto.setAssists(assistsByPlayer.getOrDefault(dto.getId(), 0L).intValue());
+                })
                 .sorted(Comparator.comparingInt(PlayerDto::getShirtNumber))
                 .toList();
+    }
+
+    private Map<UUID, Long> toCountMap(List<Object[]> rows) {
+        Map<UUID, Long> map = new HashMap<>();
+        for (Object[] row : rows) {
+            map.put((UUID) row[0], (Long) row[1]);
+        }
+        return map;
     }
 
     @Override

@@ -1,19 +1,24 @@
-package bg.softuni.footballleague.controller;
+package com.kickoffsim.controller;
 
-import bg.softuni.footballleague.dto.LeagueDetailView;
-import bg.softuni.footballleague.dto.LeagueDto;
-import bg.softuni.footballleague.dto.MatchDto;
-import bg.softuni.footballleague.dto.ScheduleForm;
-import bg.softuni.footballleague.exception.InvalidLeagueOperationException;
-import bg.softuni.footballleague.model.ChangeAction;
-import bg.softuni.footballleague.model.EntityType;
-import bg.softuni.footballleague.model.LeagueFormat;
-import bg.softuni.footballleague.service.ChangeRequestService;
-import bg.softuni.footballleague.service.LeagueService;
-import bg.softuni.footballleague.service.ScheduleService;
-import bg.softuni.footballleague.service.TeamService;
-import bg.softuni.footballleague.web.MatchFollowSupport;
-import bg.softuni.footballleague.web.SortSupport;
+import com.kickoffsim.client.NotificationClient;
+import com.kickoffsim.dto.LeagueDetailView;
+import com.kickoffsim.dto.LeagueDto;
+import com.kickoffsim.dto.MatchDto;
+import com.kickoffsim.dto.ScheduleForm;
+import com.kickoffsim.exception.InvalidLeagueOperationException;
+import com.kickoffsim.model.ChangeAction;
+import com.kickoffsim.model.EntityType;
+import com.kickoffsim.model.LeagueFormat;
+import com.kickoffsim.service.ChangeRequestService;
+import com.kickoffsim.service.LeagueService;
+import com.kickoffsim.service.ScheduleService;
+import com.kickoffsim.service.TeamService;
+import com.kickoffsim.service.UserService;
+import com.kickoffsim.web.LiveMatchJsSupport;
+import com.kickoffsim.web.MatchFollowSupport;
+import com.kickoffsim.web.ResubmitSupport;
+import com.kickoffsim.web.ScheduleWindowSupport;
+import com.kickoffsim.web.SortSupport;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +32,6 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -49,6 +53,8 @@ public class LeagueController {
     private final ChangeRequestService changeRequestService;
     private final ScheduleService scheduleService;
     private final MatchFollowSupport matchFollowSupport;
+    private final NotificationClient notificationClient;
+    private final UserService userService;
 
     @GetMapping("/{id}")
     public String detail(@PathVariable UUID id, @RequestParam(required = false) Integer round,
@@ -111,32 +117,11 @@ public class LeagueController {
                     .collect(java.util.stream.Collectors.toSet());
             model.addAttribute("liveTeamIds", liveTeamIds);
 
-            List<Map<String, Object>> liveMatchesForJs = league.getMatches().stream()
+            List<MatchDto> liveLeagueMatches = league.getMatches().stream()
                     .filter(m -> m.getPlayedAt().isBefore(now) && m.getPlayedAt().isAfter(liveThreshold))
-                    .map(m -> {
-                        List<Map<String, Object>> goals = m.getGoalTimeline().stream()
-                                .map(g -> Map.<String, Object>of(
-                                        "minute", g.getMinute() != null ? g.getMinute() : 0,
-                                        "half", g.getHalf() != null ? g.getHalf().name() : "FIRST",
-                                        "homeGoal", g.isHomeGoal(),
-                                        "rh", g.getRunningHomeScore() != null ? g.getRunningHomeScore() : 0,
-                                        "ra", g.getRunningAwayScore() != null ? g.getRunningAwayScore() : 0))
-                                .toList();
-                        return Map.<String, Object>of(
-                                "id", m.getId().toString(),
-                                "homeTeamId", m.getHomeTeamId().toString(),
-                                "awayTeamId", m.getAwayTeamId().toString(),
-                                "elapsedMin", Duration.between(m.getPlayedAt(), now).toMinutes(),
-                                "goals", goals);
-                    })
                     .toList();
-            model.addAttribute("liveMatchesForJs", liveMatchesForJs);
-            Map<UUID, Long> elapsedByMatchId = league.getMatches().stream()
-                    .filter(m -> m.getPlayedAt().isBefore(now) && m.getPlayedAt().isAfter(liveThreshold))
-                    .collect(java.util.stream.Collectors.toMap(
-                            MatchDto::getId,
-                            m -> Duration.between(m.getPlayedAt(), now).toMinutes()));
-            model.addAttribute("elapsedByMatchId", elapsedByMatchId);
+            model.addAttribute("liveMatchesForJs", LiveMatchJsSupport.toJs(liveLeagueMatches, now));
+            model.addAttribute("elapsedByMatchId", LiveMatchJsSupport.elapsedByMatchId(liveLeagueMatches, now));
             model.addAttribute("totalMatchCount", (long) league.getMatches().size());
             model.addAttribute("playedMatchCount", league.getMatches().stream()
                     .filter(m -> m.getPlayedAt().isBefore(liveThreshold))
@@ -144,6 +129,15 @@ public class LeagueController {
         }
 
         model.addAttribute("subscribedMatchIds", matchFollowSupport.subscribedMatchIds(authentication));
+        if (authentication != null) {
+            try {
+                UUID userId = userService.findByUsername(authentication.getName()).getId();
+                notificationClient.getSubscriptions(userId).stream()
+                        .filter(s -> "LEAGUE".equals(s.getEntityType()) && id.equals(s.getEntityId()))
+                        .findFirst()
+                        .ifPresent(s -> model.addAttribute("followedSubscriptionId", s.getId()));
+            } catch (Exception ignored) {}
+        }
         model.addAttribute("currentUrl", request.getQueryString() == null
                 ? request.getRequestURI()
                 : request.getRequestURI() + "?" + request.getQueryString());
@@ -162,16 +156,11 @@ public class LeagueController {
             return "redirect:/leagues/" + id;
         }
         LeagueDetailView scheduleDetail = leagueService.findDetail(id);
-        int matchesPerRound = scheduleDetail.getTeams().size() / 2;
-        if (matchesPerRound > 1) {
-            LocalTime lastStart = form.getStartTime().plusMinutes((matchesPerRound - 1) * 60L);
-            if (lastStart.isAfter(LocalTime.of(23, 30))) {
-                LocalTime maxStart = LocalTime.of(23, 30).minusMinutes((matchesPerRound - 1) * 60L);
-                redirectAttributes.addFlashAttribute("scheduleError",
-                        "With " + scheduleDetail.getTeams().size() + " teams, last match starts at " +
-                        lastStart + ". Use " + maxStart + " or earlier, or move Round 1 to the next day.");
-                return "redirect:/leagues/" + id;
-            }
+        Optional<String> windowError = ScheduleWindowSupport.checkLastMatchTooLate(
+                scheduleDetail.getTeams().size(), form.getStartTime());
+        if (windowError.isPresent()) {
+            redirectAttributes.addFlashAttribute("scheduleError", windowError.get());
+            return "redirect:/leagues/" + id;
         }
         try {
             scheduleService.generate(id, form.getStartDate(), form.getStartTime());
@@ -216,7 +205,7 @@ public class LeagueController {
         model.addAttribute("leagueDto", leagueDto);
         model.addAttribute("availableTeams", freeTeams);
         model.addAttribute("eligibleCount", eligibleCount);
-        if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
+        if (fromRequest != null) ResubmitSupport.addRejectionBanner(model, changeRequestService, fromRequest, authentication);
         return "leagues/form";
     }
 
@@ -236,14 +225,8 @@ public class LeagueController {
         if (leagueDto.getScheduleStartTime() != null
                 && leagueDto.getTeamIds() != null && !leagueDto.getTeamIds().isEmpty()
                 && LeagueFormat.forTeamCount(leagueDto.getTeamIds().size()).isPresent()) {
-            int matchesPerRound = leagueDto.getTeamIds().size() / 2;
-            LocalTime lastStart = leagueDto.getScheduleStartTime().plusMinutes((matchesPerRound - 1) * 60L);
-            if (lastStart.isAfter(LocalTime.of(23, 30))) {
-                LocalTime maxStart = LocalTime.of(23, 30).minusMinutes((matchesPerRound - 1) * 60L);
-                bindingResult.rejectValue("scheduleStartTime", "schedule.time.toolate",
-                        "With " + leagueDto.getTeamIds().size() + " teams, last match starts at " +
-                        lastStart + ". Use " + maxStart + " or earlier, or choose the next day.");
-            }
+            ScheduleWindowSupport.checkLastMatchTooLate(leagueDto.getTeamIds().size(), leagueDto.getScheduleStartTime())
+                    .ifPresent(message -> bindingResult.rejectValue("scheduleStartTime", "schedule.time.toolate", message));
         }
         if (bindingResult.hasErrors()) {
             var freeTeams = teamService.findAllFree();

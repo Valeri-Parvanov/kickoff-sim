@@ -1,8 +1,8 @@
-package bg.softuni.footballleague.repository;
+package com.kickoffsim.repository;
 
-import bg.softuni.footballleague.model.Goal;
-import bg.softuni.footballleague.model.Half;
-import bg.softuni.footballleague.model.Match;
+import com.kickoffsim.model.Goal;
+import com.kickoffsim.model.Half;
+import com.kickoffsim.model.Match;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -35,4 +35,10 @@ public interface GoalRepository extends JpaRepository<Goal, UUID> {
                                                @Param("half") Half half,
                                                @Param("minute") Integer minute,
                                                @Param("excludeId") UUID excludeId);
+
+    @Query("SELECT g.scorer.id, COUNT(g) FROM Goal g WHERE g.scorer.team.id = :teamId AND g.ownGoal = false GROUP BY g.scorer.id")
+    List<Object[]> countGoalsByTeamGroupedByScorer(@Param("teamId") UUID teamId);
+
+    @Query("SELECT g.assistant.id, COUNT(g) FROM Goal g WHERE g.assistant.team.id = :teamId GROUP BY g.assistant.id")
+    List<Object[]> countAssistsByTeamGroupedByAssistant(@Param("teamId") UUID teamId);
 }

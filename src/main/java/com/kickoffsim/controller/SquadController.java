@@ -1,12 +1,12 @@
-package bg.softuni.footballleague.controller;
+package com.kickoffsim.controller;
 
-import bg.softuni.footballleague.dto.*;
-import bg.softuni.footballleague.model.ChangeAction;
-import bg.softuni.footballleague.model.EntityType;
-import bg.softuni.footballleague.service.ChangeRequestService;
-import bg.softuni.footballleague.service.PlayerService;
-import bg.softuni.footballleague.service.TeamService;
-import bg.softuni.footballleague.web.SquadRowValidator;
+import com.kickoffsim.dto.*;
+import com.kickoffsim.model.ChangeAction;
+import com.kickoffsim.model.EntityType;
+import com.kickoffsim.service.ChangeRequestService;
+import com.kickoffsim.service.PlayerService;
+import com.kickoffsim.service.TeamService;
+import com.kickoffsim.web.SquadRowValidator;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -24,6 +24,9 @@ import java.util.stream.Collectors;
 @RequestMapping("/teams/{teamId}/squad")
 public class SquadController {
 
+    private static final int MAX_SQUAD_SIZE = 12;
+    private static final int MIN_SQUAD_SIZE = 6;
+
     private final TeamService teamService;
     private final PlayerService playerService;
     private final ChangeRequestService changeRequestService;
@@ -31,8 +34,16 @@ public class SquadController {
     @GetMapping
     public String form(@PathVariable UUID teamId, Model model) {
         TeamDto team = teamService.findById(teamId);
-        int remaining = playerService.squadRemainingSlots(teamId);
         model.addAttribute("team", team);
+
+        if (team.getLeagueId() == null) {
+            model.addAttribute("editMode", true);
+            model.addAttribute("squadForm", buildEditSquadForm(teamId));
+            return "teams/squad";
+        }
+
+        model.addAttribute("editMode", false);
+        int remaining = playerService.squadRemainingSlots(teamId);
         model.addAttribute("remaining", remaining);
 
         if (remaining > 0) {
@@ -56,6 +67,11 @@ public class SquadController {
                          BindingResult bindingResult, Model model,
                          Authentication authentication, RedirectAttributes redirectAttributes) {
         TeamDto team = teamService.findById(teamId);
+
+        if (team.getLeagueId() == null) {
+            return submitEdit(teamId, team, squadForm, bindingResult, model, authentication, redirectAttributes);
+        }
+
         int remaining = playerService.squadRemainingSlots(teamId);
 
         List<Integer> filledRows =
@@ -71,6 +87,7 @@ public class SquadController {
 
         if (bindingResult.hasErrors()) {
             model.addAttribute("team", team);
+            model.addAttribute("editMode", false);
             model.addAttribute("remaining", remaining);
             return "teams/squad";
         }
@@ -86,6 +103,57 @@ public class SquadController {
                 ? filledRows.size() + " player(s) added to " + team.getName() + "."
                 : "Squad submitted for admin approval.");
         return "redirect:/teams";
+    }
+
+    private String submitEdit(UUID teamId, TeamDto team, SquadForm squadForm, BindingResult bindingResult,
+                               Model model, Authentication authentication, RedirectAttributes redirectAttributes) {
+        List<Integer> filledRows =
+                SquadRowValidator.validate(squadForm.getRows(), "rows", Collections.emptySet(), bindingResult);
+
+        if (filledRows.size() < MIN_SQUAD_SIZE) {
+            bindingResult.reject("squad.minimum", "A team must have at least " + MIN_SQUAD_SIZE + " players.");
+        }
+
+        if (bindingResult.hasErrors()) {
+            model.addAttribute("team", team);
+            model.addAttribute("editMode", true);
+            return "teams/squad";
+        }
+
+        TeamSquadPayload payload = new TeamSquadPayload();
+        payload.setTeam(team);
+        payload.setPlayers(SquadRowValidator.toPlayers(squadForm.getRows(), filledRows));
+
+        boolean executed = changeRequestService.submitOrExecute(
+                EntityType.TEAM_SQUAD, ChangeAction.UPDATE, payload, teamId, authentication);
+
+        redirectAttributes.addFlashAttribute("statusMessage", executed
+                ? "Squad updated."
+                : "Squad update submitted for admin approval.");
+        return "redirect:/teams";
+    }
+
+    private SquadForm buildEditSquadForm(UUID teamId) {
+        SquadForm squadForm = new SquadForm();
+        Set<Integer> taken = new HashSet<>();
+        for (PlayerDto p : playerService.findAllByTeam(teamId)) {
+            PlayerRowDto row = new PlayerRowDto();
+            row.setId(p.getId());
+            row.setShirtNumber(p.getShirtNumber());
+            row.setFirstName(p.getFirstName());
+            row.setLastName(p.getLastName());
+            squadForm.getRows().add(row);
+            taken.add(p.getShirtNumber());
+        }
+        int next = 1;
+        while (squadForm.getRows().size() < MAX_SQUAD_SIZE) {
+            while (taken.contains(next)) next++;
+            PlayerRowDto row = new PlayerRowDto();
+            row.setShirtNumber(next);
+            taken.add(next++);
+            squadForm.getRows().add(row);
+        }
+        return squadForm;
     }
 
     private List<Integer> freeShirtNumbers(UUID teamId, int count) {

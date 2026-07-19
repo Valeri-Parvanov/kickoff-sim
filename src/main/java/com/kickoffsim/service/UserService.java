@@ -1,9 +1,9 @@
-package bg.softuni.footballleague.service;
+package com.kickoffsim.service;
 
-import bg.softuni.footballleague.dto.ProfileDto;
-import bg.softuni.footballleague.dto.RegisterDto;
-import bg.softuni.footballleague.model.Role;
-import bg.softuni.footballleague.model.User;
+import com.kickoffsim.dto.ProfileDto;
+import com.kickoffsim.dto.RegisterDto;
+import com.kickoffsim.model.Role;
+import com.kickoffsim.model.User;
 import org.springframework.data.domain.Page;
 
 import java.util.UUID;

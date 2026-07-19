@@ -1,20 +1,20 @@
-package bg.softuni.footballleague.controller;
+package com.kickoffsim.controller;
 
-import bg.softuni.footballleague.client.NotificationClient;
-import bg.softuni.footballleague.client.NotificationDto;
-import bg.softuni.footballleague.client.NotifyRequest;
-import bg.softuni.footballleague.client.SubscriptionDto;
-import bg.softuni.footballleague.client.SubscriptionRequest;
-import bg.softuni.footballleague.dto.GoalDto;
-import bg.softuni.footballleague.dto.LeagueDetailView;
-import bg.softuni.footballleague.dto.MatchDto;
-import bg.softuni.footballleague.dto.StandingRow;
-import bg.softuni.footballleague.dto.TeamDto;
-import bg.softuni.footballleague.service.LeagueService;
-import bg.softuni.footballleague.service.MatchService;
-import bg.softuni.footballleague.service.TeamService;
-import bg.softuni.footballleague.service.UserService;
-import bg.softuni.footballleague.web.MatchFollowSupport;
+import com.kickoffsim.client.NotificationClient;
+import com.kickoffsim.client.NotifyRequest;
+import com.kickoffsim.client.SubscriptionDto;
+import com.kickoffsim.client.SubscriptionRequest;
+import com.kickoffsim.dto.LeagueDetailView;
+import com.kickoffsim.dto.MatchDto;
+import com.kickoffsim.dto.TeamDto;
+import com.kickoffsim.service.LeagueService;
+import com.kickoffsim.service.MatchService;
+import com.kickoffsim.service.TeamService;
+import com.kickoffsim.service.UserService;
+import com.kickoffsim.web.LiveMatchJsSupport;
+import com.kickoffsim.web.MatchFollowSupport;
+import com.kickoffsim.web.MatchStatusSupport;
+import com.kickoffsim.web.StandingsSupport;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -25,7 +25,6 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -56,142 +55,6 @@ public class NotificationController {
             int teamCount
     ) {}
 
-    private static final int NOTIF_PAGE_SIZE = 10;
-
-    public record NotificationView(
-            UUID id,
-            String message,
-            String type,
-            boolean read,
-            LocalDateTime createdAt,
-            UUID matchId,
-            UUID homeTeamId,
-            String homeTeamName,
-            UUID awayTeamId,
-            String awayTeamName,
-            UUID leagueId,
-            String leagueName
-    ) {}
-
-    @GetMapping("/notifications")
-    public String notificationsPage(
-            Authentication authentication,
-            Model model,
-            @RequestParam(defaultValue = "all") String status,
-            @RequestParam(defaultValue = "0") int page) {
-        UUID userId = userService.findByUsername(authentication.getName()).getId();
-        try {
-            List<NotificationDto> all = notificationClient.getNotifications(userId).stream()
-                    .sorted(Comparator.comparing(NotificationDto::getCreatedAt).reversed())
-                    .toList();
-
-            long countAll    = all.size();
-            long countUnread = all.stream().filter(n -> !n.isRead()).count();
-            long countRead   = all.stream().filter(NotificationDto::isRead).count();
-
-            List<NotificationDto> filtered = switch (status) {
-                case "unread" -> all.stream().filter(n -> !n.isRead()).toList();
-                case "read"   -> all.stream().filter(NotificationDto::isRead).toList();
-                default       -> all;
-            };
-
-            int totalPages = Math.max(1, (int) Math.ceil(filtered.size() / (double) NOTIF_PAGE_SIZE));
-            int currentPage = Math.min(Math.max(page, 0), totalPages - 1);
-
-            List<NotificationDto> shown = filtered.stream()
-                    .skip((long) currentPage * NOTIF_PAGE_SIZE)
-                    .limit(NOTIF_PAGE_SIZE)
-                    .toList();
-
-            model.addAttribute("notifications", enrich(shown));
-            model.addAttribute("status", status);
-            model.addAttribute("countAll", countAll);
-            model.addAttribute("countUnread", countUnread);
-            model.addAttribute("countRead", countRead);
-            model.addAttribute("currentPage", currentPage);
-            model.addAttribute("totalPages", totalPages);
-            model.addAttribute("filteredCount", filtered.size());
-        } catch (Exception e) {
-            log.warn("Could not load notifications: {}", e.getMessage());
-            model.addAttribute("notifications", List.of());
-            model.addAttribute("status", status);
-            model.addAttribute("countAll", 0L);
-            model.addAttribute("countUnread", 0L);
-            model.addAttribute("countRead", 0L);
-            model.addAttribute("currentPage", 0);
-            model.addAttribute("totalPages", 1);
-            model.addAttribute("filteredCount", 0);
-            model.addAttribute("warnMessage", "Notification service is temporarily unavailable.");
-        }
-        return "notifications";
-    }
-
-    private List<NotificationView> enrich(List<NotificationDto> notifications) {
-        Map<UUID, MatchDto> matchCache = new HashMap<>();
-        List<NotificationView> views = new ArrayList<>();
-        for (NotificationDto n : notifications) {
-            MatchDto match = null;
-            if (n.getMatchId() != null) {
-                match = matchCache.computeIfAbsent(n.getMatchId(), id -> {
-                    try {
-                        return matchService.findById(id);
-                    } catch (Exception e) {
-                        return null;
-                    }
-                });
-            }
-            views.add(new NotificationView(
-                    n.getId(),
-                    n.getMessage(),
-                    n.getType(),
-                    n.isRead(),
-                    n.getCreatedAt(),
-                    n.getMatchId(),
-                    match != null ? match.getHomeTeamId() : null,
-                    match != null ? teamLabel(match.getHomeTeamName(), match.getHomeTeamCity()) : null,
-                    match != null ? match.getAwayTeamId() : null,
-                    match != null ? teamLabel(match.getAwayTeamName(), match.getAwayTeamCity()) : null,
-                    match != null ? match.getLeagueId() : null,
-                    match != null ? match.getLeagueName() : null));
-        }
-        return views;
-    }
-
-    private String teamLabel(String name, String city) {
-        return city != null ? name + " (" + city + ")" : name;
-    }
-
-    @PostMapping("/notifications/read-all")
-    public String markAllRead(@RequestParam(required = false) String status,
-                              Authentication authentication,
-                              RedirectAttributes redirectAttributes) {
-        UUID userId = userService.findByUsername(authentication.getName()).getId();
-        try {
-            notificationClient.markAllRead(userId);
-            redirectAttributes.addFlashAttribute("statusMessage", "All notifications marked as read.");
-        } catch (Exception e) {
-            log.warn("Could not mark all notifications read: {}", e.getMessage());
-            redirectAttributes.addFlashAttribute("warnMessage", "Could not mark notifications as read.");
-        }
-        return status != null && !status.isBlank()
-                ? "redirect:/notifications?status=" + status
-                : "redirect:/notifications";
-    }
-
-    @GetMapping("/notifications/subscriptions")
-    public String subscriptionsPage(Authentication authentication, Model model) {
-        UUID userId = userService.findByUsername(authentication.getName()).getId();
-        try {
-            List<SubscriptionDto> subs = notificationClient.getSubscriptions(userId);
-            model.addAttribute("subscriptions", subs.stream().map(this::buildView).toList());
-        } catch (Exception e) {
-            log.warn("Could not load subscriptions: {}", e.getMessage());
-            model.addAttribute("subscriptions", List.of());
-            model.addAttribute("warnMessage", "Notification service is temporarily unavailable.");
-        }
-        return "subscriptions";
-    }
-
     @GetMapping("/feed")
     public String feedPage(Authentication authentication, Model model) {
         UUID userId = userService.findByUsername(authentication.getName()).getId();
@@ -218,8 +81,8 @@ public class NotificationController {
                     .map(SubscriptionDto::getEntityId)
                     .collect(Collectors.toCollection(LinkedHashSet::new));
 
-            Set<UUID> directLeagueIds = subs.stream()
-                    .filter(s -> "LEAGUE".equals(s.getEntityType()))
+            Set<UUID> followedMatchIds = subs.stream()
+                    .filter(s -> "MATCH".equals(s.getEntityType()))
                     .map(SubscriptionDto::getEntityId)
                     .collect(Collectors.toCollection(LinkedHashSet::new));
 
@@ -230,6 +93,13 @@ public class NotificationController {
                             .forEach(m -> matchMap.put(m.getId(), m));
                 } catch (Exception ignored) {}
             }
+            for (UUID matchId : followedMatchIds) {
+                if (matchMap.containsKey(matchId)) continue;
+                try {
+                    MatchDto m = matchService.findById(matchId);
+                    matchMap.put(m.getId(), m);
+                } catch (Exception ignored) {}
+            }
 
             LocalDateTime now = LocalDateTime.now();
             LocalDateTime cutoff = now.minusDays(14);
@@ -238,44 +108,29 @@ public class NotificationController {
             List<MatchDto> live = matchMap.values().stream()
                     .filter(m -> !m.getPlayedAt().isAfter(now) && m.getPlayedAt().isAfter(liveThreshold))
                     .filter(m -> followedTeamIds.contains(m.getHomeTeamId())
-                            || followedTeamIds.contains(m.getAwayTeamId()))
+                            || followedTeamIds.contains(m.getAwayTeamId())
+                            || followedMatchIds.contains(m.getId()))
                     .sorted(Comparator.comparing(MatchDto::getPlayedAt))
                     .toList();
 
             List<MatchDto> upcoming = matchMap.values().stream()
                     .filter(m -> m.getPlayedAt().isAfter(now))
                     .filter(m -> followedTeamIds.contains(m.getHomeTeamId())
-                            || followedTeamIds.contains(m.getAwayTeamId()))
+                            || followedTeamIds.contains(m.getAwayTeamId())
+                            || followedMatchIds.contains(m.getId()))
                     .sorted(Comparator.comparing(MatchDto::getPlayedAt))
                     .toList();
 
             List<MatchDto> recent = matchMap.values().stream()
                     .filter(m -> !m.getPlayedAt().isAfter(liveThreshold) && m.getPlayedAt().isAfter(cutoff))
                     .filter(m -> followedTeamIds.contains(m.getHomeTeamId())
-                            || followedTeamIds.contains(m.getAwayTeamId()))
+                            || followedTeamIds.contains(m.getAwayTeamId())
+                            || followedMatchIds.contains(m.getId()))
                     .sorted(Comparator.comparing(MatchDto::getPlayedAt).reversed())
                     .toList();
 
-            List<Map<String, Object>> liveMatchesForJs = live.stream()
-                    .map(m -> {
-                        List<Map<String, Object>> goals = m.getGoalTimeline().stream()
-                                .map(g -> Map.<String, Object>of(
-                                        "minute", g.getMinute() != null ? g.getMinute() : 0,
-                                        "half", g.getHalf() != null ? g.getHalf().name() : "FIRST",
-                                        "homeGoal", g.isHomeGoal(),
-                                        "rh", g.getRunningHomeScore() != null ? g.getRunningHomeScore() : 0,
-                                        "ra", g.getRunningAwayScore() != null ? g.getRunningAwayScore() : 0))
-                                .toList();
-                        return Map.<String, Object>of(
-                                "id", m.getId().toString(),
-                                "elapsedMin", Duration.between(m.getPlayedAt(), now).toMinutes(),
-                                "elapsedSec", Duration.between(m.getPlayedAt(), now).getSeconds(),
-                                "goals", goals);
-                    })
-                    .toList();
-            Map<UUID, Long> elapsedByMatchId = live.stream()
-                    .collect(Collectors.toMap(MatchDto::getId,
-                            m -> Duration.between(m.getPlayedAt(), now).toMinutes()));
+            List<Map<String, Object>> liveMatchesForJs = LiveMatchJsSupport.toJs(live, now);
+            Map<UUID, Long> elapsedByMatchId = LiveMatchJsSupport.elapsedByMatchId(live, now);
 
             model.addAttribute("teamViews", teamViews);
             model.addAttribute("leagueViews", leagueViews);
@@ -306,18 +161,6 @@ public class NotificationController {
         return "feed";
     }
 
-    @GetMapping("/notifications/unread-count")
-    @ResponseBody
-    public long unreadCount(Authentication authentication) {
-        if (authentication == null) return 0;
-        try {
-            UUID userId = userService.findByUsername(authentication.getName()).getId();
-            return notificationClient.getUnreadCount(userId);
-        } catch (Exception e) {
-            return 0;
-        }
-    }
-
     private static final Set<String> TOASTABLE_TYPES =
             Set.of("GOAL", "MATCH_HALFTIME", "MATCH_FULLTIME");
 
@@ -329,7 +172,6 @@ public class NotificationController {
             UUID userId = userService.findByUsername(authentication.getName()).getId();
             LocalDateTime cutoff = LocalDateTime.now().minusMinutes(3);
             return notificationClient.getNotifications(userId).stream()
-                    .filter(n -> !n.isRead())
                     .filter(n -> TOASTABLE_TYPES.contains(n.getType()))
                     .filter(n -> n.getCreatedAt() != null && n.getCreatedAt().isAfter(cutoff))
                     .map(n -> Map.<String, Object>of(
@@ -354,10 +196,44 @@ public class NotificationController {
             notificationClient.subscribe(new SubscriptionRequest(userId, entityType, entityId));
             redirectAttributes.addFlashAttribute("statusMessage", "You are now following this " + entityType.toLowerCase() + ".");
             log.info("User {} subscribed to {} {}", authentication.getName(), entityType, entityId);
+            backfillMatchSubscriptions(userId, entityType, entityId);
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("warnMessage", "Already following or notification service unavailable.");
         }
-        return returnUrl != null ? "redirect:" + returnUrl : "redirect:/notifications";
+        return returnUrl != null ? "redirect:" + returnUrl : "redirect:/feed";
+    }
+
+    private void backfillMatchSubscriptions(UUID userId, String entityType, UUID entityId) {
+        try {
+            List<MatchDto> matches;
+            if ("TEAM".equals(entityType)) {
+                TeamDto team = teamService.findById(entityId);
+                if (team.getLeagueId() == null) return;
+                matches = leagueService.findDetail(team.getLeagueId()).getMatches().stream()
+                        .filter(m -> entityId.equals(m.getHomeTeamId()) || entityId.equals(m.getAwayTeamId()))
+                        .toList();
+            } else if ("LEAGUE".equals(entityType)) {
+                matches = leagueService.findDetail(entityId).getMatches();
+            } else {
+                return;
+            }
+
+            Set<UUID> alreadyFollowed = notificationClient.getSubscriptions(userId).stream()
+                    .filter(s -> "MATCH".equals(s.getEntityType()))
+                    .map(SubscriptionDto::getEntityId)
+                    .collect(Collectors.toSet());
+
+            for (MatchDto match : matches) {
+                if (alreadyFollowed.contains(match.getId())) continue;
+                try {
+                    notificationClient.subscribe(new SubscriptionRequest(userId, "MATCH", match.getId()));
+                } catch (Exception e) {
+                    log.warn("Could not backfill match subscription {} for user {}: {}", match.getId(), userId, e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Could not backfill match subscriptions for {} {} (user {}): {}", entityType, entityId, userId, e.getMessage());
+        }
     }
 
     @PostMapping("/notifications/match/{matchId}/toggle")
@@ -398,35 +274,7 @@ public class NotificationController {
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("warnMessage", "Could not unfollow. Try again.");
         }
-        return returnUrl != null ? "redirect:" + returnUrl : "redirect:/notifications";
-    }
-
-    @PostMapping("/notifications/{id}/read")
-    public String markRead(@PathVariable UUID id,
-                           @RequestParam(required = false) String status,
-                           @RequestParam(required = false) Integer page,
-                           Authentication authentication) {
-        try {
-            notificationClient.markRead(id);
-        } catch (Exception e) {
-            log.warn("Could not mark notification {} as read: {}", id, e.getMessage());
-        }
-        StringBuilder url = new StringBuilder("redirect:/notifications");
-        if (status != null && !status.isBlank()) url.append("?status=").append(status);
-        if (page != null && page > 0) url.append(url.indexOf("?") >= 0 ? "&" : "?").append("page=").append(page);
-        return url.toString();
-    }
-
-    @DeleteMapping("/notifications/clear")
-    public String clearAll(Authentication authentication, RedirectAttributes redirectAttributes) {
-        UUID userId = userService.findByUsername(authentication.getName()).getId();
-        try {
-            notificationClient.clearAll(userId);
-            redirectAttributes.addFlashAttribute("statusMessage", "All notifications cleared.");
-        } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("warnMessage", "Could not clear notifications.");
-        }
-        return "redirect:/notifications";
+        return returnUrl != null ? "redirect:" + returnUrl : "redirect:/feed";
     }
 
     private void sendMatchStatus(UUID userId, UUID matchId) {
@@ -442,52 +290,13 @@ public class NotificationController {
                         + match.getPlayedAt().format(DateTimeFormatter.ofPattern("dd.MM HH:mm"));
                 type = "UPCOMING_MATCH";
             } else {
-                message = liveStatusMessage(match, now, home, away);
+                message = MatchStatusSupport.liveStatusMessage(match, now);
                 type = "MATCH_UPDATE";
             }
             notificationClient.notifyUser(new NotifyRequest(userId, matchId, message, type));
         } catch (Exception e) {
             log.warn("Could not send instant status for match {}: {}", matchId, e.getMessage());
         }
-    }
-
-    private String liveStatusMessage(MatchDto match, LocalDateTime now, String home, String away) {
-        long realMin = Duration.between(match.getPlayedAt(), now).toMinutes();
-        String phase;
-        int maxMin;
-        if (realMin <= 20)      { phase = "FIRST";  maxMin = (int) realMin; }
-        else if (realMin <= 25) { phase = "HT";     maxMin = 20; }
-        else if (realMin <= 45) { phase = "SECOND"; maxMin = (int) (realMin - 25); }
-        else                    { phase = "FT";     maxMin = 20; }
-
-        int hs = 0, as = 0;
-        for (GoalDto g : match.getGoalTimeline()) {
-            int minute = g.getMinute() != null ? g.getMinute() : 0;
-            int rh = g.getRunningHomeScore() != null ? g.getRunningHomeScore() : 0;
-            int ra = g.getRunningAwayScore() != null ? g.getRunningAwayScore() : 0;
-            boolean firstHalf = g.getHalf() != null && "FIRST".equals(g.getHalf().name());
-            if (firstHalf) {
-                if (!"FIRST".equals(phase) || minute <= maxMin) {
-                    hs = rh;
-                    as = ra;
-                }
-            } else {
-                int secMax = "SECOND".equals(phase) ? maxMin : ("FT".equals(phase) ? 20 : -1);
-                if (secMax >= 0 && minute <= secMax) {
-                    hs = rh;
-                    as = ra;
-                }
-            }
-        }
-
-        String display = switch (phase) {
-            case "FIRST"  -> realMin + "'";
-            case "HT"     -> "HT";
-            case "SECOND" -> (20 + (realMin - 25)) + "'";
-            default        -> "FT";
-        };
-        String prefix = "FT".equals(phase) ? "Full time: " : "LIVE: ";
-        return prefix + home + " " + hs + ":" + as + " " + away + " · " + display;
     }
 
     private SubscriptionView buildView(SubscriptionDto s) {
@@ -499,14 +308,7 @@ public class NotificationController {
                     return new SubscriptionView(s.getId(), "TEAM", s.getEntityId(), name, null, null, null, 0, 0);
                 }
                 LeagueDetailView league = leagueService.findDetail(team.getLeagueId());
-                Integer position = null;
-                for (int i = 0; i < league.getStandings().size(); i++) {
-                    StandingRow row = league.getStandings().get(i);
-                    if (s.getEntityId().equals(row.getTeamId())) {
-                        position = i + 1;
-                        break;
-                    }
-                }
+                Integer position = StandingsSupport.positionOf(league.getStandings(), s.getEntityId());
                 LocalDateTime now = LocalDateTime.now();
                 long remaining = league.getMatches().stream()
                         .filter(m -> m.getPlayedAt().isAfter(now))

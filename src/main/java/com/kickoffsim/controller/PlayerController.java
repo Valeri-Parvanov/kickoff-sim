@@ -1,14 +1,15 @@
-package bg.softuni.footballleague.controller;
+package com.kickoffsim.controller;
 
-import bg.softuni.footballleague.dto.PlayerDto;
-import bg.softuni.footballleague.exception.DuplicateShirtNumberException;
-import bg.softuni.footballleague.exception.SquadLimitExceededException;
-import bg.softuni.footballleague.model.ChangeAction;
-import bg.softuni.footballleague.model.EntityType;
-import bg.softuni.footballleague.service.ChangeRequestService;
-import bg.softuni.footballleague.service.PlayerService;
-import bg.softuni.footballleague.service.TeamService;
-import bg.softuni.footballleague.web.SortSupport;
+import com.kickoffsim.dto.PlayerDto;
+import com.kickoffsim.exception.DuplicateShirtNumberException;
+import com.kickoffsim.exception.SquadLimitExceededException;
+import com.kickoffsim.model.ChangeAction;
+import com.kickoffsim.model.EntityType;
+import com.kickoffsim.service.ChangeRequestService;
+import com.kickoffsim.service.PlayerService;
+import com.kickoffsim.service.TeamService;
+import com.kickoffsim.web.ResubmitSupport;
+import com.kickoffsim.web.SortSupport;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
@@ -59,7 +60,7 @@ public class PlayerController {
         playerDto.setId(id);
         model.addAttribute("playerDto", playerDto);
         model.addAttribute("teams", teamService.findAll());
-        if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
+        if (fromRequest != null) ResubmitSupport.addRejectionBanner(model, changeRequestService, fromRequest, authentication);
         return "players/form";
     }
 

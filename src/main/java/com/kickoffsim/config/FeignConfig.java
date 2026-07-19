@@ -1,6 +1,6 @@
-package bg.softuni.footballleague.config;
+package com.kickoffsim.config;
 
-import bg.softuni.footballleague.client.NotificationClient;
+import com.kickoffsim.client.NotificationClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import feign.Feign;
 import feign.Logger;

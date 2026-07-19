@@ -1,4 +1,4 @@
-package bg.softuni.footballleague.model;
+package com.kickoffsim.model;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
@@ -9,6 +9,7 @@ import lombok.Setter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Getter
 @Setter
@@ -34,4 +35,13 @@ public class Team {
 
     @OneToMany(mappedBy = "team", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Player> players = new ArrayList<>();
+
+    private int strength = 60;
+
+    @PostLoad
+    private void ensureStrength() {
+        if (strength <= 0) {
+            strength = 20 + ThreadLocalRandom.current().nextInt(76);
+        }
+    }
 }

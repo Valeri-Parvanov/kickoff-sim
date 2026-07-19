@@ -1,14 +1,16 @@
-package bg.softuni.footballleague.controller;
+package com.kickoffsim.controller;
 
-import bg.softuni.footballleague.client.NotificationClient;
-import bg.softuni.footballleague.client.SubscriptionDto;
-import bg.softuni.footballleague.dto.*;
-import bg.softuni.footballleague.model.ChangeAction;
-import bg.softuni.footballleague.model.EntityType;
-import bg.softuni.footballleague.service.*;
-import bg.softuni.footballleague.web.LogoGenerator;
-import bg.softuni.footballleague.web.SortSupport;
-import bg.softuni.footballleague.web.SquadRowValidator;
+import com.kickoffsim.client.NotificationClient;
+import com.kickoffsim.client.SubscriptionDto;
+import com.kickoffsim.dto.*;
+import com.kickoffsim.model.ChangeAction;
+import com.kickoffsim.model.EntityType;
+import com.kickoffsim.service.*;
+import com.kickoffsim.web.LiveMatchJsSupport;
+import com.kickoffsim.web.LogoGenerator;
+import com.kickoffsim.web.ResubmitSupport;
+import com.kickoffsim.web.SortSupport;
+import com.kickoffsim.web.SquadRowValidator;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,11 +25,9 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
-
 
 @Controller
 @RequiredArgsConstructor
@@ -84,30 +84,11 @@ public class TeamController {
                     .filter(m -> m.getPlayedAt().isBefore(liveThreshold))
                     .count());
 
-            List<Map<String, Object>> liveMatchesForJs = league.getMatches().stream()
+            List<MatchDto> liveTeamMatches = league.getMatches().stream()
                     .filter(m -> m.getPlayedAt().isBefore(now) && m.getPlayedAt().isAfter(liveThreshold))
-                    .map(m -> {
-                        List<Map<String, Object>> goals = m.getGoalTimeline().stream()
-                                .map(g -> Map.<String, Object>of(
-                                        "minute", g.getMinute() != null ? g.getMinute() : 0,
-                                        "half", g.getHalf() != null ? g.getHalf().name() : "FIRST",
-                                        "homeGoal", g.isHomeGoal(),
-                                        "rh", g.getRunningHomeScore() != null ? g.getRunningHomeScore() : 0,
-                                        "ra", g.getRunningAwayScore() != null ? g.getRunningAwayScore() : 0))
-                                .toList();
-                        return Map.<String, Object>of(
-                                "id", m.getId().toString(),
-                                "homeTeamId", m.getHomeTeamId().toString(),
-                                "awayTeamId", m.getAwayTeamId().toString(),
-                                "elapsedMin", Duration.between(m.getPlayedAt(), now).toMinutes(),
-                                "goals", goals);
-                    })
                     .toList();
-            model.addAttribute("liveMatchesForJs", liveMatchesForJs);
-            Map<UUID, Long> elapsedByMatchId = league.getMatches().stream()
-                    .filter(m -> m.getPlayedAt().isBefore(now) && m.getPlayedAt().isAfter(liveThreshold))
-                    .collect(Collectors.toMap(MatchDto::getId, m -> Duration.between(m.getPlayedAt(), now).toMinutes()));
-            model.addAttribute("elapsedByMatchId", elapsedByMatchId);
+            model.addAttribute("liveMatchesForJs", LiveMatchJsSupport.toJs(liveTeamMatches, now));
+            model.addAttribute("elapsedByMatchId", LiveMatchJsSupport.elapsedByMatchId(liveTeamMatches, now));
         }
 
         if (authentication != null) {
@@ -189,20 +170,14 @@ public class TeamController {
                 }
                 squadPayload.getPlayers()
                         .forEach(p -> { if (p.getShirtNumber() != null) taken.add(p.getShirtNumber()); });
-                int next = 1;
-                while (form.getPlayers().size() < remaining) {
-                    PlayerRowDto row = new PlayerRowDto();
-                    while (next <= 99 && taken.contains(next)) next++;
-                    if (next <= 99) { row.setShirtNumber(next); taken.add(next++); }
-                    form.getPlayers().add(row);
-                }
+                SquadRowValidator.autoFillShirtNumbers(form.getPlayers(), taken, remaining);
             } else {
                 TeamDto team = (TeamDto) payload;
                 form.setName(team.getName());
                 form.setCity(team.getCity());
                 form.setLeagueId(team.getLeagueId());
             }
-            model.addAttribute("fromRequest", fromRequest);
+            ResubmitSupport.addRejectionBanner(model, changeRequestService, fromRequest, authentication);
         }
         prefillSquadRows(form);
         model.addAttribute("teamCreateForm", form);
@@ -291,7 +266,7 @@ public class TeamController {
         teamDto.setId(id);
         model.addAttribute("teamDto", teamDto);
         model.addAttribute("leagues", leagueService.findAll());
-        if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
+        if (fromRequest != null) ResubmitSupport.addRejectionBanner(model, changeRequestService, fromRequest, authentication);
         return "teams/form";
     }
 

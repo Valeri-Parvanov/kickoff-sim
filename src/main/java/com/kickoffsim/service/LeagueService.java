@@ -1,7 +1,7 @@
-package bg.softuni.footballleague.service;
+package com.kickoffsim.service;
 
-import bg.softuni.footballleague.dto.LeagueDetailView;
-import bg.softuni.footballleague.dto.LeagueDto;
+import com.kickoffsim.dto.LeagueDetailView;
+import com.kickoffsim.dto.LeagueDto;
 import org.springframework.data.domain.Sort;
 
 import java.util.List;
@@ -24,4 +24,6 @@ public interface LeagueService {
     void delete(UUID id);
 
     boolean hasLeagueStarted(UUID leagueId);
+
+    int deleteFinishedOlderThan(int days);
 }

@@ -1,6 +1,6 @@
-package bg.softuni.footballleague.dto;
+package com.kickoffsim.dto;
 
-import bg.softuni.footballleague.model.LeagueFormat;
+import com.kickoffsim.model.LeagueFormat;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -17,6 +17,8 @@ public class LeagueDetailView {
     private String name;
     private List<TeamDto> teams;
     private List<StandingRow> standings;
+    private List<PlayerStatRow> topScorers;
+    private List<PlayerStatRow> topAssists;
     private List<MatchDto> matches;
     private LeagueFormat format;
     private LocalDate scheduleStartDate;

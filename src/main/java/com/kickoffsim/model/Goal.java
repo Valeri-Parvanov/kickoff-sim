@@ -1,4 +1,4 @@
-package bg.softuni.footballleague.model;
+package com.kickoffsim.model;
 
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -29,6 +29,8 @@ public class Goal {
     private Player assistant;
 
     private Integer minute;
+
+    private Integer offsetSeconds;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

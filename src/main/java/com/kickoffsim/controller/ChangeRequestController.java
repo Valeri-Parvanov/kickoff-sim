@@ -1,7 +1,7 @@
-package bg.softuni.footballleague.controller;
+package com.kickoffsim.controller;
 
-import bg.softuni.footballleague.exception.ChangeRequestApprovalException;
-import bg.softuni.footballleague.service.ChangeRequestService;
+import com.kickoffsim.exception.ChangeRequestApprovalException;
+import com.kickoffsim.service.ChangeRequestService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.prepost.PreAuthorize;

@@ -1,4 +1,4 @@
-package bg.softuni.footballleague.dto;
+package com.kickoffsim.dto;
 
 import jakarta.validation.constraints.*;
 import lombok.Getter;
@@ -29,4 +29,8 @@ public class PlayerDto {
     private UUID teamId;
 
     private String teamName;
+
+    private int goals;
+
+    private int assists;
 }

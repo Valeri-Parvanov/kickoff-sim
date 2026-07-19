@@ -1,13 +1,17 @@
-package bg.softuni.footballleague.controller;
+package com.kickoffsim.controller;
 
-import bg.softuni.footballleague.dto.*;
-import bg.softuni.footballleague.exception.InvalidGoalException;
-import bg.softuni.footballleague.model.ChangeAction;
-import bg.softuni.footballleague.model.EntityType;
-import bg.softuni.footballleague.model.Half;
-import bg.softuni.footballleague.service.*;
-import bg.softuni.footballleague.web.MatchFollowSupport;
-import bg.softuni.footballleague.web.ViewerZone;
+import com.kickoffsim.dto.*;
+import com.kickoffsim.exception.InvalidGoalException;
+import com.kickoffsim.model.ChangeAction;
+import com.kickoffsim.model.EntityType;
+import com.kickoffsim.model.Half;
+import com.kickoffsim.service.*;
+import com.kickoffsim.web.LiveMatchJsSupport;
+import com.kickoffsim.web.MatchFollowSupport;
+import com.kickoffsim.web.MatchStatusSupport;
+import com.kickoffsim.web.MatchTeamValidator;
+import com.kickoffsim.web.ResubmitSupport;
+import com.kickoffsim.web.ViewerZone;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +25,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import java.time.Duration;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -29,7 +33,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Controller
 @RequiredArgsConstructor
@@ -43,29 +46,19 @@ public class MatchController {
     private final ChangeRequestService changeRequestService;
     private final MatchFollowSupport matchFollowSupport;
     private final ViewerZone viewerZone;
+    private final Clock clock;
 
     @GetMapping("/{id}")
     public String detail(@PathVariable UUID id, Model model) {
         MatchDto match = matchService.findById(id);
         model.addAttribute("match", match);
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         LocalDateTime liveThreshold = now.minusMinutes(46);
         model.addAttribute("now", now);
         model.addAttribute("liveThreshold", liveThreshold);
         boolean isLive = match.getPlayedAt().isBefore(now) && match.getPlayedAt().isAfter(liveThreshold);
         if (isLive) {
-            List<Map<String, Object>> goals = match.getGoalTimeline().stream()
-                    .map(g -> Map.<String, Object>of(
-                            "minute", g.getMinute() != null ? g.getMinute() : 0,
-                            "half", g.getHalf() != null ? g.getHalf().name() : "FIRST",
-                            "homeGoal", g.isHomeGoal(),
-                            "rh", g.getRunningHomeScore() != null ? g.getRunningHomeScore() : 0,
-                            "ra", g.getRunningAwayScore() != null ? g.getRunningAwayScore() : 0))
-                    .toList();
-            model.addAttribute("liveMatchForJs", Map.of(
-                    "id", match.getId().toString(),
-                    "elapsedMin", Duration.between(match.getPlayedAt(), now).toMinutes(),
-                    "goals", goals));
+            model.addAttribute("liveMatchForJs", LiveMatchJsSupport.toJsEntry(match, now));
         }
         return "matches/detail";
     }
@@ -78,7 +71,7 @@ public class MatchController {
                        HttpServletRequest request,
                        Model model) {
         ZoneId vz = viewerZone.resolve(request);
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         LocalDate today = viewerZone.today(vz);
         LocalDateTime liveThreshold = now.minusMinutes(46);
 
@@ -105,7 +98,7 @@ public class MatchController {
 
         if (date != null) {
             final LocalDate d = date;
-            dateMatches = sortByStatus(
+            dateMatches = MatchStatusSupport.sortByStatus(
                     allFiltered.stream()
                             .filter(m -> viewerZone.dateOf(m.getPlayedAt(), vz).equals(d))
                             .toList(),
@@ -153,28 +146,11 @@ public class MatchController {
                 .sorted(Comparator.comparing(MatchDto::getPlayedAt))
                 .toList();
         model.addAttribute("liveMatches", liveMatches);
-        List<Map<String, Object>> liveMatchesForJs = liveMatches.stream()
-                .map(m -> {
-                    List<Map<String, Object>> goals = m.getGoalTimeline().stream()
-                            .map(g -> Map.<String, Object>of(
-                                    "minute", g.getMinute() != null ? g.getMinute() : 0,
-                                    "half", g.getHalf() != null ? g.getHalf().name() : "FIRST",
-                                    "homeGoal", g.isHomeGoal(),
-                                    "rh", g.getRunningHomeScore() != null ? g.getRunningHomeScore() : 0,
-                                    "ra", g.getRunningAwayScore() != null ? g.getRunningAwayScore() : 0))
-                            .toList();
-                    return Map.<String, Object>of(
-                            "id", m.getId().toString(),
-                            "elapsedMin", Duration.between(m.getPlayedAt(), now).toMinutes(),
-                            "elapsedSec", Duration.between(m.getPlayedAt(), now).getSeconds(),
-                            "goals", goals);
-                })
-                .toList();
+        List<Map<String, Object>> liveMatchesForJs = LiveMatchJsSupport.toJs(liveMatches, now);
         boolean hasTodayResults = recentMatches.stream()
                 .anyMatch(m -> !m.getPlayedAt().isAfter(liveThreshold));
         model.addAttribute("liveMatchesForJs", liveMatchesForJs);
-        Map<UUID, Long> elapsedByMatchId = liveMatches.stream()
-                .collect(Collectors.toMap(MatchDto::getId, m -> Duration.between(m.getPlayedAt(), now).toMinutes()));
+        Map<UUID, Long> elapsedByMatchId = LiveMatchJsSupport.elapsedByMatchId(liveMatches, now);
         model.addAttribute("elapsedByMatchId", elapsedByMatchId);
         model.addAttribute("hasTodayResults", hasTodayResults);
         model.addAttribute("now", now);
@@ -205,24 +181,6 @@ public class MatchController {
         return "matches/list";
     }
 
-    private List<MatchDto> sortByStatus(List<MatchDto> matches, LocalDateTime now, LocalDateTime liveThreshold) {
-        return matches.stream()
-                .sorted((a, b) -> {
-                    int pa = statusPriority(a, now, liveThreshold);
-                    int pb = statusPriority(b, now, liveThreshold);
-                    if (pa != pb) return Integer.compare(pa, pb);
-                    if (pa == 2) return b.getPlayedAt().compareTo(a.getPlayedAt());
-                    return a.getPlayedAt().compareTo(b.getPlayedAt());
-                })
-                .toList();
-    }
-
-    private int statusPriority(MatchDto m, LocalDateTime now, LocalDateTime liveThreshold) {
-        if (m.getPlayedAt().isBefore(now) && m.getPlayedAt().isAfter(liveThreshold)) return 0;
-        if (!m.getPlayedAt().isBefore(now)) return 1;
-        return 2;
-    }
-
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/form")
     public String createForm(@RequestParam(required = false) UUID fromRequest, Model model,
@@ -232,7 +190,7 @@ public class MatchController {
                 : new MatchDto();
         model.addAttribute("matchDto", matchDto);
         model.addAttribute("teams", teamService.findAll());
-        if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
+        if (fromRequest != null) ResubmitSupport.addRejectionBanner(model, changeRequestService, fromRequest, authentication);
         return "matches/form";
     }
 
@@ -241,7 +199,7 @@ public class MatchController {
     public String create(@Valid @ModelAttribute("matchDto") MatchDto matchDto, BindingResult bindingResult,
                           @RequestParam(required = false) UUID fromRequest,
                           Model model, Authentication authentication, RedirectAttributes redirectAttributes) {
-        validateTeams(matchDto, bindingResult);
+        MatchTeamValidator.validate(matchDto, teamService, bindingResult);
         if (bindingResult.hasErrors()) {
             model.addAttribute("teams", teamService.findAll());
             if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
@@ -265,7 +223,7 @@ public class MatchController {
         matchDto.setId(id);
         model.addAttribute("matchDto", matchDto);
         model.addAttribute("teams", teamService.findAll());
-        if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
+        if (fromRequest != null) ResubmitSupport.addRejectionBanner(model, changeRequestService, fromRequest, authentication);
         return "matches/form";
     }
 
@@ -275,7 +233,7 @@ public class MatchController {
                         @RequestParam(required = false) UUID fromRequest,
                         Model model, Authentication authentication,
                         RedirectAttributes redirectAttributes) {
-        validateTeams(matchDto, bindingResult);
+        MatchTeamValidator.validate(matchDto, teamService, bindingResult);
         if (bindingResult.hasErrors()) {
             model.addAttribute("teams", teamService.findAll());
             if (fromRequest != null) model.addAttribute("fromRequest", fromRequest);
@@ -385,21 +343,5 @@ public class MatchController {
         model.addAttribute("match", match);
         model.addAttribute("homePlayers", playerService.findAllByTeam(match.getHomeTeamId()));
         model.addAttribute("awayPlayers", playerService.findAllByTeam(match.getAwayTeamId()));
-    }
-
-    private void validateTeams(MatchDto matchDto, BindingResult bindingResult) {
-        if (matchDto.getHomeTeamId() == null || matchDto.getAwayTeamId() == null) {
-            return;
-        }
-        if (matchDto.getHomeTeamId().equals(matchDto.getAwayTeamId())) {
-            bindingResult.rejectValue("awayTeamId", "team.same", "Away team must differ from home team");
-            return;
-        }
-
-        TeamDto homeTeam = teamService.findById(matchDto.getHomeTeamId());
-        TeamDto awayTeam = teamService.findById(matchDto.getAwayTeamId());
-        if (!homeTeam.getLeagueId().equals(awayTeam.getLeagueId())) {
-            bindingResult.rejectValue("awayTeamId", "team.differentLeague", "Both teams must be in the same league");
-        }
     }
 }

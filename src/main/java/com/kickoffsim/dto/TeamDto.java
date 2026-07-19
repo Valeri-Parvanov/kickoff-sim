@@ -1,4 +1,4 @@
-package bg.softuni.footballleague.dto;
+package com.kickoffsim.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -29,4 +29,6 @@ public class TeamDto {
     private String leagueName;
 
     private long playerCount;
+
+    private int strength;
 }

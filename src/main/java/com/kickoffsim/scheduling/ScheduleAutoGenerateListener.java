@@ -1,6 +1,6 @@
-package bg.softuni.footballleague.scheduling;
+package com.kickoffsim.scheduling;
 
-import bg.softuni.footballleague.service.ScheduleService;
+import com.kickoffsim.service.ScheduleService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

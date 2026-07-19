@@ -1,15 +1,17 @@
-package bg.softuni.footballleague.service.impl;
+package com.kickoffsim.service.impl;
 
-import bg.softuni.footballleague.client.BroadcastRequest;
-import bg.softuni.footballleague.client.NotificationClient;
-import bg.softuni.footballleague.exception.EntityNotFoundException;
-import bg.softuni.footballleague.exception.InvalidLeagueOperationException;
-import bg.softuni.footballleague.model.*;
-import bg.softuni.footballleague.repository.GoalRepository;
-import bg.softuni.footballleague.repository.LeagueRepository;
-import bg.softuni.footballleague.repository.MatchRepository;
-import bg.softuni.footballleague.repository.PlayerRepository;
-import bg.softuni.footballleague.service.ScheduleService;
+import com.kickoffsim.client.BroadcastRequest;
+import com.kickoffsim.client.NotificationClient;
+import com.kickoffsim.client.SubscriptionDto;
+import com.kickoffsim.client.SubscriptionRequest;
+import com.kickoffsim.exception.EntityNotFoundException;
+import com.kickoffsim.exception.InvalidLeagueOperationException;
+import com.kickoffsim.model.*;
+import com.kickoffsim.repository.GoalRepository;
+import com.kickoffsim.repository.LeagueRepository;
+import com.kickoffsim.repository.MatchRepository;
+import com.kickoffsim.repository.PlayerRepository;
+import com.kickoffsim.service.ScheduleService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
@@ -34,7 +36,11 @@ public class ScheduleServiceImpl implements ScheduleService {
     private static final LocalTime LATEST = LocalTime.of(23, 30);
     private static final LocalTime DEFAULT_START_TIME = LocalTime.of(11, 0);
 
-    private static final int[] TOTAL_GOAL_WEIGHTS = {2, 5, 9, 15, 20, 19, 15, 9, 4, 2};
+    private static final double BASE_LAMBDA = 3.6;
+    private static final double STRENGTH_SCALE = 0.06;
+    private static final double HOME_ADVANTAGE = 0.6;
+    private static final double MIN_LAMBDA = 1.0;
+    private static final int MAX_GOALS_PER_TEAM = 12;
 
     private final LeagueRepository leagueRepository;
     private final MatchRepository matchRepository;
@@ -144,6 +150,45 @@ public class ScheduleServiceImpl implements ScheduleService {
         }
         log.info("Generated {} matches ({} rounds) for league '{}'",
                 allMatches.size(), format.getTotalRounds(), league.getName());
+
+        backfillMatchSubscriptions(league, teams, allMatches);
+    }
+
+    private void backfillMatchSubscriptions(League league, List<Team> teams, List<Match> allMatches) {
+        try {
+            List<UUID> entityIds = new ArrayList<>();
+            entityIds.add(league.getId());
+            teams.forEach(t -> entityIds.add(t.getId()));
+
+            List<SubscriptionDto> followers = notificationClient.getSubscriptionsForEntities(entityIds);
+
+            Set<UUID> leagueFollowerUserIds = followers.stream()
+                    .filter(s -> "LEAGUE".equals(s.getEntityType()) && league.getId().equals(s.getEntityId()))
+                    .map(SubscriptionDto::getUserId)
+                    .collect(Collectors.toSet());
+
+            Map<UUID, Set<UUID>> teamFollowerUserIdsByTeam = followers.stream()
+                    .filter(s -> "TEAM".equals(s.getEntityType()))
+                    .collect(Collectors.groupingBy(SubscriptionDto::getEntityId,
+                            Collectors.mapping(SubscriptionDto::getUserId, Collectors.toSet())));
+
+            for (Match match : allMatches) {
+                Set<UUID> eligibleUserIds = new LinkedHashSet<>(leagueFollowerUserIds);
+                eligibleUserIds.addAll(teamFollowerUserIdsByTeam.getOrDefault(match.getHomeTeam().getId(), Set.of()));
+                eligibleUserIds.addAll(teamFollowerUserIdsByTeam.getOrDefault(match.getAwayTeam().getId(), Set.of()));
+
+                for (UUID userId : eligibleUserIds) {
+                    try {
+                        notificationClient.subscribe(new SubscriptionRequest(userId, "MATCH", match.getId()));
+                    } catch (Exception e) {
+                        log.warn("Could not auto-subscribe user {} to generated match {}: {}",
+                                userId, match.getId(), e.getMessage());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Could not look up followers to auto-subscribe for league '{}': {}", league.getName(), e.getMessage());
+        }
     }
 
     @Override
@@ -250,15 +295,17 @@ public class ScheduleServiceImpl implements ScheduleService {
         return team.getCity() != null ? team.getName() + " (" + team.getCity() + ")" : team.getName();
     }
 
+    private static final int GOAL_TOAST_WINDOW_MINUTES = 5;
+
     @Override
     @Transactional
     public void notifyGoals() {
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime toastWindowStart = now.minusMinutes(5);
+        LocalDateTime toastCutoff = now.minusMinutes(GOAL_TOAST_WINDOW_MINUTES);
 
-        for (Goal goal : goalRepository.findUnnotifiedForMatchesStartedBetween(now.minusMinutes(50), now)) {
+        for (Goal goal : goalRepository.findUnnotifiedForMatchesStartedBetween(now.minusHours(3), now)) {
             LocalDateTime goalTime = realGoalTime(goal);
-            if (goalTime.isAfter(now) || goalTime.isBefore(toastWindowStart)) {
+            if (goalTime.isAfter(now) || goalTime.isBefore(toastCutoff)) {
                 continue;
             }
 
@@ -277,7 +324,9 @@ public class ScheduleServiceImpl implements ScheduleService {
             String scoringTeam = benefitsHome(goal, match)
                     ? teamLabel(match.getHomeTeam())
                     : teamLabel(match.getAwayTeam());
-            String message = "GOAL for " + scoringTeam + "! " + scorerName + " " + displayMinute + "'"
+            String message = "GOAL for " + scoringTeam + "! " + scorerName
+                    + (goal.getAssistant() != null ? " (assist: " + goal.getAssistant().getFirstName() + " " + goal.getAssistant().getLastName() + ")" : "")
+                    + " " + displayMinute + "'"
                     + (goal.isOwnGoal() ? " (own goal)" : goal.isPenalty() ? " (penalty)" : "")
                     + " — " + teamLabel(match.getHomeTeam()) + " " + homeScore + ":" + awayScore
                     + " " + teamLabel(match.getAwayTeam());
@@ -293,9 +342,11 @@ public class ScheduleServiceImpl implements ScheduleService {
     }
 
     private LocalDateTime realGoalTime(Goal goal) {
-        int minute = goal.getMinute() != null ? goal.getMinute() : 0;
-        int offset = Half.SECOND.equals(goal.getHalf()) ? 25 + minute : minute;
-        return goal.getMatch().getPlayedAt().plusMinutes(offset);
+        int offsetSeconds = goal.getOffsetSeconds() != null
+                ? goal.getOffsetSeconds()
+                : (goal.getMinute() != null ? (goal.getMinute() - 1) * 60 : 0);
+        int totalSeconds = Half.SECOND.equals(goal.getHalf()) ? (25 * 60) + offsetSeconds : offsetSeconds;
+        return goal.getMatch().getPlayedAt().plusSeconds(totalSeconds);
     }
 
     private boolean benefitsHome(Goal goal, Match match) {
@@ -317,17 +368,51 @@ public class ScheduleServiceImpl implements ScheduleService {
     }
 
     private void simulateResult(Match match, List<Player> homePlayers, List<Player> awayPlayers) {
-        ThreadLocalRandom rng = ThreadLocalRandom.current();
-        int total = randomTotalGoals();
-        int homeGoals = 0;
-        for (int i = 0; i < total; i++) {
-            if (rng.nextInt(100) < 55) homeGoals++;
-        }
-        int awayGoals = total - homeGoals;
+        int diff = match.getHomeTeam().getStrength() - match.getAwayTeam().getStrength();
+        double lambdaHome = Math.max(MIN_LAMBDA, BASE_LAMBDA + diff * STRENGTH_SCALE + HOME_ADVANTAGE);
+        double lambdaAway = Math.max(MIN_LAMBDA, BASE_LAMBDA - diff * STRENGTH_SCALE - HOME_ADVANTAGE / 2);
+
+        int homeGoals = Math.min(samplePoisson(lambdaHome), MAX_GOALS_PER_TEAM);
+        int awayGoals = Math.min(samplePoisson(lambdaAway), MAX_GOALS_PER_TEAM);
+
         match.setHomeScore(homeGoals);
         match.setAwayScore(awayGoals);
         addGoals(match, homePlayers, awayPlayers, homeGoals);
         addGoals(match, awayPlayers, homePlayers, awayGoals);
+        enforceMinimumGoalSpacing(match);
+    }
+
+    private int samplePoisson(double lambda) {
+        ThreadLocalRandom rng = ThreadLocalRandom.current();
+        double l = Math.exp(-lambda);
+        int k = 0;
+        double p = 1.0;
+        do {
+            k++;
+            p *= rng.nextDouble();
+        } while (p > l);
+        return k - 1;
+    }
+
+    private static final int MIN_GOAL_GAP_SECONDS = 28;
+    private static final int GOAL_GAP_JITTER_SECONDS = 22;
+
+    private void enforceMinimumGoalSpacing(Match match) {
+        ThreadLocalRandom rng = ThreadLocalRandom.current();
+        for (Half half : Half.values()) {
+            List<Goal> inHalf = match.getGoals().stream()
+                    .filter(g -> half.equals(g.getHalf()))
+                    .sorted(Comparator.comparing(Goal::getOffsetSeconds))
+                    .toList();
+            int earliestAllowed = -MIN_GOAL_GAP_SECONDS;
+            for (Goal g : inHalf) {
+                int offset = Math.max(g.getOffsetSeconds(), earliestAllowed);
+                offset = Math.min(offset, 1199);
+                g.setOffsetSeconds(offset);
+                g.setMinute(offset / 60 + 1);
+                earliestAllowed = offset + MIN_GOAL_GAP_SECONDS + rng.nextInt(GOAL_GAP_JITTER_SECONDS + 1);
+            }
+        }
     }
 
     private void addGoals(Match match, List<Player> scoringPlayers, List<Player> concedingPlayers, int count) {
@@ -335,7 +420,8 @@ public class ScheduleServiceImpl implements ScheduleService {
         ThreadLocalRandom rng = ThreadLocalRandom.current();
         for (int i = 0; i < count; i++) {
             boolean firstHalf = rng.nextBoolean();
-            int minute = rng.nextInt(1, 21);
+            int offsetSeconds = rng.nextInt(0, 1200);
+            int minute = offsetSeconds / 60 + 1;
 
             boolean isOwnGoal = !concedingPlayers.isEmpty() && rng.nextInt(100) < 8;
             boolean isPenalty = !isOwnGoal && rng.nextInt(100) < 12;
@@ -356,21 +442,12 @@ public class ScheduleServiceImpl implements ScheduleService {
             goal.setScorer(scorer);
             goal.setAssistant(assistant);
             goal.setMinute(minute);
+            goal.setOffsetSeconds(offsetSeconds);
             goal.setHalf(firstHalf ? Half.FIRST : Half.SECOND);
             goal.setOwnGoal(isOwnGoal);
             goal.setPenalty(isPenalty);
             match.getGoals().add(goal);
         }
-    }
-
-    private int randomTotalGoals() {
-        int r = ThreadLocalRandom.current().nextInt(100);
-        int cumulative = 0;
-        for (int i = 0; i < TOTAL_GOAL_WEIGHTS.length - 1; i++) {
-            cumulative += TOTAL_GOAL_WEIGHTS[i];
-            if (r < cumulative) return i;
-        }
-        return TOTAL_GOAL_WEIGHTS.length - 1;
     }
 
     private void validateStartTime(LocalTime startTime, int matchesPerRound) {

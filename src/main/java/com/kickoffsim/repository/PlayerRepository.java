@@ -1,7 +1,7 @@
-package bg.softuni.footballleague.repository;
+package com.kickoffsim.repository;
 
-import bg.softuni.footballleague.model.Player;
-import bg.softuni.footballleague.model.Team;
+import com.kickoffsim.model.Player;
+import com.kickoffsim.model.Team;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;

@@ -1,9 +1,9 @@
-package bg.softuni.footballleague.controller;
+package com.kickoffsim.controller;
 
-import bg.softuni.footballleague.dto.RegisterDto;
-import bg.softuni.footballleague.exception.UsernameAlreadyExistsException;
-import bg.softuni.footballleague.model.Role;
-import bg.softuni.footballleague.service.UserService;
+import com.kickoffsim.dto.RegisterDto;
+import com.kickoffsim.exception.UsernameAlreadyExistsException;
+import com.kickoffsim.model.Role;
+import com.kickoffsim.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;

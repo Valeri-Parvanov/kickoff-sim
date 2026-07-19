@@ -1,8 +1,8 @@
-package bg.softuni.footballleague.service;
+package com.kickoffsim.service;
 
-import bg.softuni.footballleague.dto.ChangeRequestView;
-import bg.softuni.footballleague.model.ChangeAction;
-import bg.softuni.footballleague.model.EntityType;
+import com.kickoffsim.dto.ChangeRequestView;
+import com.kickoffsim.model.ChangeAction;
+import com.kickoffsim.model.EntityType;
 import org.springframework.security.core.Authentication;
 
 import java.util.List;
@@ -22,6 +22,8 @@ public interface ChangeRequestService {
     List<ChangeRequestView> findMine(Authentication authentication);
 
     Object getPayloadForResubmit(UUID id, Authentication authentication);
+
+    String getRejectionReason(UUID id, Authentication authentication);
 
     void cancelIfPending(UUID id, Authentication authentication);
 

@@ -1,11 +1,15 @@
-package bg.softuni.footballleague.dto;
+package com.kickoffsim.dto;
 
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.UUID;
+
 @Getter
 @Setter
 public class PlayerRowDto {
+
+    private UUID id;
 
     private String firstName;
 

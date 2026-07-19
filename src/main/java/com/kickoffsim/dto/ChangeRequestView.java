@@ -1,8 +1,8 @@
-package bg.softuni.footballleague.dto;
+package com.kickoffsim.dto;
 
-import bg.softuni.footballleague.model.ChangeAction;
-import bg.softuni.footballleague.model.ChangeRequestStatus;
-import bg.softuni.footballleague.model.EntityType;
+import com.kickoffsim.model.ChangeAction;
+import com.kickoffsim.model.ChangeRequestStatus;
+import com.kickoffsim.model.EntityType;
 import lombok.Getter;
 import lombok.Setter;
 

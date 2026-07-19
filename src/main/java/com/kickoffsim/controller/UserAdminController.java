@@ -1,8 +1,8 @@
-package bg.softuni.footballleague.controller;
+package com.kickoffsim.controller;
 
-import bg.softuni.footballleague.model.Role;
-import bg.softuni.footballleague.model.User;
-import bg.softuni.footballleague.service.UserService;
+import com.kickoffsim.model.Role;
+import com.kickoffsim.model.User;
+import com.kickoffsim.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;

@@ -1,9 +1,9 @@
-package bg.softuni.footballleague.controller;
+package com.kickoffsim.controller;
 
-import bg.softuni.footballleague.dto.ChangeRequestView;
-import bg.softuni.footballleague.exception.ChangeRequestApprovalException;
-import bg.softuni.footballleague.model.ChangeRequestStatus;
-import bg.softuni.footballleague.service.ChangeRequestService;
+import com.kickoffsim.dto.ChangeRequestView;
+import com.kickoffsim.exception.ChangeRequestApprovalException;
+import com.kickoffsim.model.ChangeRequestStatus;
+import com.kickoffsim.service.ChangeRequestService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;

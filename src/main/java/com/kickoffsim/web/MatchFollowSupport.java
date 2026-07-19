@@ -1,8 +1,8 @@
-package bg.softuni.footballleague.web;
+package com.kickoffsim.web;
 
-import bg.softuni.footballleague.client.NotificationClient;
-import bg.softuni.footballleague.client.SubscriptionDto;
-import bg.softuni.footballleague.service.UserService;
+import com.kickoffsim.client.NotificationClient;
+import com.kickoffsim.client.SubscriptionDto;
+import com.kickoffsim.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;

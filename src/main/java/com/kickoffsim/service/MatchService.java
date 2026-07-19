@@ -1,8 +1,8 @@
-package bg.softuni.footballleague.service;
+package com.kickoffsim.service;
 
-import bg.softuni.footballleague.dto.GoalDto;
-import bg.softuni.footballleague.dto.GoalEventDto;
-import bg.softuni.footballleague.dto.MatchDto;
+import com.kickoffsim.dto.GoalDto;
+import com.kickoffsim.dto.GoalEventDto;
+import com.kickoffsim.dto.MatchDto;
 import org.springframework.data.domain.Sort;
 
 import java.time.LocalDate;

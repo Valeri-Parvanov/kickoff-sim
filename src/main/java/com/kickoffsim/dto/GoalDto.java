@@ -1,6 +1,6 @@
-package bg.softuni.footballleague.dto;
+package com.kickoffsim.dto;
 
-import bg.softuni.footballleague.model.Half;
+import com.kickoffsim.model.Half;
 import lombok.Getter;
 import lombok.Setter;
 

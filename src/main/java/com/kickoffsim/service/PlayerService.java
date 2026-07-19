@@ -1,6 +1,6 @@
-package bg.softuni.footballleague.service;
+package com.kickoffsim.service;
 
-import bg.softuni.footballleague.dto.PlayerDto;
+import com.kickoffsim.dto.PlayerDto;
 import org.springframework.data.domain.Sort;
 
 import java.util.List;

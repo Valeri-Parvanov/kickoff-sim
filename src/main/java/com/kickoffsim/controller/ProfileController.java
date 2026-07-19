@@ -1,8 +1,8 @@
-package bg.softuni.footballleague.controller;
+package com.kickoffsim.controller;
 
-import bg.softuni.footballleague.dto.ProfileDto;
-import bg.softuni.footballleague.model.User;
-import bg.softuni.footballleague.service.UserService;
+import com.kickoffsim.dto.ProfileDto;
+import com.kickoffsim.model.User;
+import com.kickoffsim.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;

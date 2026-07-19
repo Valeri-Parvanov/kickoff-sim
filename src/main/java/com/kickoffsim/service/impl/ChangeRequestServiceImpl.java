@@ -22,6 +22,7 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -113,7 +114,8 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
                 EntityType.TEAM, (action, dto, targetId) -> applyTeamChange(action, (TeamDto) dto, targetId),
                 EntityType.PLAYER, (action, dto, targetId) -> applyPlayerChange(action, (PlayerDto) dto, targetId),
                 EntityType.MATCH, (action, dto, targetId) -> applyMatchChange(action, (MatchDto) dto, targetId),
-                EntityType.TEAM_SQUAD, (action, dto, targetId) -> applyTeamSquadChange((TeamSquadPayload) dto)
+                EntityType.TEAM_SQUAD, (action, dto, targetId) -> applyTeamSquadChange(action, (TeamSquadPayload) dto),
+                EntityType.LEAGUE_BUNDLE, (action, dto, targetId) -> applyLeagueBundleChange((LeagueBundlePayload) dto)
         );
 
         this.displayEnrichers = Map.of(
@@ -144,7 +146,8 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
                     if (team.getLeagueName() == null && team.getLeagueId() != null) {
                         team.setLeagueName(leagueService.findById(team.getLeagueId()).getName());
                     }
-                }
+                },
+                EntityType.LEAGUE_BUNDLE, dto -> { }
         );
 
         this.currentDtoFinders = Map.of(
@@ -154,6 +157,9 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
                 EntityType.MATCH, matchService::findById,
                 EntityType.TEAM_SQUAD, targetId -> {
                     throw new ChangeRequestApprovalException("Squad requests cannot be deleted");
+                },
+                EntityType.LEAGUE_BUNDLE, targetId -> {
+                    throw new ChangeRequestApprovalException("League bundle requests cannot be resubmitted for edit");
                 }
         );
     }
@@ -231,6 +237,16 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
         }
 
         return fromJson(changeRequest.getEntityType(), changeRequest.getPayload());
+    }
+
+    @Override
+    public String getRejectionReason(UUID id, Authentication authentication) {
+        ChangeRequest changeRequest = getOrThrow(id);
+        User requester = userService.findByUsername(authentication.getName());
+        if (!changeRequest.getRequestedBy().getId().equals(requester.getId())) {
+            throw new EntityNotFoundException("Change request with id %s not found".formatted(id));
+        }
+        return changeRequest.getRejectionReason();
     }
 
     @Override
@@ -335,13 +351,68 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
         changeAppliers.get(entityType).apply(action, dto, targetId);
     }
 
-    private void applyTeamSquadChange(TeamSquadPayload payload) {
+    private void applyTeamSquadChange(ChangeAction action, TeamSquadPayload payload) {
+        if (action == ChangeAction.UPDATE) {
+            replaceSquad(payload.getTeam().getId(), payload.getPlayers());
+            return;
+        }
         UUID teamId = payload.getTeam().getId() != null
                 ? payload.getTeam().getId()
                 : teamService.create(payload.getTeam()).getId();
         for (PlayerDto player : payload.getPlayers()) {
             player.setTeamId(teamId);
             playerService.create(player);
+        }
+    }
+
+    private void replaceSquad(UUID teamId, List<PlayerDto> players) {
+        Set<UUID> keptIds = players.stream()
+                .map(PlayerDto::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        for (PlayerDto existing : playerService.findAllByTeam(teamId)) {
+            if (!keptIds.contains(existing.getId())) {
+                playerService.delete(existing.getId());
+            }
+        }
+        for (PlayerDto player : players) {
+            player.setTeamId(teamId);
+            if (player.getId() != null) {
+                playerService.update(player.getId(), player);
+            } else {
+                playerService.create(player);
+            }
+        }
+    }
+
+    private void applyLeagueBundleChange(LeagueBundlePayload payload) {
+        List<UUID> allTeamIds = new ArrayList<>(payload.getExistingTeamIds());
+
+        for (TeamSquadPayload newTeam : payload.getNewTeams()) {
+            UUID teamId = teamService.create(newTeam.getTeam()).getId();
+            for (PlayerDto player : newTeam.getPlayers()) {
+                player.setTeamId(teamId);
+                playerService.create(player);
+            }
+            allTeamIds.add(teamId);
+        }
+
+        LeagueDto leagueDto = new LeagueDto();
+        leagueDto.setName(payload.getLeagueName());
+        leagueDto.setScheduleStartDate(payload.getScheduleStartDate());
+        leagueDto.setScheduleStartTime(payload.getScheduleStartTime());
+        leagueDto.setTeamIds(allTeamIds);
+
+        LeagueDto saved = leagueService.create(leagueDto);
+
+        LocalDate startDate = payload.getScheduleStartDate() != null
+                ? payload.getScheduleStartDate() : LocalDate.now();
+        LocalTime startTime = payload.getScheduleStartTime() != null
+                ? payload.getScheduleStartTime() : LocalTime.of(11, 0);
+        try {
+            scheduleService.generate(saved.getId(), startDate, startTime);
+        } catch (Exception e) {
+            log.warn("Schedule generation failed after league bundle approval: {}", e.getMessage());
         }
     }
 
@@ -385,6 +456,7 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
                 case PLAYER -> objectMapper.readValue(payload, PlayerDto.class);
                 case MATCH -> objectMapper.readValue(payload, MatchDto.class);
                 case TEAM_SQUAD -> objectMapper.readValue(payload, TeamSquadPayload.class);
+                case LEAGUE_BUNDLE -> objectMapper.readValue(payload, LeagueBundlePayload.class);
             };
         } catch (Exception e) {
             throw new ChangeRequestApprovalException("Failed to read change request payload");
@@ -401,6 +473,7 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
                     "A league named '" + ((LeagueDto) dto).getName() + "' already exists. Choose a different name.";
             case TEAM_SQUAD -> "A team named '" + ((TeamSquadPayload) dto).getTeam().getName()
                     + "' already exists. Choose a different name.";
+            case LEAGUE_BUNDLE -> "A team or league name in this bundle already exists. Choose different names.";
             default -> "That name is already taken. Please choose a different one.";
         };
     }
@@ -520,6 +593,8 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
                                 + (city != null && !city.isBlank() ? " (" + city + ")" : ""));
                         if (d.getTeam().getLeagueName() != null)
                             lines.add("League: " + d.getTeam().getLeagueName());
+                    } else if (changeRequest.getAction() == ChangeAction.UPDATE) {
+                        lines.add("Update squad for: " + d.getTeam().getName());
                     } else {
                         lines.add("Add players to: " + d.getTeam().getName());
                     }
@@ -527,6 +602,38 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
                     for (PlayerDto player : d.getPlayers()) {
                         lines.add("· #" + player.getShirtNumber() + " "
                                 + player.getFirstName() + " " + player.getLastName());
+                    }
+                    yield lines;
+                }
+                case LEAGUE_BUNDLE -> {
+                    LeagueBundlePayload d = (LeagueBundlePayload) dto;
+                    List<String> lines = new ArrayList<>();
+                    lines.add("==League");
+                    lines.add("Name: " + d.getLeagueName());
+                    lines.add("Format: " + d.getFormat() + " teams");
+                    if (d.getScheduleStartDate() != null)
+                        lines.add("Round 1 date: " + d.getScheduleStartDate());
+                    if (d.getScheduleStartTime() != null)
+                        lines.add("First kick-off: " + d.getScheduleStartTime());
+                    lines.add("==Summary");
+                    lines.add(d.getNewTeams().size() + " new team(s), "
+                            + d.getExistingTeamIds().size() + " existing team(s)");
+                    if (!d.getExistingTeamIds().isEmpty()) {
+                        lines.add("==Existing teams (" + d.getExistingTeamIds().size() + ")");
+                        for (UUID teamId : d.getExistingTeamIds()) {
+                            teamRepository.findById(teamId).ifPresentOrElse(
+                                    t -> lines.add("· " + t.getName()
+                                            + (t.getCity() != null ? " (" + t.getCity() + ")" : "")),
+                                    () -> lines.add("· [unknown team]"));
+                        }
+                    }
+                    if (!d.getNewTeams().isEmpty()) {
+                        lines.add("==New teams (" + d.getNewTeams().size() + ")");
+                        for (TeamSquadPayload nt : d.getNewTeams()) {
+                            lines.add("· " + nt.getTeam().getName()
+                                    + (nt.getTeam().getCity() != null ? " (" + nt.getTeam().getCity() + ")" : "")
+                                    + " — " + nt.getPlayers().size() + " players");
+                        }
                     }
                     yield lines;
                 }

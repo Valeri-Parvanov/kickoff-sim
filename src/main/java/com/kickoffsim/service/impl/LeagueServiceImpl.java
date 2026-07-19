@@ -1,15 +1,15 @@
-package bg.softuni.footballleague.service.impl;
+package com.kickoffsim.service.impl;
 
-import bg.softuni.footballleague.dto.*;
-import bg.softuni.footballleague.exception.EntityNotFoundException;
-import bg.softuni.footballleague.exception.InvalidLeagueOperationException;
-import bg.softuni.footballleague.model.*;
-import bg.softuni.footballleague.repository.LeagueRepository;
-import bg.softuni.footballleague.repository.MatchRepository;
-import bg.softuni.footballleague.repository.PlayerRepository;
-import bg.softuni.footballleague.repository.TeamRepository;
-import bg.softuni.footballleague.service.LeagueService;
-import bg.softuni.footballleague.service.MatchService;
+import com.kickoffsim.dto.*;
+import com.kickoffsim.exception.EntityNotFoundException;
+import com.kickoffsim.exception.InvalidLeagueOperationException;
+import com.kickoffsim.model.*;
+import com.kickoffsim.repository.LeagueRepository;
+import com.kickoffsim.repository.MatchRepository;
+import com.kickoffsim.repository.PlayerRepository;
+import com.kickoffsim.repository.TeamRepository;
+import com.kickoffsim.service.LeagueService;
+import com.kickoffsim.service.MatchService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -133,6 +133,21 @@ public class LeagueServiceImpl implements LeagueService {
     }
 
     @Override
+    @Transactional
+    @CacheEvict(value = "leagues", allEntries = true)
+    public int deleteFinishedOlderThan(int days) {
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(days);
+        List<League> finished = leagueRepository.findFinishedBefore(cutoff);
+        for (League league : finished) {
+            delete(league.getId());
+        }
+        if (!finished.isEmpty()) {
+            log.info("Auto-deleted {} finished league(s) with no match in the last {} days", finished.size(), days);
+        }
+        return finished.size();
+    }
+
+    @Override
     public LeagueDetailView findDetail(UUID id) {
         League league = getLeagueOrThrow(id);
         List<MatchDto> allMatches = matchService.findByLeague(id);
@@ -146,6 +161,8 @@ public class LeagueServiceImpl implements LeagueService {
                 .toList();
 
         Map<UUID, StandingRow> rowMap = new LinkedHashMap<>();
+        Map<UUID, String> teamNameById = new HashMap<>();
+        Map<UUID, String> teamCityById = new HashMap<>();
         league.getTeams().stream()
                 .sorted(Comparator.comparing(Team::getName))
                 .forEach(t -> {
@@ -154,15 +171,20 @@ public class LeagueServiceImpl implements LeagueService {
                     row.setTeamName(t.getName());
                     row.setTeamCity(t.getCity());
                     rowMap.put(t.getId(), row);
+                    teamNameById.put(t.getId(), t.getName());
+                    teamCityById.put(t.getId(), t.getCity());
                 });
 
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime liveThreshold = now.minusMinutes(46);
+        Map<UUID, PlayerStatRow> scorerMap = new LinkedHashMap<>();
+        Map<UUID, PlayerStatRow> assistMap = new LinkedHashMap<>();
         for (MatchDto m : intraLeagueMatches) {
             if (m.getPlayedAt() == null || m.getPlayedAt().isAfter(now)) continue;
 
+            boolean isLive = m.getPlayedAt().isAfter(liveThreshold);
             int homeGoals, awayGoals;
-            if (m.getPlayedAt().isAfter(liveThreshold)) {
+            if (isLive) {
                 int[] live = computeLiveScore(m, now);
                 homeGoals = live[0];
                 awayGoals = live[1];
@@ -192,6 +214,19 @@ public class LeagueServiceImpl implements LeagueService {
                 home.setDraws(home.getDraws() + 1);
                 away.setDraws(away.getDraws() + 1);
             }
+
+            long realMin = isLive ? Duration.between(m.getPlayedAt(), now).toMinutes() : -1;
+            for (GoalDto g : m.getGoalTimeline()) {
+                if (isLive && !goalRevealed(g, realMin)) continue;
+                if (!g.isOwnGoal() && g.getScorerId() != null) {
+                    tally(scorerMap, g.getScorerId(), g.getScorerName(),
+                            teamNameById.get(g.getTeamId()), teamCityById.get(g.getTeamId()));
+                }
+                if (g.getAssistantId() != null) {
+                    tally(assistMap, g.getAssistantId(), g.getAssistantName(),
+                            teamNameById.get(g.getTeamId()), teamCityById.get(g.getTeamId()));
+                }
+            }
         }
 
         List<StandingRow> standings = sortWithTiebreakers(new ArrayList<>(rowMap.values()), intraLeagueMatches);
@@ -213,6 +248,8 @@ public class LeagueServiceImpl implements LeagueService {
         view.setName(league.getName());
         view.setTeams(teamDtos);
         view.setStandings(standings);
+        view.setTopScorers(topN(scorerMap, 5));
+        view.setTopAssists(topN(assistMap, 5));
         view.setMatches(allMatches.stream()
                 .sorted(Comparator.comparingInt((MatchDto m) -> m.getRoundNumber() == null ? Integer.MAX_VALUE : m.getRoundNumber())
                         .thenComparing(MatchDto::getPlayedAt, Comparator.nullsLast(Comparator.naturalOrder())))
@@ -313,18 +350,39 @@ public class LeagueServiceImpl implements LeagueService {
         long realMin = Duration.between(m.getPlayedAt(), now).toMinutes();
         int hs = 0, as = 0;
         for (GoalDto g : m.getGoalTimeline()) {
-            if (g.getMinute() == null || g.getHalf() == null) continue;
-            boolean counts;
-            if (g.getHalf() == Half.FIRST) {
-                counts = realMin > 20 || g.getMinute() <= realMin;
-            } else {
-                counts = realMin > 25 && g.getMinute() <= (realMin - 25);
-            }
-            if (counts) {
+            if (goalRevealed(g, realMin)) {
                 if (g.isHomeGoal()) hs++; else as++;
             }
         }
         return new int[]{hs, as};
+    }
+
+    private boolean goalRevealed(GoalDto g, long realMin) {
+        if (g.getMinute() == null || g.getHalf() == null) return false;
+        return g.getHalf() == Half.FIRST
+                ? (realMin > 20 || g.getMinute() <= realMin)
+                : (realMin > 25 && g.getMinute() <= (realMin - 25));
+    }
+
+    private void tally(Map<UUID, PlayerStatRow> map, UUID playerId, String playerName, String teamName, String teamCity) {
+        PlayerStatRow row = map.get(playerId);
+        if (row == null) {
+            row = new PlayerStatRow();
+            row.setPlayerId(playerId);
+            row.setPlayerName(playerName);
+            row.setTeamName(teamName);
+            row.setTeamCity(teamCity);
+            map.put(playerId, row);
+        }
+        row.setCount(row.getCount() + 1);
+    }
+
+    private List<PlayerStatRow> topN(Map<UUID, PlayerStatRow> map, int n) {
+        return map.values().stream()
+                .sorted(Comparator.<PlayerStatRow>comparingInt(r -> -r.getCount())
+                        .thenComparing(PlayerStatRow::getPlayerName))
+                .limit(n)
+                .toList();
     }
 
     private League getLeagueOrThrow(UUID id) {

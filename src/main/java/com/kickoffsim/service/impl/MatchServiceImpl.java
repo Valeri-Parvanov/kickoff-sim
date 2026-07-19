@@ -1,19 +1,19 @@
-package bg.softuni.footballleague.service.impl;
+package com.kickoffsim.service.impl;
 
-import bg.softuni.footballleague.client.BroadcastRequest;
-import bg.softuni.footballleague.client.NotificationClient;
-import bg.softuni.footballleague.dto.GoalDto;
-import bg.softuni.footballleague.dto.GoalEventDto;
-import bg.softuni.footballleague.dto.MatchDto;
-import bg.softuni.footballleague.exception.EntityNotFoundException;
-import bg.softuni.footballleague.exception.InvalidGoalException;
-import bg.softuni.footballleague.exception.InvalidMatchException;
-import bg.softuni.footballleague.model.*;
-import bg.softuni.footballleague.repository.GoalRepository;
-import bg.softuni.footballleague.repository.MatchRepository;
-import bg.softuni.footballleague.repository.PlayerRepository;
-import bg.softuni.footballleague.repository.TeamRepository;
-import bg.softuni.footballleague.service.MatchService;
+import com.kickoffsim.client.BroadcastRequest;
+import com.kickoffsim.client.NotificationClient;
+import com.kickoffsim.dto.GoalDto;
+import com.kickoffsim.dto.GoalEventDto;
+import com.kickoffsim.dto.MatchDto;
+import com.kickoffsim.exception.EntityNotFoundException;
+import com.kickoffsim.exception.InvalidGoalException;
+import com.kickoffsim.exception.InvalidMatchException;
+import com.kickoffsim.model.*;
+import com.kickoffsim.repository.GoalRepository;
+import com.kickoffsim.repository.MatchRepository;
+import com.kickoffsim.repository.PlayerRepository;
+import com.kickoffsim.repository.TeamRepository;
+import com.kickoffsim.service.MatchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
@@ -140,10 +140,13 @@ public class MatchServiceImpl implements MatchService {
             String scoringTeam = creditedToHome
                     ? match.getHomeTeam().getName()
                     : match.getAwayTeam().getName();
+            long homeCount = goalRepository.countGoalsBenefitingTeam(match, match.getHomeTeam().getId(), null);
+            long awayCount = goalRepository.countGoalsBenefitingTeam(match, match.getAwayTeam().getId(), null);
             String message = "GOAL for " + scoringTeam + "! " + scorerName
+                    + (assistant != null ? " (assist: " + assistant.getFirstName() + " " + assistant.getLastName() + ")" : "")
                     + (goal.getMinute() != null ? " " + (goal.getHalf() == Half.SECOND ? goal.getMinute() + 20 : goal.getMinute()) + "'" : "")
                     + (goal.isOwnGoal() ? " (own goal)" : goal.isPenalty() ? " (penalty)" : "")
-                    + " — " + match.getHomeTeam().getName() + " vs " + match.getAwayTeam().getName();
+                    + " — " + match.getHomeTeam().getName() + " " + homeCount + ":" + awayCount + " " + match.getAwayTeam().getName();
             notificationClient.broadcast(new BroadcastRequest(
                     match.getId(),
                     match.getHomeTeam().getId(),

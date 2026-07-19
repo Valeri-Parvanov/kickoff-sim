@@ -1,8 +1,8 @@
-package bg.softuni.footballleague.repository;
+package com.kickoffsim.repository;
 
-import bg.softuni.footballleague.model.ChangeRequest;
-import bg.softuni.footballleague.model.ChangeRequestStatus;
-import bg.softuni.footballleague.model.User;
+import com.kickoffsim.model.ChangeRequest;
+import com.kickoffsim.model.ChangeRequestStatus;
+import com.kickoffsim.model.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;
