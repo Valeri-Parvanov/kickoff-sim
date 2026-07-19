@@ -19,10 +19,6 @@
 
         <div class="sidebar-section-label" sec:authorize="isAuthenticated()">My Account</div>
         <a th:href="@{/feed}" sec:authorize="isAuthenticated()">&#127897; My Feed</a>
-        <a th:href="@{/notifications}" sec:authorize="isAuthenticated()" id="notif-link">
-            &#128276; Notifications
-            <span class="nav-badge sidebar-badge" id="notif-badge" style="display:none"></span>
-        </a>
         <a th:href="@{/my-change-requests}" sec:authorize="isAuthenticated() and !hasRole('ADMIN')">
             &#128221; My proposals
             <span th:if="${myPendingCount != null and myPendingCount > 0}"
@@ -98,43 +94,117 @@
         try { localStorage.setItem(SHOWN_KEY, JSON.stringify(ids)); } catch (e) {}
     }
 
+    var GOAL_TOAST_RE = /^GOAL for (.+?)!\s*(.+?)(?:\s\(assist:\s(.+?)\))?\s+(\d+)'(?:\s\((own goal|penalty)\))?\s+—\s+(.+?)\s+(\d+):(\d+)\s+(.+)$/;
+    var STATUS_TOAST_RE = /^(.+?)\s+vs\s+(.+?)\s+—\s+(FULL TIME|HALF TIME)\s+(\d+)-(\d+)$/;
+
     function showToast(message, type) {
         var wrap = document.getElementById('goal-toasts');
         if (!wrap) return;
         var el = document.createElement('div');
         el.className = 'goal-toast' + (type ? ' t-' + type.toLowerCase() : '');
-        var text = document.createElement('span');
-        text.className = 'goal-toast-msg';
-        text.textContent = message;
+
+        var body = document.createElement('div');
+        body.className = 'goal-toast-body';
+
+        var goalMatch = type === 'GOAL' ? message.match(GOAL_TOAST_RE) : null;
+        if (goalMatch) {
+            var team = goalMatch[1];
+            var scorer = goalMatch[2];
+            var assist = goalMatch[3];
+            var minute = goalMatch[4];
+            var flag = goalMatch[5];
+            var homeTeam = goalMatch[6];
+            var homeScore = goalMatch[7];
+            var awayScore = goalMatch[8];
+
+            var teamLine = document.createElement('div');
+            teamLine.className = 'goal-toast-team';
+            teamLine.textContent = '⚽ ' + team;
+            body.appendChild(teamLine);
+
+            var scoreLine = document.createElement('div');
+            scoreLine.className = 'goal-toast-score';
+            var homeIsScoring = team === homeTeam;
+            var homeNum = document.createElement('span');
+            homeNum.className = 'gts-num' + (homeIsScoring ? ' gts-hot' : '');
+            homeNum.textContent = homeScore;
+            var sep = document.createElement('span');
+            sep.className = 'gts-sep';
+            sep.textContent = ':';
+            var awayNum = document.createElement('span');
+            awayNum.className = 'gts-num' + (!homeIsScoring ? ' gts-hot' : '');
+            awayNum.textContent = awayScore;
+            scoreLine.appendChild(homeNum);
+            scoreLine.appendChild(sep);
+            scoreLine.appendChild(awayNum);
+            body.appendChild(scoreLine);
+
+            var scorerLine = document.createElement('div');
+            scorerLine.className = 'goal-toast-scorer';
+            scorerLine.appendChild(document.createTextNode(scorer + ' · ' + minute + '\''));
+            if (flag) {
+                var badge = document.createElement('span');
+                badge.className = 'goal-type-badge ' + (flag === 'own goal' ? 'og' : 'pen');
+                badge.textContent = flag === 'own goal' ? 'OG' : 'pen.';
+                scorerLine.appendChild(document.createTextNode(' '));
+                scorerLine.appendChild(badge);
+            }
+            body.appendChild(scorerLine);
+
+            if (assist) {
+                var assistLine = document.createElement('div');
+                assistLine.className = 'goal-toast-assist';
+                assistLine.textContent = 'assist: ' + assist;
+                body.appendChild(assistLine);
+            }
+        } else if (type === 'MATCH_HALFTIME' || type === 'MATCH_FULLTIME') {
+            var statusMatch = message.match(STATUS_TOAST_RE);
+            if (statusMatch) {
+                var home = statusMatch[1];
+                var away = statusMatch[2];
+                var label = statusMatch[3];
+                var hScore = statusMatch[4];
+                var aScore = statusMatch[5];
+
+                var statusLine = document.createElement('div');
+                statusLine.className = 'goal-toast-status';
+                statusLine.textContent = (label === 'FULL TIME' ? '🏁 ' : '⏸ ') + label;
+                body.appendChild(statusLine);
+
+                var matchLine = document.createElement('div');
+                matchLine.className = 'goal-toast-scorer';
+                matchLine.textContent = home + ' vs ' + away + ' · ' + hScore + ':' + aScore;
+                body.appendChild(matchLine);
+            } else {
+                var statusText = document.createElement('div');
+                statusText.className = 'goal-toast-msg';
+                statusText.textContent = message;
+                body.appendChild(statusText);
+            }
+        } else {
+            var text = document.createElement('div');
+            text.className = 'goal-toast-msg';
+            text.textContent = message;
+            body.appendChild(text);
+        }
+
         var close = document.createElement('button');
         close.className = 'goal-toast-close';
         close.type = 'button';
         close.setAttribute('aria-label', 'Dismiss');
         close.textContent = '×';
-        el.appendChild(text);
+        el.appendChild(body);
         el.appendChild(close);
         wrap.appendChild(el);
         requestAnimationFrame(function() { el.classList.add('show'); });
 
-        var timer = setTimeout(dismiss, 8000);
+        var timer = setTimeout(dismiss, 30000);
         function dismiss() {
             clearTimeout(timer);
             el.classList.remove('show');
             setTimeout(function() { if (el.parentNode) el.parentNode.removeChild(el); }, 300);
         }
         close.addEventListener('click', dismiss);
-    }
-
-    function refreshBadge() {
-        fetch('/notifications/unread-count')
-            .then(function(r) { return r.ok ? r.json() : 0; })
-            .then(function(n) {
-                var b = document.getElementById('notif-badge');
-                if (!b) return;
-                if (n > 0) { b.textContent = n; b.style.display = ''; }
-                else { b.style.display = 'none'; }
-            })
-            .catch(function() {});
     }
 
     function pollToasts() {
@@ -152,9 +222,8 @@
             .catch(function() {});
     }
 
-    function tick() { refreshBadge(); pollToasts(); }
-    tick();
-    setInterval(tick, 5000);
+    pollToasts();
+    setInterval(pollToasts, 1000);
 }());
 </script>
 <script sec:authorize="isAuthenticated()">

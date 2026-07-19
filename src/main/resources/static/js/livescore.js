@@ -1,30 +1,25 @@
 var PAGE_LOAD_TIME = Date.now();
-var _reloadScheduled = false;
 
 function elapsedMinutesNow(lm) {
     var baseSec = (lm.elapsedSec != null) ? lm.elapsedSec : lm.elapsedMin * 60;
     return (baseSec + (Date.now() - PAGE_LOAD_TIME) / 1000) / 60;
 }
 
-function imminentGoal(lm, realMinFloat) {
-    var goals = lm.goals || [];
-    for (var i = 0; i < goals.length; i++) {
-        var g = goals[i];
-        var at = (g.half === 'FIRST') ? g.minute : 25 + g.minute;
-        var secondsAway = (at - realMinFloat) * 60;
-        if (secondsAway > 0 && secondsAway <= 15) return g;
-    }
-    return null;
+function formatClock(totalSec) {
+    var s = Math.max(0, Math.floor(totalSec));
+    var m = Math.floor(s / 60);
+    var sec = s % 60;
+    return m + ':' + (sec < 10 ? '0' : '') + sec;
 }
 
 function getLiveState(realMinFloat, goals) {
-    var realMin = Math.floor(realMinFloat);
-    if (realMin < 0) return { phase: 'PRE', displayMin: '', homeScore: 0, awayScore: 0, maxMin: 0 };
+    if (realMinFloat < 0) return { phase: 'PRE', displayMin: '', homeScore: 0, awayScore: 0, maxMin: 0 };
+    var elapsedSec = realMinFloat * 60;
     var phase, maxMin;
-    if (realMin <= 20)      { phase = 'FIRST';  maxMin = realMin; }
-    else if (realMin <= 25) { phase = 'HT';     maxMin = 20; }
-    else if (realMin <= 45) { phase = 'SECOND'; maxMin = realMin - 25; }
-    else                    { phase = 'FT';     maxMin = 20; }
+    if (elapsedSec < 1200)      { phase = 'FIRST';  maxMin = Math.floor(elapsedSec / 60) + 1; }
+    else if (elapsedSec < 1500) { phase = 'HT';     maxMin = 20; }
+    else if (elapsedSec < 2700) { phase = 'SECOND'; maxMin = Math.floor((elapsedSec - 1500) / 60) + 1; }
+    else                        { phase = 'FT';     maxMin = 20; }
     var hs = 0, as = 0;
     for (var i = 0; i < goals.length; i++) {
         var g = goals[i];
@@ -39,11 +34,23 @@ function getLiveState(realMinFloat, goals) {
         }
     }
     var d;
-    if (phase === 'FIRST')        d = realMin + "'";
+    if (phase === 'FIRST')        d = formatClock(elapsedSec);
     else if (phase === 'HT')      d = 'HT';
-    else if (phase === 'SECOND')  d = (20 + (realMin - 25)) + "'";
+    else if (phase === 'SECOND')  d = formatClock(1200 + (elapsedSec - 1500));
     else                          d = 'FT';
     return { phase: phase, displayMin: d, homeScore: hs, awayScore: as, maxMin: maxMin };
+}
+
+var FT_HIDE_DELAY_MS = 45000;
+
+function scheduleFtRemoval(card) {
+    if (!card || card.dataset.ftScheduled) return;
+    card.dataset.ftScheduled = '1';
+    setTimeout(function() {
+        card.style.transition = 'opacity 0.6s ease';
+        card.style.opacity = '0';
+        setTimeout(function() { card.style.display = 'none'; }, 650);
+    }, FT_HIDE_DELAY_MS);
 }
 
 function updateLiveMinutes() {
@@ -64,31 +71,9 @@ function updateLiveMinutes() {
             if (hsEl && hsEl.textContent != state.homeScore) hsEl.textContent = state.homeScore;
             if (asEl && asEl.textContent != state.awayScore) asEl.textContent = state.awayScore;
 
-            var live = state.phase === 'FIRST' || state.phase === 'SECOND';
-            var scoreline = el.closest('.match-scoreline');
-            var existingDot = scoreline ? scoreline.querySelector('.goal-imminent') : null;
-            var pending = live && scoreline ? imminentGoal(lm, realMinFloat) : null;
-
-            if (pending) {
-                var side = scoreline.querySelector(pending.homeGoal ? '.team-name.home' : '.team-name.away');
-                if (side && (!existingDot || existingDot.parentNode !== side)) {
-                    if (existingDot) existingDot.parentNode.removeChild(existingDot);
-                    var dot = document.createElement('span');
-                    dot.className = 'goal-imminent';
-                    dot.title = 'Goal coming up';
-                    var logo = side.querySelector('.match-logo');
-                    if (logo && logo.nextSibling) side.insertBefore(dot, logo.nextSibling);
-                    else side.appendChild(dot);
-                }
-            } else if (existingDot) {
-                existingDot.parentNode.removeChild(existingDot);
-            }
-            if (state.displayMin === 'FT' && window.LIVESCORE_RELOAD_AT_FT && !_reloadScheduled) {
-                _reloadScheduled = true;
-                setTimeout(function() { location.reload(); }, 3000);
-            }
             var details = el.closest('details');
             if (details) {
+                if (state.phase === 'FT') scheduleFtRemoval(details);
                 var anyFirstVis = false, anySecondVis = false;
                 details.querySelectorAll('.timeline-row').forEach(function(r) {
                     var rHalf = r.getAttribute('data-half');
@@ -119,12 +104,12 @@ function updateLiveMinutes() {
                 }
             }
         } else {
-            var min = elapsed + Math.floor((Date.now() - PAGE_LOAD_TIME) / 60000);
+            var elapsedSec = elapsed * 60 + (Date.now() - PAGE_LOAD_TIME) / 1000;
             var d;
-            if (min <= 20)      d = min + "'";
-            else if (min <= 25) d = 'HT';
-            else if (min <= 45) d = (20 + (min - 25)) + "'";
-            else                d = 'FT';
+            if (elapsedSec < 1200)      d = formatClock(elapsedSec);
+            else if (elapsedSec < 1500) d = 'HT';
+            else if (elapsedSec < 2700) d = formatClock(1200 + (elapsedSec - 1500));
+            else                        d = 'FT';
             minEl.textContent = d;
         }
     });

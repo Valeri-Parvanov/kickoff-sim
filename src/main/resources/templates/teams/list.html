@@ -60,9 +60,11 @@
         </td>
         <td th:text="${team.playerCount}"></td>
         <td sec:authorize="isAuthenticated()">
-            <a th:href="@{/teams/{id}/squad(id=${team.id})}">Add squad</a>
+            <a th:if="${team.leagueId == null}" th:href="@{/teams/{id}/squad(id=${team.id})}">Edit squad</a>
+            <a th:if="${team.leagueId != null and team.playerCount < 12}" th:href="@{/teams/{id}/squad(id=${team.id})}">Add squad</a>
             <span sec:authorize="hasRole('ADMIN')">
-                | <a th:href="@{/teams/{id}/form(id=${team.id})}">Edit</a>
+                <span th:if="${team.leagueId == null or team.playerCount < 12}">|</span>
+                <a th:href="@{/teams/{id}/form(id=${team.id})}">Edit</a>
                 <form th:action="@{/teams/{id}(id=${team.id})}" th:method="delete" style="display:inline">
                     <button type="submit">Delete</button>
                 </form>

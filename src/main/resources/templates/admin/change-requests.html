@@ -30,6 +30,7 @@
                     <span th:case="'PLAYER'">&#129489; Player</span>
                     <span th:case="'MATCH'">&#9917; Match</span>
                     <span th:case="'TEAM_SQUAD'">&#128101; Team &amp; squad</span>
+                    <span th:case="'LEAGUE_BUNDLE'">&#127942; League bundle</span>
                 </span>
             </span>
             <span class="badge"
@@ -77,6 +78,11 @@
                         <option value="Home and away team must differ"></option>
                         <option value="Teams must be in the same league"></option>
                         <option value="Match date/time is invalid"></option>
+                    </th:block>
+                    <th:block th:case="'LEAGUE_BUNDLE'">
+                        <option value="Duplicate team name in bundle"></option>
+                        <option value="An existing team is no longer eligible"></option>
+                        <option value="League name already exists"></option>
                     </th:block>
                 </datalist>
                 <button type="submit" class="btn-reject">Reject</button>

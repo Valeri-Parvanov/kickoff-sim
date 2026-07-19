@@ -17,6 +17,7 @@
             margin-top: 0.5rem;
         }
         .feed-card {
+            position: relative;
             display: flex;
             flex-direction: column;
             gap: 0.6rem;
@@ -24,11 +25,23 @@
             border-radius: 12px;
             background: var(--card-bg, #fff);
             box-shadow: 0 1px 5px rgba(0,0,0,.07);
-            text-decoration: none;
-            color: inherit;
             transition: box-shadow 0.15s ease, transform 0.12s ease;
         }
         .feed-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.12); transform: translateY(-2px); }
+        .feed-card-link {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            text-decoration: none;
+            color: inherit;
+        }
+        .feed-card-unfollow { position: absolute; top: 0.6rem; right: 0.6rem; }
+        .feed-card-unfollow button {
+            font-size: 0.68rem; font-weight: 700; padding: 3px 8px;
+            border-radius: 6px; border: 1px solid #fecaca;
+            background: #fef2f2; color: #b91c1c; cursor: pointer;
+        }
+        .feed-card-unfollow button:hover { background: #fee2e2; }
         .feed-card-top { display: flex; align-items: center; gap: 0.75rem; }
         .feed-card-logo { width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0; }
         .feed-card-trophy {
@@ -78,23 +91,27 @@
         .no-feed a { color: var(--pitch); }
 
         .feed-match-tabs {
-            display: flex; gap: 0.4rem; margin: 0.75rem 0 0.75rem;
+            display: flex; gap: 0.6rem; margin: 0.9rem 0 0.9rem;
             flex-wrap: wrap;
         }
         .feed-match-tab {
-            font-size: 0.78rem; font-weight: 700; padding: 4px 14px;
-            border-radius: 20px; border: 1.5px solid transparent; cursor: pointer;
-            background: var(--surface, #f1f5f9); color: var(--muted);
-            transition: background 0.15s, color 0.15s;
+            font-size: 0.92rem; font-weight: 700; padding: 10px 26px;
+            border-radius: 20px; border: 2px solid #94a3b8; cursor: pointer;
+            background: #fff; color: var(--text, #1e293b);
+            box-shadow: 0 2px 6px rgba(0,0,0,.1);
+            transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
         }
+        .feed-match-tab:hover { border-color: var(--pitch, #1a6b3a); box-shadow: 0 3px 10px rgba(0,0,0,.14); }
         .feed-match-tab.active {
-            background: var(--pitch, #1a6b3a); color: #fff;
+            background: var(--pitch, #1a6b3a); color: #fff; border-color: var(--pitch, #1a6b3a);
+            box-shadow: 0 4px 16px rgba(22,163,74,0.4);
         }
         .feed-match-tab.live-tab {
             border-color: #dc2626; color: #dc2626; background: #fff5f5;
         }
         .feed-match-tab.live-tab.active {
             background: #dc2626; color: #fff;
+            box-shadow: 0 4px 16px rgba(220,38,38,0.4);
         }
         .feed-sub-section { display: none; }
         .feed-sub-section.active { display: block; }
@@ -176,24 +193,30 @@
         Not following any teams yet. Visit a <a th:href="@{/teams}">team page</a> to follow.
     </div>
     <div class="feed-grid" th:unless="${teamViews.isEmpty()}">
-        <a th:each="t : ${teamViews}"
-           th:href="@{/teams/{id}(id=${t.entityId()})}"
-           class="feed-card">
-            <div class="feed-card-top">
-                <img th:src="@{/teams/{id}/logo(id=${t.entityId()})}" class="feed-card-logo" alt=""/>
-                <div>
-                    <div class="feed-card-name" th:text="${t.entityName()}"></div>
-                    <div class="feed-card-sub" th:if="${t.leagueName() != null}" th:text="${t.leagueName()}"></div>
-                    <div class="feed-card-sub" th:unless="${t.leagueName() != null}">No league</div>
+        <div th:each="t : ${teamViews}" class="feed-card">
+            <a th:href="@{/teams/{id}(id=${t.entityId()})}" class="feed-card-link">
+                <div class="feed-card-top">
+                    <img th:src="@{/teams/{id}/logo(id=${t.entityId()})}" class="feed-card-logo" alt=""/>
+                    <div>
+                        <div class="feed-card-name" th:text="${t.entityName()}"></div>
+                        <div class="feed-card-sub" th:if="${t.leagueName() != null}" th:text="${t.leagueName()}"></div>
+                        <div class="feed-card-sub" th:unless="${t.leagueName() != null}">No league</div>
+                    </div>
                 </div>
-            </div>
-            <div class="feed-pills">
-                <span class="feed-pill pos" th:if="${t.standingPosition() != null}"
-                      th:text="'#' + ${t.standingPosition()} + ' in standings'"></span>
-                <span class="feed-pill rem"
-                      th:text="${t.remainingMatches()} + (${t.remainingMatches() == 1} ? ' match left' : ' matches left')"></span>
-            </div>
-        </a>
+                <div class="feed-pills">
+                    <span class="feed-pill pos" th:if="${t.standingPosition() != null}"
+                          th:text="'#' + ${t.standingPosition()} + ' in standings'"></span>
+                    <span class="feed-pill rem"
+                          th:text="${t.remainingMatches()} + (${t.remainingMatches() == 1} ? ' match left' : ' matches left')"></span>
+                </div>
+            </a>
+            <form th:action="@{/notifications/subscriptions/{sid}(sid=${t.subscriptionId()})}"
+                  method="post" class="feed-card-unfollow">
+                <input type="hidden" name="_method" value="DELETE"/>
+                <input type="hidden" name="returnUrl" value="/feed#teams"/>
+                <button type="submit">&#10005; Unfollow</button>
+            </form>
+        </div>
     </div>
 </section>
 
@@ -203,29 +226,35 @@
         Not following any leagues yet. Visit a <a th:href="@{/leagues}">league page</a> to follow.
     </div>
     <div class="feed-grid" th:unless="${leagueViews.isEmpty()}">
-        <a th:each="l : ${leagueViews}"
-           th:href="@{/leagues/{id}(id=${l.entityId()})}"
-           class="feed-card">
-            <div class="feed-card-top">
-                <div class="feed-card-trophy">&#127942;</div>
-                <div>
-                    <div class="feed-card-name" th:text="${l.entityName()}"></div>
-                    <div class="feed-card-sub" th:text="${l.teamCount()} + ' teams'"></div>
+        <div th:each="l : ${leagueViews}" class="feed-card">
+            <a th:href="@{/leagues/{id}(id=${l.entityId()})}" class="feed-card-link">
+                <div class="feed-card-top">
+                    <div class="feed-card-trophy">&#127942;</div>
+                    <div>
+                        <div class="feed-card-name" th:text="${l.entityName()}"></div>
+                        <div class="feed-card-sub" th:text="${l.teamCount()} + ' teams'"></div>
+                    </div>
                 </div>
-            </div>
-            <div class="feed-pills">
-                <span class="feed-pill teams" th:text="${l.teamCount()} + ' teams'"></span>
-                <span class="feed-pill rem"
-                      th:text="${l.remainingMatches()} + (${l.remainingMatches() == 1} ? ' match left' : ' matches left')"></span>
-            </div>
-        </a>
+                <div class="feed-pills">
+                    <span class="feed-pill teams" th:text="${l.teamCount()} + ' teams'"></span>
+                    <span class="feed-pill rem"
+                          th:text="${l.remainingMatches()} + (${l.remainingMatches() == 1} ? ' match left' : ' matches left')"></span>
+                </div>
+            </a>
+            <form th:action="@{/notifications/subscriptions/{sid}(sid=${l.subscriptionId()})}"
+                  method="post" class="feed-card-unfollow">
+                <input type="hidden" name="_method" value="DELETE"/>
+                <input type="hidden" name="returnUrl" value="/feed#leagues"/>
+                <button type="submit">&#10005; Unfollow</button>
+            </form>
+        </div>
     </div>
 </section>
 
 <!-- ── MY MATCHES ── -->
 <section id="matches" class="team-tab-section">
     <div th:if="${liveMatches.isEmpty() and upcomingMatches.isEmpty() and recentMatches.isEmpty()}" class="no-feed">
-        No matches found for followed teams. <a th:href="@{/teams}">Follow a team</a> to see its matches here.
+        No matches found for followed teams or starred matches. <a th:href="@{/teams}">Follow a team</a> to see its matches here.
     </div>
 
     <div th:unless="${liveMatches.isEmpty() and upcomingMatches.isEmpty() and recentMatches.isEmpty()}">

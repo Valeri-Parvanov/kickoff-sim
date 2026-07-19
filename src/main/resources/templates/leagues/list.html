@@ -17,39 +17,20 @@
 <div th:replace="~{fragments/topbar :: messages}"></div>
 <h1>&#127942; Leagues</h1>
 
-<div class="add-new-bar" sec:authorize="isAuthenticated()">
-    <a th:href="@{/leagues/form}" class="btn-add">Add new league</a>
-</div>
-
-<div class="league-ready-banner" th:if="${leagueEligibleCount >= 6}" sec:authorize="isAuthenticated()">
+<div class="league-ready-banner" sec:authorize="isAuthenticated()">
     <div class="league-ready-icon">&#127942;</div>
     <div class="league-ready-body">
-        <div class="league-ready-title">You have enough teams to start a league!</div>
-        <div class="league-ready-sub">
-            <strong th:text="${leagueFreeCount}"></strong> teams without a league —
-            <strong th:text="${leagueEligibleCount}"></strong> of them are eligible (6+ players each).
+        <div class="league-ready-title">Ready to create a league!</div>
+        <div class="league-ready-sub" th:if="${leagueEligibleCount >= 6}">
+            <strong th:text="${leagueEligibleCount}"></strong> of your existing teams are eligible (6+ players each) —
+            the wizard lets you pick from them and creates the rest for you. Valid league sizes: 6, 8, 10 or 16 teams.
+        </div>
+        <div class="league-ready-sub" th:unless="${leagueEligibleCount >= 6}">
+            No existing teams needed — the wizard walks you through creating every team as you go.
             Valid league sizes: 6, 8, 10 or 16 teams.
         </div>
         <div class="league-ready-actions">
-            <a th:href="@{/leagues/form}" class="league-ready-primary">&#43; Create a League</a>
-            <span class="league-ready-divider">or</span>
-            <span class="league-ready-secondary">continue adding teams</span>
-        </div>
-    </div>
-</div>
-
-<div class="league-warn-banner" th:if="${leagueEligibleCount < 6}" sec:authorize="isAuthenticated()">
-    <div class="league-ready-icon">&#9888;</div>
-    <div class="league-ready-body">
-        <div class="league-warn-title">Not enough eligible teams yet</div>
-        <div class="league-warn-sub">
-            To start a league you need at least 6 teams with 6+ players each.
-            Only <strong th:text="${leagueEligibleCount}"></strong> of your teams qualify right now — add players to more squads first.
-        </div>
-        <div class="league-ready-actions">
-            <a th:href="@{/teams/form}" class="league-warn-primary">&#43; Add a Team</a>
-            <span class="league-ready-divider">or</span>
-            <span class="league-warn-secondary">complete an existing team's squad</span>
+            <a th:href="@{/leagues/wizard}" class="league-ready-primary">&#43; Create a League</a>
         </div>
     </div>
 </div>

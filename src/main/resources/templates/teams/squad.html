@@ -14,67 +14,78 @@
 
 <main class="page">
 <div th:replace="~{fragments/topbar :: messages}"></div>
-<h1>&#128101; Add squad</h1>
-<p>Fill in players for <strong th:text="${team.name}"></strong>. You can add up to
-    <strong th:text="${remaining}"></strong> more player(s). Leave rows empty to skip them.</p>
 
-<div th:if="${remaining <= 0}">
-    <p class="status-message">This team already has a full squad (12 players).</p>
-    <p><a th:href="@{/teams}" class="back-link">&#8592; Back to teams</a></p>
-</div>
+<!-- Edit mode: team has no league — full squad management (League Wizard style) -->
+<div th:if="${editMode}">
+    <h1>&#128101; Manage squad</h1>
+    <p>Add, edit, or remove players for <strong th:text="${team.name}"></strong> (minimum 6, maximum 12 players).
+        Clear a row's name to remove that player.</p>
 
-<div th:if="${remaining > 0}">
     <form th:action="@{/teams/{id}/squad(id=${team.id})}" th:object="${squadForm}" method="post">
         <div th:if="${#fields.hasGlobalErrors()}">
             <div class="error-message" th:each="err : ${#fields.globalErrors()}" th:text="${err}"></div>
         </div>
 
-        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem">
-            <button type="button" class="btn-add" onclick="randomizeAllSquad()">&#127922; Randomize all</button>
-            <button type="button" class="btn-add" onclick="randomizeOneRow()">&#127922; + 1 player</button>
-        </div>
+        <div class="wizard-team-block">
+            <div class="wizard-team-summary">
+                <span>Squad</span>
+                <span class="wizard-squad-count">6 players</span>
+            </div>
+            <div class="wizard-team-body">
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;margin:0 0 0.6rem">
+                    <button type="button" class="btn-add" onclick="setSquadSizeIn(this.closest('.wizard-team-block'), 12)">&#127922; 12 players</button>
+                    <button type="button" class="btn-add" onclick="setSquadSizeIn(this.closest('.wizard-team-block'), 9)">&#127922; 9 players</button>
+                    <button type="button" class="btn-add" onclick="setSquadSizeIn(this.closest('.wizard-team-block'), 6)">&#127922; 6 players</button>
+                    <button type="button" class="btn-goal wizard-grow-btn" onclick="growSquadIn(this.closest('.wizard-team-block'))">&#43; 1 player</button>
+                    <button type="button" class="btn-del wizard-shrink-btn" onclick="shrinkSquadIn(this.closest('.wizard-team-block'))">&#8722; 1 player</button>
+                    <button type="button" class="btn-edit" onclick="clearSquadIn(this.closest('.wizard-team-block'))">Clear all</button>
+                </div>
 
-        <div class="table-wrapper">
-        <table border="1" cellpadding="6">
-            <thead>
-            <tr>
-                <th>#</th>
-                <th>Shirt no.</th>
-                <th>First name</th>
-                <th>Last name</th>
-                <th></th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr th:each="row, stat : *{rows}">
-                <td th:text="${stat.count}">1</td>
-                <td>
-                    <input type="number" min="1" max="99"
-                           th:field="*{rows[__${stat.index}__].shirtNumber}"/>
-                    <span style="color:red"
-                          th:if="${#fields.hasErrors('rows[__${stat.index}__].shirtNumber')}"
-                          th:errors="*{rows[__${stat.index}__].shirtNumber}"></span>
-                </td>
-                <td>
-                    <input type="text" class="js-firstname"
-                           th:field="*{rows[__${stat.index}__].firstName}"/>
-                    <span style="color:red"
-                          th:if="${#fields.hasErrors('rows[__${stat.index}__].firstName')}"
-                          th:errors="*{rows[__${stat.index}__].firstName}"></span>
-                </td>
-                <td>
-                    <input type="text" class="js-lastname"
-                           th:field="*{rows[__${stat.index}__].lastName}"/>
-                    <span style="color:red"
-                          th:if="${#fields.hasErrors('rows[__${stat.index}__].lastName')}"
-                          th:errors="*{rows[__${stat.index}__].lastName}"></span>
-                </td>
-                <td>
-                    <button type="button" class="dice-btn" onclick="randomizeRow(this)" title="Random player">&#127922;</button>
-                </td>
-            </tr>
-            </tbody>
-        </table>
+                <div class="table-wrapper">
+                <table border="1" cellpadding="6">
+                    <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Shirt no.</th>
+                        <th>First name</th>
+                        <th>Last name</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="row, stat : *{rows}"
+                        th:classappend="${stat.index >= 6 ? 'wizard-row-hidden' : ''}">
+                        <td th:text="${stat.count}">1</td>
+                        <td>
+                            <input type="hidden" th:if="${row.id != null}" th:field="*{rows[__${stat.index}__].id}"/>
+                            <input type="number" min="1" max="99"
+                                   th:field="*{rows[__${stat.index}__].shirtNumber}"/>
+                            <span style="color:red"
+                                  th:if="${#fields.hasErrors('rows[__${stat.index}__].shirtNumber')}"
+                                  th:errors="*{rows[__${stat.index}__].shirtNumber}"></span>
+                        </td>
+                        <td>
+                            <input type="text" class="js-firstname"
+                                   th:field="*{rows[__${stat.index}__].firstName}"/>
+                            <span style="color:red"
+                                  th:if="${#fields.hasErrors('rows[__${stat.index}__].firstName')}"
+                                  th:errors="*{rows[__${stat.index}__].firstName}"></span>
+                        </td>
+                        <td>
+                            <input type="text" class="js-lastname"
+                                   th:field="*{rows[__${stat.index}__].lastName}"/>
+                            <span style="color:red"
+                                  th:if="${#fields.hasErrors('rows[__${stat.index}__].lastName')}"
+                                  th:errors="*{rows[__${stat.index}__].lastName}"></span>
+                        </td>
+                        <td>
+                            <button type="button" class="dice-btn" onclick="randomizeRow(this)" title="Random player">&#127922;</button>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+                </div>
+            </div>
         </div>
 
         <button type="submit" style="margin-top:1rem">Save squad</button>
@@ -82,7 +93,91 @@
 
     <p><a th:href="@{/teams}" class="back-link">&#8592; Back to teams</a></p>
 </div>
+
+<!-- Add-only mode: team is in a league — can only fill remaining slots -->
+<div th:unless="${editMode}">
+    <h1>&#128101; Add squad</h1>
+    <p>Fill in players for <strong th:text="${team.name}"></strong>. You can add up to
+        <strong th:text="${remaining}"></strong> more player(s). Leave rows empty to skip them.</p>
+
+    <div th:if="${remaining <= 0}">
+        <p class="status-message">This team already has a full squad (12 players).</p>
+        <p><a th:href="@{/teams}" class="back-link">&#8592; Back to teams</a></p>
+    </div>
+
+    <div th:if="${remaining > 0}">
+        <form th:action="@{/teams/{id}/squad(id=${team.id})}" th:object="${squadForm}" method="post">
+            <div th:if="${#fields.hasGlobalErrors()}">
+                <div class="error-message" th:each="err : ${#fields.globalErrors()}" th:text="${err}"></div>
+            </div>
+
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem">
+                <button type="button" class="btn-add" onclick="randomizeAllSquad()">&#127922; Randomize all</button>
+                <button type="button" class="btn-add" onclick="randomizeOneRow()">&#127922; + 1 player</button>
+            </div>
+
+            <div class="table-wrapper">
+            <table border="1" cellpadding="6">
+                <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Shirt no.</th>
+                    <th>First name</th>
+                    <th>Last name</th>
+                    <th></th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="row, stat : *{rows}">
+                    <td th:text="${stat.count}">1</td>
+                    <td>
+                        <input type="number" min="1" max="99"
+                               th:field="*{rows[__${stat.index}__].shirtNumber}"/>
+                        <span style="color:red"
+                              th:if="${#fields.hasErrors('rows[__${stat.index}__].shirtNumber')}"
+                              th:errors="*{rows[__${stat.index}__].shirtNumber}"></span>
+                    </td>
+                    <td>
+                        <input type="text" class="js-firstname"
+                               th:field="*{rows[__${stat.index}__].firstName}"/>
+                        <span style="color:red"
+                              th:if="${#fields.hasErrors('rows[__${stat.index}__].firstName')}"
+                              th:errors="*{rows[__${stat.index}__].firstName}"></span>
+                    </td>
+                    <td>
+                        <input type="text" class="js-lastname"
+                               th:field="*{rows[__${stat.index}__].lastName}"/>
+                        <span style="color:red"
+                              th:if="${#fields.hasErrors('rows[__${stat.index}__].lastName')}"
+                              th:errors="*{rows[__${stat.index}__].lastName}"></span>
+                    </td>
+                    <td>
+                        <button type="button" class="dice-btn" onclick="randomizeRow(this)" title="Random player">&#127922;</button>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+            </div>
+
+            <button type="submit" style="margin-top:1rem">Save squad</button>
+        </form>
+
+        <p><a th:href="@{/teams}" class="back-link">&#8592; Back to teams</a></p>
+    </div>
+</div>
 </main>
 <script th:src="@{/js/random-names.js}"></script>
+<script th:if="${editMode}">
+document.querySelectorAll('.wizard-team-block').forEach(function (block) {
+    block.querySelectorAll('tbody tr.wizard-row-hidden').forEach(function (row) {
+        var fn = row.querySelector('.js-firstname');
+        var ln = row.querySelector('.js-lastname');
+        if ((fn && fn.value.trim()) || (ln && ln.value.trim())) {
+            row.classList.remove('wizard-row-hidden');
+        }
+    });
+    wizardUpdateSquadCount(block);
+});
+</script>
 </body>
 </html>

@@ -56,36 +56,7 @@
         <span style="color:red" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></span>
     </div>
 
-    <fieldset style="margin-top:16px;padding:12px;border:1px solid #ccc;border-radius:6px;">
-        <legend style="font-weight:600;padding:0 6px;">Schedule start</legend>
-        <p style="font-size:0.85rem;color:#555;margin:0 0 10px;">
-            The schedule is generated automatically when the league is created.
-            If you leave the date blank, Round 1 starts today.
-        </p>
-        <div style="display:flex;gap:16px;flex-wrap:wrap;">
-            <div>
-                <label>Round 1 date</label>
-                <input type="hidden" id="scheduleStartDate" th:field="*{scheduleStartDate}"/>
-                <div id="lcSelLabel" class="cal-sel-label" style="min-height:1.4em;margin:4px 0 2px;"></div>
-                <div id="leagueCalendar" class="match-calendar"></div>
-            </div>
-            <div>
-                <label for="scheduleStartTimeSelect">First kick-off (default 11:00)</label><br/>
-                <input type="hidden" th:field="*{scheduleStartTime}"/>
-                <select id="scheduleStartTimeSelect" style="height:2.2rem;font-size:1rem;border:1px solid #ccc;border-radius:6px;padding:0 0.5rem;"></select>
-                <div id="tzBanner" style="display:none;margin-top:10px;padding:10px 14px;border-radius:6px;background:#fffbeb;border-left:4px solid #d97706;border-top:1px solid #fcd34d;border-right:1px solid #fcd34d;border-bottom:1px solid #fcd34d;max-width:340px;">
-                    <div style="display:flex;align-items:flex-start;gap:8px;">
-                        <span style="font-size:1.15rem;line-height:1.2;color:#d97706;">&#9888;</span>
-                        <div>
-                            <div style="font-size:0.82rem;font-weight:600;color:#92400e;">Times are entered in Sofia time (UTC+3).</div>
-                            <div style="font-size:0.82rem;color:#78350f;margin-top:3px;">First match will kick off at <strong><span id="tzBannerLocal"></span> your local time</strong>.</div>
-                        </div>
-                    </div>
-                </div>
-                <span style="color:red" th:if="${#fields.hasErrors('scheduleStartTime')}" th:errors="*{scheduleStartTime}"></span>
-            </div>
-        </div>
-    </fieldset>
+    <div th:replace="~{fragments/schedule-picker :: picker(${leagueDto.teamIds != null ? leagueDto.teamIds.size() : 0})}"></div>
 
     <div style="margin-top:20px;">
         <label>Teams <span style="font-weight:400;font-size:0.82rem;text-transform:none;letter-spacing:0;">(select exactly 6, 8, 10, or 16 — each must have at least 6 players)</span></label>
@@ -122,117 +93,12 @@
 <script th:src="@{/js/random-names.js}"></script>
 <script>
 (function() {
-    var hidden = document.getElementById('scheduleStartTime');
-    var sel = document.getElementById('scheduleStartTimeSelect');
-    if (!hidden || !sel) return;
-    for (var t = 8*60; t <= 23*60+30; t += 15) {
-        var h = Math.floor(t/60), m = t%60;
-        var lbl = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
-        var opt = document.createElement('option');
-        opt.value = lbl; opt.textContent = lbl;
-        sel.appendChild(opt);
+    var checkboxes = Array.from(document.querySelectorAll('input[name="teamIds"]'));
+    if (!checkboxes.length || typeof window.updateScheduleTeamCount !== 'function') return;
+    function update() {
+        window.updateScheduleTeamCount(checkboxes.filter(function(cb) { return cb.checked; }).length);
     }
-    var cur = hidden.value ? hidden.value.substring(0,5) : '11:00';
-    sel.value = cur;
-    if (!sel.value) sel.value = '11:00';
-    hidden.value = sel.value;
-
-    var sofiaOffset = (function() {
-        try {
-            var d = new Date();
-            var s = d.toLocaleString('sv', {timeZone: 'Europe/Sofia'});
-            var u = d.toLocaleString('sv', {timeZone: 'UTC'});
-            return Math.round((new Date(s) - new Date(u)) / 60000);
-        } catch(e) { return 180; }
-    })();
-    var clientOffset = -new Date().getTimezoneOffset();
-    var delta = sofiaOffset - clientOffset;
-
-    function updateLocalNote() {
-        var banner = document.getElementById('tzBanner');
-        var bannerLocal = document.getElementById('tzBannerLocal');
-        if (!banner) return;
-        if (delta === 0) { banner.style.display = 'none'; return; }
-        var parts = sel.value.split(':');
-        var sofiaMin = parseInt(parts[0]) * 60 + parseInt(parts[1]);
-        var localMin = ((sofiaMin - delta) % 1440 + 1440) % 1440;
-        var localStr = String(Math.floor(localMin / 60)).padStart(2, '0') + ':' + String(localMin % 60).padStart(2, '0');
-        if (bannerLocal) bannerLocal.textContent = localStr;
-        banner.style.display = 'block';
-    }
-    sel.addEventListener('change', function() { hidden.value = sel.value; updateLocalNote(); });
-    updateLocalNote();
-})();
-
-(function() {
-    var hiddenDate = document.getElementById('scheduleStartDate');
-    var cal = document.getElementById('leagueCalendar');
-    var label = document.getElementById('lcSelLabel');
-    if (!cal || !hiddenDate) return;
-
-    var BG_MONTHS = ['January','February','March','April','May','June',
-                     'July','August','September','October','November','December'];
-    var BG_DAYS   = ['Mo','Tu','We','Th','Fr','Sa','Su'];
-
-    var now = new Date();
-    var todayIso = now.getFullYear() + '-'
-        + String(now.getMonth()+1).padStart(2,'0') + '-'
-        + String(now.getDate()).padStart(2,'0');
-
-    var selected = hiddenDate.value || '';
-    var cur = (selected && selected.length >= 7) ? selected.substring(0,7) : todayIso.substring(0,7);
-
-    function formatLabel(iso) {
-        var p = iso.split('-');
-        return p[2] + ' ' + BG_MONTHS[parseInt(p[1])-1] + ' ' + p[0];
-    }
-
-    function render() {
-        var p = cur.split('-');
-        var year = +p[0], month = +p[1];
-        var first = new Date(year, month-1, 1);
-        var days  = new Date(year, month, 0).getDate();
-        var dow   = (first.getDay() + 6) % 7;
-
-        var h = '<div class="cal-nav">';
-        h += '<button type="button" class="cal-btn cal-prev">&#8249;</button>';
-        h += '<span class="cal-month-title">' + BG_MONTHS[month-1] + ' ' + year + '</span>';
-        h += '<button type="button" class="cal-btn cal-next">&#8250;</button>';
-        h += '</div><div class="cal-grid">';
-        BG_DAYS.forEach(function(d) { h += '<div class="cal-dh">' + d + '</div>'; });
-        for (var i = 0; i < dow; i++) h += '<div class="cal-cell cal-empty"></div>';
-        for (var day = 1; day <= days; day++) {
-            var iso = year + '-' + String(month).padStart(2,'0') + '-' + String(day).padStart(2,'0');
-            var cls = 'cal-cell cal-active'
-                + (iso === todayIso  ? ' cal-today'    : '')
-                + (iso === selected  ? ' cal-selected' : '');
-            h += '<div class="' + cls + '"><a href="#" data-date="' + iso + '">' + day + '</a></div>';
-        }
-        h += '</div>';
-        cal.innerHTML = h;
-        label.textContent = selected ? formatLabel(selected) : '';
-
-        cal.querySelector('.cal-prev').addEventListener('click', function() {
-            var d = new Date(year, month-2, 1);
-            cur = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
-            render();
-        });
-        cal.querySelector('.cal-next').addEventListener('click', function() {
-            var d = new Date(year, month, 1);
-            cur = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
-            render();
-        });
-        cal.querySelectorAll('[data-date]').forEach(function(a) {
-            a.addEventListener('click', function(e) {
-                e.preventDefault();
-                selected = this.getAttribute('data-date');
-                hiddenDate.value = selected;
-                render();
-            });
-        });
-    }
-
-    render();
+    checkboxes.forEach(function(cb) { cb.addEventListener('change', update); });
 })();
 </script>
 <div id="lcModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:900;align-items:center;justify-content:center;">
@@ -242,6 +108,7 @@
             <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;">Name</td><td id="lcmName" style="font-weight:600;color:#111;"></td></tr>
             <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;">Round 1 date</td><td id="lcmDate" style="font-weight:600;color:#111;"></td></tr>
             <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;">First kick-off</td><td id="lcmTime" style="font-weight:600;color:#111;"></td></tr>
+            <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;">Last kick-off (every round)</td><td id="lcmLast" style="font-weight:600;color:#111;"></td></tr>
         </table>
         <div style="display:flex;gap:0.75rem;justify-content:flex-end;">
             <button type="button" id="lcmCancel" style="margin:0;background:transparent;border:2px solid #ccc;color:#333;border-radius:999px;padding:0.55rem 1.2rem;font-weight:600;cursor:pointer;">Cancel</button>
@@ -264,12 +131,16 @@
     form.addEventListener('submit', function(e) {
         if (confirmed) return;
         e.preventDefault();
+        if (window.showScheduleOverflowModalIfNeeded && window.showScheduleOverflowModalIfNeeded()) return;
         document.getElementById('lcmName').textContent = (document.getElementById('name').value || '').trim() || '—';
         document.getElementById('lcmDate').textContent = fmtDate((document.getElementById('scheduleStartDate').value || '').trim());
         var sel = document.getElementById('scheduleStartTimeSelect');
         var bannerLocal = document.getElementById('tzBannerLocal');
         var localNote = bannerLocal && bannerLocal.textContent ? ' (' + bannerLocal.textContent + ' your local time)' : '';
         document.getElementById('lcmTime').textContent = (sel ? sel.value + ' Sofia' : '—') + localNote;
+        var lastEl = document.getElementById('lcmLast');
+        var info = window.getScheduleLastMatchInfo ? window.getScheduleLastMatchInfo() : null;
+        lastEl.textContent = info ? info.lastTime + ' Sofia' : '—';
         modal.style.display = 'flex';
     });
     document.getElementById('lcmConfirm').addEventListener('click', function() {

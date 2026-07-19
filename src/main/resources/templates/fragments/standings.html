@@ -57,6 +57,30 @@
 </div>
 </th:block>
 
+<th:block th:fragment="playerStatTable(rows, countLabel)">
+<div class="table-wrapper" th:if="${!#lists.isEmpty(rows)}">
+    <table border="1" cellpadding="6">
+        <thead>
+        <tr>
+            <th>#</th>
+            <th>Player</th>
+            <th>Team</th>
+            <th th:text="${countLabel}"></th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="row, stat : ${rows}">
+            <td th:text="${stat.index + 1}"></td>
+            <td th:text="${row.playerName}"></td>
+            <td th:text="${row.teamName + (row.teamCity != null ? ' (' + row.teamCity + ')' : '')}"></td>
+            <td><strong th:text="${row.count}"></strong></td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+<p th:if="${#lists.isEmpty(rows)}" class="no-matches">No goals yet.</p>
+</th:block>
+
 <th:block th:fragment="leagueProgress(total, played)">
 <div class="ldp-wrap" th:if="${total != null and total > 0}">
     <div class="ldp-header">

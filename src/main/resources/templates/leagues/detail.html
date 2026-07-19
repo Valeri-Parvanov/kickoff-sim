@@ -39,12 +39,21 @@
         <form th:action="@{/leagues/{id}(id=${league.id})}" th:method="delete" style="display:inline" sec:authorize="hasRole('ADMIN')">
             <button type="submit" class="btn-del">Delete</button>
         </form>
-        <form th:action="@{/notifications/subscribe}" method="post" style="display:inline" sec:authorize="isAuthenticated()">
-            <input type="hidden" name="entityId" th:value="${league.id}"/>
-            <input type="hidden" name="entityType" value="LEAGUE"/>
-            <input type="hidden" name="returnUrl" th:value="'/leagues/' + ${league.id}"/>
-            <button type="submit" class="btn-goal">Follow league</button>
-        </form>
+        <th:block sec:authorize="isAuthenticated()">
+            <form th:if="${followedSubscriptionId != null}"
+                  th:action="@{/notifications/subscriptions/{sid}(sid=${followedSubscriptionId})}" method="post" style="display:inline">
+                <input type="hidden" name="_method" value="DELETE"/>
+                <input type="hidden" name="returnUrl" th:value="'/leagues/' + ${league.id}"/>
+                <button type="submit" class="btn-following">&#10003; Following</button>
+            </form>
+            <form th:if="${followedSubscriptionId == null}"
+                  th:action="@{/notifications/subscribe}" method="post" style="display:inline">
+                <input type="hidden" name="entityId" th:value="${league.id}"/>
+                <input type="hidden" name="entityType" value="LEAGUE"/>
+                <input type="hidden" name="returnUrl" th:value="'/leagues/' + ${league.id}"/>
+                <button type="submit" class="btn-goal">&#128276; Follow league</button>
+            </form>
+        </th:block>
     </div>
 </div>
 
@@ -53,8 +62,12 @@
         <span class="tab-icon">&#127942;</span>
         <span class="tab-label">Standings</span>
     </a>
-    <a class="team-tab" href="#schedule">
+    <a class="team-tab" href="#stats">
         <span class="tab-icon">&#9917;</span>
+        <span class="tab-label">Top Scorers &amp; Assists</span>
+    </a>
+    <a class="team-tab" href="#schedule">
+        <span class="tab-icon">&#128197;</span>
         <span class="tab-label">Schedule</span>
     </a>
     <a class="team-tab" href="#rules">
@@ -69,6 +82,20 @@
     <th:block th:unless="${#lists.isEmpty(league.standings)}">
         <div th:replace="~{fragments/standings :: standingsTable(${league.standings}, null)}"></div>
     </th:block>
+</section>
+
+<!-- ── TOP SCORERS / ASSISTS ── -->
+<section id="stats" class="team-tab-section">
+    <div style="display:flex;gap:24px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:260px;">
+            <h3 style="margin:0 0 8px;">&#9917; Top Scorers</h3>
+            <div th:replace="~{fragments/standings :: playerStatTable(${league.topScorers}, 'Goals')}"></div>
+        </div>
+        <div style="flex:1;min-width:260px;">
+            <h3 style="margin:0 0 8px;">&#127919; Top Assists</h3>
+            <div th:replace="~{fragments/standings :: playerStatTable(${league.topAssists}, 'Assists')}"></div>
+        </div>
+    </div>
 </section>
 
 <!-- ── SCHEDULE ── -->
@@ -298,15 +325,19 @@ var LIVE_MATCHES = /*[[${liveMatchesForJs}]]*/[];
 </script>
 <script>
 var PAGE_LOAD_TIME = Date.now();
-var _reloadScheduled = false;
-function getLiveState(elapsedAtLoad, goals) {
-    var realMin = elapsedAtLoad + Math.floor((Date.now() - PAGE_LOAD_TIME) / 60000);
+function formatClock(totalSec) {
+    var s = Math.max(0, Math.floor(totalSec));
+    var m = Math.floor(s / 60);
+    var sec = s % 60;
+    return m + ':' + (sec < 10 ? '0' : '') + sec;
+}
+function getLiveState(elapsedSec, goals) {
     var phase, maxMin;
-    if (realMin < 0)         return { phase: 'PRE',    displayMin: '',   homeScore: 0, awayScore: 0, maxMin: 0 };
-    if (realMin <= 20)       { phase = 'FIRST';  maxMin = realMin; }
-    else if (realMin <= 25)  { phase = 'HT';     maxMin = 20; }
-    else if (realMin <= 45)  { phase = 'SECOND'; maxMin = realMin - 25; }
-    else                     { phase = 'FT';     maxMin = 20; }
+    if (elapsedSec < 0)         return { phase: 'PRE',    displayMin: '',   homeScore: 0, awayScore: 0, maxMin: 0 };
+    if (elapsedSec < 1200)       { phase = 'FIRST';  maxMin = Math.floor(elapsedSec / 60) + 1; }
+    else if (elapsedSec < 1500)  { phase = 'HT';     maxMin = 20; }
+    else if (elapsedSec < 2700)  { phase = 'SECOND'; maxMin = Math.floor((elapsedSec - 1500) / 60) + 1; }
+    else                         { phase = 'FT';     maxMin = 20; }
 
     var hs = 0, as = 0;
     for (var i = 0; i < goals.length; i++) {
@@ -323,9 +354,9 @@ function getLiveState(elapsedAtLoad, goals) {
     }
 
     var displayMin;
-    if (phase === 'FIRST')        displayMin = realMin + "'";
+    if (phase === 'FIRST')        displayMin = formatClock(elapsedSec);
     else if (phase === 'HT')      displayMin = 'HT';
-    else if (phase === 'SECOND')  displayMin = (20 + (realMin - 25)) + "'";
+    else if (phase === 'SECOND')  displayMin = formatClock(1200 + (elapsedSec - 1500));
     else                          displayMin = 'FT';
 
     return { phase: phase, displayMin: displayMin, homeScore: hs, awayScore: as, maxMin: maxMin };
@@ -334,7 +365,9 @@ function getLiveState(elapsedAtLoad, goals) {
 function updateLive() {
     var stateById = {}, teamState = {};
     (LIVE_MATCHES || []).forEach(function(m) {
-        var st = getLiveState(m.elapsedMin, m.goals);
+        var baseSec = (m.elapsedSec != null) ? m.elapsedSec : m.elapsedMin * 60;
+        var elapsedSec = baseSec + (Date.now() - PAGE_LOAD_TIME) / 1000;
+        var st = getLiveState(elapsedSec, m.goals);
         stateById[m.id] = st;
         teamState[m.homeTeamId] = { st: st, isHome: true,  matchId: m.id };
         teamState[m.awayTeamId] = { st: st, isHome: false, matchId: m.id };
@@ -351,12 +384,18 @@ function updateLive() {
             if (hEl) hEl.textContent = st.homeScore;
             if (aEl) aEl.textContent = st.awayScore;
             if (minEl) minEl.textContent = st.displayMin;
-            if (st.displayMin === 'FT' && !_reloadScheduled) {
-                _reloadScheduled = true;
-                setTimeout(function() { location.reload(); }, 3000);
-            }
             var details = el.closest('details');
             if (details) {
+                if (st.phase === 'FT' && !details.dataset.ftScheduled) {
+                    details.dataset.ftScheduled = '1';
+                    (function(card) {
+                        setTimeout(function() {
+                            card.style.transition = 'opacity 0.6s ease';
+                            card.style.opacity = '0';
+                            setTimeout(function() { card.style.display = 'none'; }, 650);
+                        }, 45000);
+                    })(details);
+                }
                 var anyFirstVis = false, anySecondVis = false;
                 details.querySelectorAll('.timeline-row').forEach(function(r) {
                     var rHalf = r.getAttribute('data-half');
@@ -383,8 +422,8 @@ function updateLive() {
             }
         } else {
             var elapsed = parseInt(el.getAttribute('data-elapsed') || '0');
-            var min = elapsed + Math.floor((Date.now() - PAGE_LOAD_TIME) / 60000);
-            if (minEl) minEl.textContent = min + "'";
+            var elapsedSec = elapsed * 60 + (Date.now() - PAGE_LOAD_TIME) / 1000;
+            if (minEl) minEl.textContent = formatClock(elapsedSec);
         }
     });
 
@@ -409,7 +448,7 @@ function updateLive() {
 }
 
 updateLive();
-setInterval(updateLive, 30000);
+setInterval(updateLive, 1000);
 
 (function() {
     document.querySelectorAll('[data-utc]').forEach(function(el) {

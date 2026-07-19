@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>League wizard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"/>
+    <link rel="stylesheet" th:href="@{/css/style.css}"/>
+</head>
+<body>
+<div th:replace="~{fragments/topbar :: topbar}"></div>
+
+<main class="page">
+<div th:replace="~{fragments/topbar :: messages}"></div>
+<h1>&#127942; Create league (wizard)</h1>
+
+<div class="wizard-steps">
+    <span class="wizard-step done">1<span class="wizard-step-label">Format</span></span>
+    <span class="wizard-step-sep"></span>
+    <span class="wizard-step done">2<span class="wizard-step-label">Teams</span></span>
+    <span class="wizard-step-sep"></span>
+    <span class="wizard-step active">3<span class="wizard-step-label">Squads</span></span>
+</div>
+
+<p style="color:var(--muted);max-width:640px">
+    Step 3 of 3: name the league, review the existing teams you selected, and fill in the squads for the remaining new teams.
+    Each new team needs a name, city, and 6–12 players — use the dice buttons to fill things in fast.
+</p>
+
+<form th:action="@{/leagues/wizard(fromRequest=${fromRequest})}" th:object="${leagueWizardForm}" method="post" class="card-form" style="max-width:900px">
+    <input type="hidden" th:field="*{format}"/>
+    <input type="hidden" th:each="id, idStat : *{existingTeamIds}" th:field="*{existingTeamIds[__${idStat.index}__]}"/>
+
+    <div th:if="${#fields.hasGlobalErrors()}" style="margin-bottom:12px;">
+        <div class="error-message" th:each="err : ${#fields.globalErrors()}" th:text="${err}"></div>
+    </div>
+
+    <div>
+        <label for="leagueName">League name</label>
+        <div class="input-row">
+            <input type="text" id="leagueName" th:field="*{leagueName}"/>
+            <button type="button" class="dice-btn" onclick="fillRandomLeagueName('leagueName')" title="Generate random name">&#127922;</button>
+        </div>
+        <span style="color:red" th:if="${#fields.hasErrors('leagueName')}" th:errors="*{leagueName}"></span>
+    </div>
+
+    <div th:replace="~{fragments/schedule-picker :: picker(${leagueWizardForm.format})}"></div>
+
+    <div th:unless="${#lists.isEmpty(existingTeams)}" style="margin-top:16px;">
+        <label>Selected existing teams (<span th:text="${existingTeams.size()}"></span>)</label>
+        <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.4rem">
+            <span class="wizard-existing-chip" th:each="team : ${existingTeams}"
+                  th:text="${team.name} + ' (' + ${team.city} + ') · ' + ${team.playerCount} + ' players'"></span>
+        </div>
+    </div>
+
+    <div style="margin-top:24px;" th:unless="${#lists.isEmpty(leagueWizardForm.newTeams)}">
+        <label>New teams to create (<span th:text="${leagueWizardForm.newTeams.size()}"></span>)</label>
+        <p class="field-hint" style="margin:0.2rem 0 0.6rem">Tap a team to expand it. Use the dice to fill names fast, or type your own.</p>
+
+        <details class="wizard-team-block" th:each="block, blockStat : *{newTeams}"
+                  th:attr="data-index=${blockStat.index},open=${(blockStat.index == 0 or #fields.hasErrors('newTeams[__${blockStat.index}__].*')) ? 'open' : null}">
+
+            <summary class="wizard-team-summary">
+                <span>Team <span th:text="${existingTeams.size() + blockStat.index + 1}"></span></span>
+                <span class="wizard-squad-count">6 players</span>
+            </summary>
+
+            <div class="wizard-team-body">
+                <div style="display:flex;gap:16px;flex-wrap:wrap;">
+                    <div>
+                        <label th:for="|newTeams${blockStat.index}.name|">Name</label>
+                        <div class="input-row">
+                            <input type="text" th:id="|newTeams${blockStat.index}.name|"
+                                   th:field="*{newTeams[__${blockStat.index}__].name}"/>
+                            <button type="button" class="dice-btn"
+                                    th:onclick="|fillRandomTeamName('newTeams${blockStat.index}.name')|"
+                                    title="Generate random name">&#127922;</button>
+                        </div>
+                        <span style="color:red" th:if="${#fields.hasErrors('newTeams[__${blockStat.index}__].name')}"
+                              th:errors="*{newTeams[__${blockStat.index}__].name}"></span>
+                    </div>
+                    <div>
+                        <label th:for="|newTeams${blockStat.index}.city|">City</label>
+                        <div class="input-row">
+                            <input type="text" th:id="|newTeams${blockStat.index}.city|"
+                                   th:field="*{newTeams[__${blockStat.index}__].city}"/>
+                            <button type="button" class="dice-btn"
+                                    th:onclick="|fillRandomCity('newTeams${blockStat.index}.city')|"
+                                    title="Generate random city">&#127922;</button>
+                        </div>
+                        <span style="color:red" th:if="${#fields.hasErrors('newTeams[__${blockStat.index}__].city')}"
+                              th:errors="*{newTeams[__${blockStat.index}__].city}"></span>
+                    </div>
+                </div>
+
+                <div style="margin-top:10px">
+                    <label>Squad <span class="field-hint" style="display:inline">(minimum 6, maximum 12 players)</span></label>
+                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;margin:0.3rem 0 0.6rem">
+                        <button type="button" class="btn-add" onclick="setSquadSizeIn(this.closest('.wizard-team-block'), 12)">&#127922; 12 players</button>
+                        <button type="button" class="btn-add" onclick="setSquadSizeIn(this.closest('.wizard-team-block'), 9)">&#127922; 9 players</button>
+                        <button type="button" class="btn-add" onclick="setSquadSizeIn(this.closest('.wizard-team-block'), 6)">&#127922; 6 players</button>
+                        <button type="button" class="btn-goal wizard-grow-btn" onclick="growSquadIn(this.closest('.wizard-team-block'))">&#43; 1 player</button>
+                        <button type="button" class="btn-del wizard-shrink-btn" onclick="shrinkSquadIn(this.closest('.wizard-team-block'))">&#8722; 1 player</button>
+                        <button type="button" class="btn-edit" onclick="clearSquadIn(this.closest('.wizard-team-block'))">Clear all</button>
+                    </div>
+
+                    <div class="table-wrapper">
+                    <table border="1" cellpadding="4">
+                        <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Shirt no.</th>
+                            <th>First name</th>
+                            <th>Last name</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="row, rowStat : ${block.players}"
+                            th:classappend="${rowStat.index >= 6 ? 'wizard-row-hidden' : ''}">
+                            <td th:text="${rowStat.count}">1</td>
+                            <td>
+                                <input type="number" min="1" max="99"
+                                       th:field="*{newTeams[__${blockStat.index}__].players[__${rowStat.index}__].shirtNumber}"/>
+                                <span style="color:red"
+                                      th:if="${#fields.hasErrors('newTeams[__${blockStat.index}__].players[__${rowStat.index}__].shirtNumber')}"
+                                      th:errors="*{newTeams[__${blockStat.index}__].players[__${rowStat.index}__].shirtNumber}"></span>
+                            </td>
+                            <td>
+                                <input type="text" class="js-firstname"
+                                       th:field="*{newTeams[__${blockStat.index}__].players[__${rowStat.index}__].firstName}"/>
+                                <span style="color:red"
+                                      th:if="${#fields.hasErrors('newTeams[__${blockStat.index}__].players[__${rowStat.index}__].firstName')}"
+                                      th:errors="*{newTeams[__${blockStat.index}__].players[__${rowStat.index}__].firstName}"></span>
+                            </td>
+                            <td>
+                                <input type="text" class="js-lastname"
+                                       th:field="*{newTeams[__${blockStat.index}__].players[__${rowStat.index}__].lastName}"/>
+                                <span style="color:red"
+                                      th:if="${#fields.hasErrors('newTeams[__${blockStat.index}__].players[__${rowStat.index}__].lastName')}"
+                                      th:errors="*{newTeams[__${blockStat.index}__].players[__${rowStat.index}__].lastName}"></span>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                    </div>
+                </div>
+            </div>
+        </details>
+    </div>
+
+    <div class="wizard-actions">
+        <button type="submit">&#10003; Create league</button>
+        <a th:href="@{/leagues/wizard}" class="btn-outline">&#8592; Start over</a>
+    </div>
+</form>
+</main>
+<script th:src="@{/js/random-names.js}"></script>
+<script>
+document.querySelectorAll('.wizard-team-block').forEach(function (block) {
+    block.querySelectorAll('tbody tr.wizard-row-hidden').forEach(function (row) {
+        var fn = row.querySelector('.js-firstname');
+        var ln = row.querySelector('.js-lastname');
+        if ((fn && fn.value.trim()) || (ln && ln.value.trim())) {
+            row.classList.remove('wizard-row-hidden');
+        }
+    });
+    wizardUpdateSquadCount(block);
+});
+</script>
+<div id="lcModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:900;align-items:center;justify-content:center;">
+    <div style="background:#ffffff;border-radius:14px;padding:1.75rem 2rem;max-width:420px;width:92%;box-shadow:0 8px 40px rgba(0,0,0,0.3);color:#111;">
+        <h2 style="margin:0 0 1.1rem;font-size:1.15rem;font-weight:700;color:#111;">Confirm league creation</h2>
+        <table style="width:100%;border-collapse:collapse;font-size:0.93rem;margin-bottom:1.4rem;">
+            <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;">Name</td><td id="lcmName" style="font-weight:600;color:#111;"></td></tr>
+            <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;">Round 1 date</td><td id="lcmDate" style="font-weight:600;color:#111;"></td></tr>
+            <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;">First kick-off</td><td id="lcmTime" style="font-weight:600;color:#111;"></td></tr>
+            <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;">Last kick-off (every round)</td><td id="lcmLast" style="font-weight:600;color:#111;"></td></tr>
+        </table>
+        <div style="display:flex;gap:0.75rem;justify-content:flex-end;">
+            <button type="button" id="lcmCancel" style="margin:0;background:transparent;border:2px solid #ccc;color:#333;border-radius:999px;padding:0.55rem 1.2rem;font-weight:600;cursor:pointer;">Cancel</button>
+            <button type="button" id="lcmConfirm" style="margin:0;">Create league</button>
+        </div>
+    </div>
+</div>
+<script>
+(function() {
+    var form = document.querySelector('.card-form');
+    if (!form) return;
+    var modal = document.getElementById('lcModal');
+    var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    function fmtDate(iso) {
+        if (!iso) return '—';
+        var p = iso.split('-');
+        return parseInt(p[2]) + ' ' + months[parseInt(p[1])-1] + ' ' + p[0];
+    }
+    var confirmed = false;
+    form.addEventListener('submit', function(e) {
+        if (confirmed) return;
+        e.preventDefault();
+        if (window.showScheduleOverflowModalIfNeeded && window.showScheduleOverflowModalIfNeeded()) return;
+        document.getElementById('lcmName').textContent = (document.getElementById('leagueName').value || '').trim() || '—';
+        document.getElementById('lcmDate').textContent = fmtDate((document.getElementById('scheduleStartDate').value || '').trim());
+        var sel = document.getElementById('scheduleStartTimeSelect');
+        var bannerLocal = document.getElementById('tzBannerLocal');
+        var localNote = bannerLocal && bannerLocal.textContent ? ' (' + bannerLocal.textContent + ' your local time)' : '';
+        document.getElementById('lcmTime').textContent = (sel ? sel.value + ' Sofia' : '—') + localNote;
+        var lastEl = document.getElementById('lcmLast');
+        var info = window.getScheduleLastMatchInfo ? window.getScheduleLastMatchInfo() : null;
+        lastEl.textContent = info ? info.lastTime + ' Sofia' : '—';
+        modal.style.display = 'flex';
+    });
+    document.getElementById('lcmConfirm').addEventListener('click', function() {
+        confirmed = true;
+        modal.style.display = 'none';
+        form.submit();
+    });
+    document.getElementById('lcmCancel').addEventListener('click', function() { modal.style.display = 'none'; });
+    modal.addEventListener('click', function(e) { if (e.target === modal) modal.style.display = 'none'; });
+})();
+</script>
+</body>
+</html>

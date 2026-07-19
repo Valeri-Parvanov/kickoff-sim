@@ -33,7 +33,9 @@
     </div>
     <div class="team-detail-actions" sec:authorize="isAuthenticated()">
         <a th:href="@{/teams/{id}/squad(id=${team.id})}" class="btn-goal"
-           th:if="${remainingSlots > 0}" sec:authorize="isAuthenticated()">+ Propose players</a>
+           th:if="${team.leagueId == null}" sec:authorize="isAuthenticated()">Manage squad</a>
+        <a th:href="@{/teams/{id}/squad(id=${team.id})}" class="btn-goal"
+           th:if="${team.leagueId != null and remainingSlots > 0}" sec:authorize="isAuthenticated()">+ Propose players</a>
         <a th:href="@{/teams/{id}/form(id=${team.id})}" class="btn-edit"
            th:if="${team.leagueId == null}" sec:authorize="hasRole('ADMIN')">Edit team</a>
         <th:block th:if="${followedSubscriptionId != null}">
@@ -79,14 +81,24 @@
                 <th>#</th>
                 <th>First name</th>
                 <th>Last name</th>
+                <th data-squad-sort="goals" style="cursor:pointer">
+                    <a href="javascript:void(0)" class="sort-link">Goals</a>
+                    <span class="sort-arrow squad-sort-arrow" data-squad-sort-arrow="goals"></span>
+                </th>
+                <th data-squad-sort="assists" style="cursor:pointer">
+                    <a href="javascript:void(0)" class="sort-link">Assists</a>
+                    <span class="sort-arrow squad-sort-arrow" data-squad-sort-arrow="assists"></span>
+                </th>
                 <th sec:authorize="hasRole('ADMIN')" th:if="${team.leagueId == null}">Actions</th>
             </tr>
             </thead>
-            <tbody>
-            <tr th:each="p : ${players}">
+            <tbody id="squadTableBody">
+            <tr th:each="p : ${players}" th:attr="data-goals=${p.goals},data-assists=${p.assists}">
                 <td th:text="${p.shirtNumber}"></td>
                 <td th:text="${p.firstName}"></td>
                 <td th:text="${p.lastName}"></td>
+                <td th:text="${p.goals}"></td>
+                <td th:text="${p.assists}"></td>
                 <td sec:authorize="hasRole('ADMIN')" th:if="${team.leagueId == null}">
                     <a th:href="@{/players/{id}/form(id=${p.id})}">Edit</a>
                     <form th:action="@{/players/{id}(id=${p.id},returnTeam=${team.id})}" th:method="delete" style="display:inline">
@@ -115,9 +127,7 @@
                 <details class="match-card">
                     <summary class="match-card-summary">
                         <div class="match-meta">
-                            <th:block th:if="${m.playedAt.isAfter(liveThreshold)}">
-                                <div th:replace="~{fragments/topbar :: matchStar(${m.id})}"></div>
-                            </th:block>
+                            <div th:replace="~{fragments/topbar :: matchStar(${m.id})}"></div>
                             <span class="match-meta-info">
                                 <a th:if="${m.leagueId != null}"
                                    th:href="@{/leagues/{id}(id=${m.leagueId})}"
@@ -258,20 +268,59 @@
     });
 }());
 </script>
+<script>
+(function () {
+    var tbody = document.getElementById('squadTableBody');
+    if (!tbody) return;
+    var state = { key: null, dir: 'desc' };
+
+    function applyArrows() {
+        document.querySelectorAll('.squad-sort-arrow').forEach(function (el) {
+            var key = el.getAttribute('data-squad-sort-arrow');
+            el.textContent = key === state.key ? (state.dir === 'asc' ? '▲' : '▼') : '';
+        });
+    }
+
+    function sortBy(key) {
+        state.dir = (state.key === key && state.dir === 'desc') ? 'asc' : 'desc';
+        state.key = key;
+        var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+        rows.sort(function (a, b) {
+            var av = parseInt(a.getAttribute('data-' + key) || '0', 10);
+            var bv = parseInt(b.getAttribute('data-' + key) || '0', 10);
+            return state.dir === 'asc' ? av - bv : bv - av;
+        });
+        rows.forEach(function (r) { tbody.appendChild(r); });
+        applyArrows();
+    }
+
+    document.querySelectorAll('[data-squad-sort]').forEach(function (th) {
+        th.addEventListener('click', function () {
+            sortBy(th.getAttribute('data-squad-sort'));
+        });
+    });
+}());
+</script>
 <script th:inline="javascript">
 (function() {
     var liveData = /*[[${liveMatchesForJs}]]*/ [];
     if (!liveData.length) return;
     var PAGE_LOAD_TIME = Date.now();
 
-    function getLiveState(elapsedAtLoad, goals) {
-        var realMin = elapsedAtLoad + Math.floor((Date.now() - PAGE_LOAD_TIME) / 60000);
-        if (realMin < 0) return { phase: 'PRE', homeScore: 0, awayScore: 0, displayMin: '' };
+    function formatClock(totalSec) {
+        var s = Math.max(0, Math.floor(totalSec));
+        var m = Math.floor(s / 60);
+        var sec = s % 60;
+        return m + ':' + (sec < 10 ? '0' : '') + sec;
+    }
+
+    function getLiveState(elapsedSec, goals) {
+        if (elapsedSec < 0) return { phase: 'PRE', homeScore: 0, awayScore: 0, displayMin: '' };
         var phase, maxMin, displayMin;
-        if      (realMin <= 20) { phase = 'FIRST';  maxMin = realMin;      displayMin = realMin + "'"; }
-        else if (realMin <= 25) { phase = 'HT';     maxMin = 20;           displayMin = 'HT'; }
-        else if (realMin <= 45) { phase = 'SECOND'; maxMin = realMin - 25; displayMin = (20 + (realMin - 25)) + "'"; }
-        else                    { phase = 'FT';     maxMin = 20;           displayMin = 'FT'; }
+        if      (elapsedSec < 1200) { phase = 'FIRST';  maxMin = Math.floor(elapsedSec / 60) + 1;         displayMin = formatClock(elapsedSec); }
+        else if (elapsedSec < 1500) { phase = 'HT';     maxMin = 20;                                       displayMin = 'HT'; }
+        else if (elapsedSec < 2700) { phase = 'SECOND'; maxMin = Math.floor((elapsedSec - 1500) / 60) + 1; displayMin = formatClock(1200 + (elapsedSec - 1500)); }
+        else                        { phase = 'FT';     maxMin = 20;                                       displayMin = 'FT'; }
         var hs = 0, as_ = 0;
         for (var i = 0; i < goals.length; i++) {
             var g = goals[i];
@@ -291,7 +340,9 @@
     function updateLive() {
         var stateById = {};
         liveData.forEach(function(m) {
-            stateById[m.id] = { st: getLiveState(m.elapsedMin, m.goals), homeTeamId: m.homeTeamId, awayTeamId: m.awayTeamId };
+            var baseSec = (m.elapsedSec != null) ? m.elapsedSec : m.elapsedMin * 60;
+            var elapsedSec = baseSec + (Date.now() - PAGE_LOAD_TIME) / 1000;
+            stateById[m.id] = { st: getLiveState(elapsedSec, m.goals), homeTeamId: m.homeTeamId, awayTeamId: m.awayTeamId };
         });
 
         Object.keys(stateById).forEach(function(mId) {
@@ -324,11 +375,22 @@
             if (hEl) hEl.textContent = st.homeScore;
             if (aEl) aEl.textContent = st.awayScore;
             if (minEl) minEl.textContent = st.displayMin;
+            if (st.phase === 'FT') {
+                var card = el.closest('details');
+                if (card && !card.dataset.ftScheduled) {
+                    card.dataset.ftScheduled = '1';
+                    setTimeout(function() {
+                        card.style.transition = 'opacity 0.6s ease';
+                        card.style.opacity = '0';
+                        setTimeout(function() { card.style.display = 'none'; }, 650);
+                    }, 45000);
+                }
+            }
         });
     }
 
     updateLive();
-    setInterval(updateLive, 30000);
+    setInterval(updateLive, 1000);
 })();
 </script>
 <script>

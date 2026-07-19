@@ -93,6 +93,7 @@
                     <a th:case="'TEAM_SQUAD'" th:href="@{/teams/form(fromRequest=${cr.id})}" class="btn-edit">Edit</a>
                     <a th:case="'PLAYER'" th:href="@{/players/form(fromRequest=${cr.id})}" class="btn-edit">Edit</a>
                     <a th:case="'MATCH'" th:href="@{/matches/form(fromRequest=${cr.id})}" class="btn-edit">Edit</a>
+                    <a th:case="'LEAGUE_BUNDLE'" th:href="@{/leagues/wizard/edit(fromRequest=${cr.id})}" class="btn-edit">Edit</a>
                 </span>
                 <span th:if="${cr.action.name() == 'UPDATE'}" th:switch="${cr.entityType.name()}">
                     <a th:case="'LEAGUE'" th:href="@{/leagues/{id}/form(id=${cr.targetId},fromRequest=${cr.id})}" class="btn-edit">Edit</a>
@@ -113,6 +114,7 @@
                 <a th:case="'TEAM_SQUAD'" th:href="@{/teams/form(fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
                 <a th:case="'PLAYER'" th:href="@{/players/form(fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
                 <a th:case="'MATCH'" th:href="@{/matches/form(fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
+                <a th:case="'LEAGUE_BUNDLE'" th:href="@{/leagues/wizard/edit(fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
             </span>
             <span th:if="${cr.action.name() == 'UPDATE'}" th:switch="${cr.entityType.name()}">
                 <a th:case="'LEAGUE'" th:href="@{/leagues/{id}/form(id=${cr.targetId},fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>

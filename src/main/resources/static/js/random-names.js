@@ -1,21 +1,13 @@
 const TEAM_NAMES = [
-    "Levski", "CSKA", "Slavia", "Botev", "Lokomotiv",
-    "Chernomorets", "Beroe", "Spartak", "Arda", "Litex",
-    "Minyor", "Akademik", "Balkan", "Dunav", "Svetkavitsa",
-    "Vidima", "Etar", "Rilski", "Nesebar", "Pirin",
-    "Hebar", "Marek", "Dobrudzha", "Neftochimic", "Maritsa",
-    "Yantra", "Tundja", "Bdin", "Zagorets", "Ludogorets",
-    "Feniks", "Titan", "Vihor", "Grom", "Orel",
-    "Panteri", "Pirati", "Gladiatori", "Komandosi", "Strelite",
-    "Lavovi", "Blitz", "Uragan", "Gepardi", "Volk",
-    "Sokol", "Yastrebi", "Orlovi", "Skorpioni", "Tigrove",
-    "Buri", "Meteor", "Puls", "Zenit", "Meridian",
-    "Stara Planina", "Rodopi", "Rila", "Vitosha", "Rhodope",
-    "Izgrev", "Zalez", "Zvezda", "Kometa", "Galaktika",
-    "United", "Athletic", "Sporting", "Dynamo", "Rapid",
-    "Torpedo", "Arsenal", "Fortuna", "Victoria", "Gloria",
-    "Olimpik", "Olimpia", "Trakia", "Makedonia", "Thrakia",
-    "Strela", "Munja", "Vodopad", "Planinska", "Kraibrezhie"
+    "Kalpazanite", "Kyufteta", "Pensionerite", "Shegobiytsi", "Chudatsite",
+    "Haimanite", "Marzelivite", "Bosonogite", "Palavnitsi", "Domati",
+    "Zabravenite", "Poslednite", "Umornite", "Zakusnelite", "Sanlivite",
+    "Shashavite", "Smotanite", "Zaspalite", "Gladnite", "Nepobedimite",
+    "Shampionite", "Provalenite", "Bezgrizhnite", "Nadarenite",
+    "Neudachnicite", "Divannite", "Birenite", "Pitsarite", "Sirenkite",
+    "Banicharite", "Dyunerdzhiite", "Rakidzhiite", "Naglite", "Smahnatite",
+    "Otkachalkite", "Propadnalite", "Zhadnite", "Bezpametnite", "Objurkanite",
+    "Zagubenite"
 ];
 
 const PLAYER_FIRST_NAMES = [
@@ -41,11 +33,24 @@ const PLAYER_LAST_NAMES = [
 const LEAGUE_NAME_PREFIXES = [
     "Sofia", "National", "Premier", "Capital", "Regional",
     "Amateur", "Municipal", "Indoor", "Winter", "Summer",
-    "Open", "Business"
+    "Open", "Business", "Rooftop", "Weekend", "Midnight",
+    "Underdog", "Sunday", "Backstreet", "Iron", "Golden"
 ];
 
 const LEAGUE_NAME_SUFFIXES = [
-    "League", "Division", "Championship", "Cup", "Series", "Tournament"
+    "League", "Division", "Championship", "Cup", "Series", "Tournament",
+    "Derby", "Showdown", "Circuit", "Classic", "Invitational"
+];
+
+const LEAGUE_NAMES = [
+    "Kyufte Cup", "Banitsa Bowl", "Rakia Rumble", "Sirene Series",
+    "Shopska Shield", "Pensioner's Pride", "Domat Derby", "Mekitsa Masters",
+    "Ayrian Arena", "Tarator Trophy", "Kapama Klasico", "Lyutenitsa League",
+    "Boza Bracket", "Kebapche Kings", "Sarma Showcase", "Salata Slam",
+    "Snezhanka Cup", "Chubritsa Challenge", "Mecho Millennium", "Zimnitsa Zone",
+    "Barcode United Cup", "Sunday Sunflower League", "Noshten Nadprevar",
+    "Gradinska Gauntlet", "Tikvenik Trophy", "Kyoftavitsa Klasika",
+    "Party Boza League", "Skara Slam", "Ledeno Kafe Cup", "Mizeria Masters"
 ];
 
 const CITIES = [
@@ -77,6 +82,9 @@ function randomPlayerLastName() {
 }
 
 function randomLeagueName() {
+    if (Math.random() < 0.5) {
+        return randomFrom(LEAGUE_NAMES);
+    }
     return randomFrom(LEAGUE_NAME_PREFIXES) + " " + randomFrom(LEAGUE_NAME_SUFFIXES);
 }
 
@@ -127,6 +135,76 @@ function randomizeMinSquad() {
             if (ln) ln.value = randomPlayerLastName();
         }
     }
+}
+
+function randomizeAllSquadIn(scopeEl) {
+    scopeEl.querySelectorAll("tbody tr:not(.wizard-row-hidden) .js-firstname").forEach(function (el) {
+        if (!el.value.trim()) {
+            el.value = randomPlayerFirstName();
+        }
+    });
+    scopeEl.querySelectorAll("tbody tr:not(.wizard-row-hidden) .js-lastname").forEach(function (el) {
+        if (!el.value.trim()) {
+            el.value = randomPlayerLastName();
+        }
+    });
+}
+
+function setSquadSizeIn(blockEl, size) {
+    var rows = Array.from(blockEl.querySelectorAll("tbody tr"));
+    rows.forEach(function (row, i) {
+        var fn = row.querySelector(".js-firstname");
+        var ln = row.querySelector(".js-lastname");
+        if (i < size) {
+            row.classList.remove("wizard-row-hidden");
+            if (fn && !fn.value.trim()) fn.value = randomPlayerFirstName();
+            if (ln && !ln.value.trim()) ln.value = randomPlayerLastName();
+        } else {
+            if (fn) fn.value = "";
+            if (ln) ln.value = "";
+            row.classList.add("wizard-row-hidden");
+        }
+    });
+    wizardUpdateSquadCount(blockEl);
+}
+
+function clearSquadIn(blockEl) {
+    blockEl.querySelectorAll(".js-firstname").forEach(function (el) { el.value = ""; });
+    blockEl.querySelectorAll(".js-lastname").forEach(function (el) { el.value = ""; });
+}
+
+function wizardUpdateSquadCount(blockEl) {
+    var visible = blockEl.querySelectorAll("tbody tr:not(.wizard-row-hidden)").length;
+    var label = blockEl.querySelector(".wizard-squad-count");
+    if (label) label.textContent = visible + " player" + (visible === 1 ? "" : "s");
+    var growBtn = blockEl.querySelector(".wizard-grow-btn");
+    var shrinkBtn = blockEl.querySelector(".wizard-shrink-btn");
+    if (growBtn) growBtn.disabled = visible >= 12;
+    if (shrinkBtn) shrinkBtn.disabled = visible <= 6;
+}
+
+function growSquadIn(blockEl) {
+    var hiddenRow = blockEl.querySelector("tbody tr.wizard-row-hidden");
+    if (hiddenRow) {
+        hiddenRow.classList.remove("wizard-row-hidden");
+        var fn = hiddenRow.querySelector(".js-firstname");
+        var ln = hiddenRow.querySelector(".js-lastname");
+        if (fn && !fn.value.trim()) fn.value = randomPlayerFirstName();
+        if (ln && !ln.value.trim()) ln.value = randomPlayerLastName();
+    }
+    wizardUpdateSquadCount(blockEl);
+}
+
+function shrinkSquadIn(blockEl) {
+    var visibleRows = blockEl.querySelectorAll("tbody tr:not(.wizard-row-hidden)");
+    if (visibleRows.length <= 6) return;
+    var last = visibleRows[visibleRows.length - 1];
+    var fn = last.querySelector(".js-firstname");
+    var ln = last.querySelector(".js-lastname");
+    if (fn) fn.value = "";
+    if (ln) ln.value = "";
+    last.classList.add("wizard-row-hidden");
+    wizardUpdateSquadCount(blockEl);
 }
 
 function randomizeRow(btn) {
