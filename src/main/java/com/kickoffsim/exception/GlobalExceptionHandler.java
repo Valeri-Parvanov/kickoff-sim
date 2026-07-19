@@ -1,4 +1,4 @@
-package bg.softuni.footballleague.exception;
+package com.kickoffsim.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

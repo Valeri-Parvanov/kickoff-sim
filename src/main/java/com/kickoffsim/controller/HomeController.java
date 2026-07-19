@@ -1,4 +1,4 @@
-package bg.softuni.footballleague.controller;
+package com.kickoffsim.controller;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;

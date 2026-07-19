@@ -1,4 +1,4 @@
-package bg.softuni.footballleague.client;
+package com.kickoffsim.client;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

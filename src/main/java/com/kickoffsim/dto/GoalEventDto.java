@@ -1,4 +1,4 @@
-package bg.softuni.footballleague.dto;
+package com.kickoffsim.dto;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;

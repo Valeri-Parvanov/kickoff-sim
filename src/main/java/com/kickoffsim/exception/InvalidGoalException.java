@@ -1,4 +1,4 @@
-package bg.softuni.footballleague.exception;
+package com.kickoffsim.exception;
 
 public class InvalidGoalException extends RuntimeException {
 

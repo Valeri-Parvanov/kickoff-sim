@@ -1,4 +1,4 @@
-package bg.softuni.footballleague.web;
+package com.kickoffsim.web;
 
 import org.springframework.data.domain.Sort;
 

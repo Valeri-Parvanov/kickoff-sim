@@ -1,4 +1,4 @@
-package bg.softuni.footballleague.web;
+package com.kickoffsim.web;
 
 import java.util.UUID;
 

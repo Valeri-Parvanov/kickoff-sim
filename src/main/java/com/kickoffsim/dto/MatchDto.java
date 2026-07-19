@@ -1,4 +1,4 @@
-package bg.softuni.footballleague.dto;
+package com.kickoffsim.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.validation.constraints.AssertTrue;

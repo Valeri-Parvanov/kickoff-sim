@@ -1,4 +1,4 @@
-package bg.softuni.footballleague.scheduling;
+package com.kickoffsim.scheduling;
 
 import java.util.UUID;
 

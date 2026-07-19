@@ -1,4 +1,4 @@
-package bg.softuni.footballleague.model;
+package com.kickoffsim.model;
 
 public enum ChangeAction {
     CREATE,

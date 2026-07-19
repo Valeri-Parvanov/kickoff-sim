@@ -1,4 +1,4 @@
-package bg.softuni.footballleague.config;
+package com.kickoffsim.config;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;

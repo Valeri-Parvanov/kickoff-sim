@@ -1,4 +1,4 @@
-package bg.softuni.footballleague.service;
+package com.kickoffsim.service;
 
 import java.time.LocalDate;
 import java.time.LocalTime;

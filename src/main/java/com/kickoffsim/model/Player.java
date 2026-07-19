@@ -1,4 +1,4 @@
-package bg.softuni.footballleague.model;
+package com.kickoffsim.model;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Max;
