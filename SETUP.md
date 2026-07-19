@@ -61,7 +61,7 @@ spring.datasource.url=jdbc:mysql://localhost:3307/kickoff_sim
 
 ### 3. Run the app
 
-Either click ▶ on `FootballLeagueManagerApplication` in IntelliJ, or:
+Either click ▶ on `KickoffSimApplication` in IntelliJ, or:
 
 ```
 ./mvnw spring-boot:run

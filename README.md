@@ -292,7 +292,7 @@ All entities use `UUID` as primary key. All passwords are stored hashed (BCrypt)
 ## Project Structure
 
 ```
-src/main/java/bg/softuni/footballleague/
+src/main/java/com/kickoffsim/
 ├── controller/       HTTP layer — one controller per aggregate
 ├── service/          Business logic interfaces
 ├── service/impl/     Implementations

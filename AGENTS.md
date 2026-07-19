@@ -7,7 +7,7 @@
 - DB config: `src/main/resources/application.properties`
 - Local run: `run-local.ps1` (sets JAVA_HOME then runs mvn spring-boot:run)
 
-## Package layout (`bg.softuni.footballleague`)
+## Package layout (`com.kickoffsim`)
 ```
 controller/         AuthController, LeagueController, TeamController, PlayerController,
                     MatchController, SquadController, ChangeRequestController,
@@ -52,7 +52,7 @@ service/impl/   LeagueServiceImplTest, TeamServiceImplTest, PlayerServiceImplTes
                 ChangeRequestMaintenanceTest
 controller/     SquadControllerTest, SquadPageRenderingTest, TeamCreatePageRenderingTest
 scheduling/     ChangeRequestSchedulerTest
-FootballLeagueManagerApplicationTests (context load only)
+KickoffSimApplicationTests (context load only)
 ```
 
 ## Key domain rules
