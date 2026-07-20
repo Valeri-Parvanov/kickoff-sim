@@ -123,6 +123,49 @@ public class TeamController {
         return "teams/detail";
     }
 
+    @GetMapping("/{id}/live-summary")
+    @ResponseBody
+    public Map<String, Object> liveSummary(@PathVariable UUID id, Authentication authentication) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime liveThreshold = now.minusMinutes(46);
+
+        List<MatchDto> live = matchService.findAll(Sort.by(Sort.Direction.ASC, "playedAt")).stream()
+                .filter(m -> id.equals(m.getHomeTeamId()) || id.equals(m.getAwayTeamId()))
+                .filter(m -> m.getPlayedAt().isBefore(now) && m.getPlayedAt().isAfter(liveThreshold))
+                .sorted(Comparator.comparing(MatchDto::getPlayedAt).reversed())
+                .toList();
+
+        Set<UUID> subscribedMatchIds = Set.of();
+        if (authentication != null) {
+            try {
+                UUID userId = userService.findByUsername(authentication.getName()).getId();
+                subscribedMatchIds = notificationClient.getSubscriptions(userId).stream()
+                        .filter(s -> "MATCH".equals(s.getEntityType()))
+                        .map(SubscriptionDto::getEntityId)
+                        .collect(Collectors.toSet());
+            } catch (Exception ignored) {}
+        }
+        final Set<UUID> followedIds = subscribedMatchIds;
+
+        List<Map<String, Object>> matches = live.stream()
+                .map(m -> {
+                    Map<String, Object> entry = new LinkedHashMap<>(LiveMatchJsSupport.toJsEntry(m, now));
+                    entry.put("homeTeamName", m.getHomeTeamName());
+                    entry.put("homeTeamCity", m.getHomeTeamCity());
+                    entry.put("awayTeamName", m.getAwayTeamName());
+                    entry.put("awayTeamCity", m.getAwayTeamCity());
+                    entry.put("leagueId", m.getLeagueId() != null ? m.getLeagueId().toString() : null);
+                    entry.put("leagueName", m.getLeagueName());
+                    entry.put("roundNumber", m.getRoundNumber());
+                    entry.put("playedAtUtcIso", m.getPlayedAtUtcIso());
+                    entry.put("followed", followedIds.contains(m.getId()));
+                    return entry;
+                })
+                .toList();
+
+        return Map.of("matches", matches);
+    }
+
     @GetMapping
     public String list(@RequestParam(required = false) String sort,
                         @RequestParam(required = false) String dir,

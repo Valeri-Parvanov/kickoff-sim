@@ -237,11 +237,12 @@ public class ScheduleServiceImpl implements ScheduleService {
         LocalDateTime now = LocalDateTime.now();
         notifyKickoffs(now);
         notifyHalftimes(now);
+        notifySecondHalfStarts(now);
         notifyFulltimes(now);
     }
 
     private void notifyKickoffs(LocalDateTime now) {
-        for (Match match : matchRepository.findForKickoffNotification(now.minusMinutes(5), now)) {
+        for (Match match : matchRepository.findForKickoffNotification(now.minusDays(1), now)) {
             try {
                 broadcast(match,
                         teamLabel(match.getHomeTeam()) + " vs " + teamLabel(match.getAwayTeam()) + " — KICK OFF!",
@@ -255,7 +256,7 @@ public class ScheduleServiceImpl implements ScheduleService {
     }
 
     private void notifyHalftimes(LocalDateTime now) {
-        for (Match match : matchRepository.findForHalftimeNotification(now.minusMinutes(26), now.minusMinutes(21))) {
+        for (Match match : matchRepository.findForHalftimeNotification(now.minusDays(1), now.minusMinutes(20))) {
             try {
                 int homeHalf = 0;
                 int awayHalf = 0;
@@ -276,8 +277,30 @@ public class ScheduleServiceImpl implements ScheduleService {
         }
     }
 
+    private void notifySecondHalfStarts(LocalDateTime now) {
+        for (Match match : matchRepository.findForSecondHalfNotification(now.minusDays(1), now.minusMinutes(25))) {
+            try {
+                int homeHalf = 0;
+                int awayHalf = 0;
+                for (Goal g : match.getGoals()) {
+                    if (!Half.FIRST.equals(g.getHalf())) continue;
+                    if (benefitsHome(g, match)) homeHalf++;
+                    else awayHalf++;
+                }
+                broadcast(match,
+                        teamLabel(match.getHomeTeam()) + " vs " + teamLabel(match.getAwayTeam())
+                                + " — SECOND HALF " + homeHalf + "-" + awayHalf,
+                        "MATCH_SECONDHALF");
+                match.setSecondHalfNotified(true);
+                matchRepository.save(match);
+            } catch (Exception e) {
+                log.warn("Failed to send second-half notification for match {}: {}", match.getId(), e.getMessage());
+            }
+        }
+    }
+
     private void notifyFulltimes(LocalDateTime now) {
-        for (Match match : matchRepository.findForFulltimeNotification(now.minusMinutes(51), now.minusMinutes(46))) {
+        for (Match match : matchRepository.findForFulltimeNotification(now.minusDays(1), now.minusMinutes(45))) {
             try {
                 broadcast(match,
                         teamLabel(match.getHomeTeam()) + " vs " + teamLabel(match.getAwayTeam())
@@ -295,17 +318,14 @@ public class ScheduleServiceImpl implements ScheduleService {
         return team.getCity() != null ? team.getName() + " (" + team.getCity() + ")" : team.getName();
     }
 
-    private static final int GOAL_TOAST_WINDOW_MINUTES = 5;
-
     @Override
     @Transactional
     public void notifyGoals() {
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime toastCutoff = now.minusMinutes(GOAL_TOAST_WINDOW_MINUTES);
 
-        for (Goal goal : goalRepository.findUnnotifiedForMatchesStartedBetween(now.minusHours(3), now)) {
+        for (Goal goal : goalRepository.findUnnotifiedForMatchesStartedBetween(now.minusDays(1), now)) {
             LocalDateTime goalTime = realGoalTime(goal);
-            if (goalTime.isAfter(now) || goalTime.isBefore(toastCutoff)) {
+            if (goalTime.isAfter(now)) {
                 continue;
             }
 

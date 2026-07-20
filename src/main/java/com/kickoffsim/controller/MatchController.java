@@ -30,8 +30,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Controller
@@ -179,6 +181,50 @@ public class MatchController {
                 ? request.getRequestURI()
                 : request.getRequestURI() + "?" + request.getQueryString());
         return "matches/list";
+    }
+
+    @GetMapping("/live-summary")
+    @ResponseBody
+    public Map<String, Object> liveSummary(@RequestParam(required = false) UUID league,
+                                            @RequestParam(required = false) UUID team,
+                                            Authentication authentication) {
+        LocalDateTime now = LocalDateTime.now(clock);
+        LocalDateTime liveThreshold = now.minusMinutes(46);
+
+        List<MatchDto> allFiltered = league != null
+                ? matchService.findByLeague(league)
+                : matchService.findAll(Sort.by(Sort.Direction.ASC, "playedAt"));
+        if (team != null) {
+            final UUID t = team;
+            allFiltered = allFiltered.stream()
+                    .filter(m -> t.equals(m.getHomeTeamId()) || t.equals(m.getAwayTeamId()))
+                    .toList();
+        }
+
+        List<MatchDto> live = allFiltered.stream()
+                .filter(m -> m.getPlayedAt().isBefore(now) && m.getPlayedAt().isAfter(liveThreshold))
+                .sorted(Comparator.comparing(MatchDto::getPlayedAt))
+                .toList();
+
+        Set<UUID> subscribedMatchIds = matchFollowSupport.subscribedMatchIds(authentication);
+
+        List<Map<String, Object>> matches = live.stream()
+                .map(m -> {
+                    Map<String, Object> entry = new LinkedHashMap<>(LiveMatchJsSupport.toJsEntry(m, now));
+                    entry.put("homeTeamName", m.getHomeTeamName());
+                    entry.put("homeTeamCity", m.getHomeTeamCity());
+                    entry.put("awayTeamName", m.getAwayTeamName());
+                    entry.put("awayTeamCity", m.getAwayTeamCity());
+                    entry.put("leagueId", m.getLeagueId() != null ? m.getLeagueId().toString() : null);
+                    entry.put("leagueName", m.getLeagueName());
+                    entry.put("roundNumber", m.getRoundNumber());
+                    entry.put("playedAtUtcIso", m.getPlayedAtUtcIso());
+                    entry.put("followed", subscribedMatchIds.contains(m.getId()));
+                    return entry;
+                })
+                .toList();
+
+        return Map.of("matches", matches);
     }
 
     @PreAuthorize("hasRole('ADMIN')")

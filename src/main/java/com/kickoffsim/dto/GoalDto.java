@@ -16,6 +16,7 @@ public class GoalDto {
     private String scorerName;
     private String assistantName;
     private Integer minute;
+    private Integer offsetSeconds;
     private Half half;
     private UUID teamId;
     private Integer runningHomeScore;

@@ -14,15 +14,18 @@ import com.kickoffsim.service.UserService;
 import com.kickoffsim.web.LiveMatchJsSupport;
 import com.kickoffsim.web.MatchFollowSupport;
 import com.kickoffsim.web.MatchStatusSupport;
+import com.kickoffsim.web.SseEmitterRegistry;
 import com.kickoffsim.web.StandingsSupport;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.time.LocalDateTime;
@@ -42,6 +45,7 @@ public class NotificationController {
     private final LeagueService leagueService;
     private final MatchService matchService;
     private final MatchFollowSupport matchFollowSupport;
+    private final SseEmitterRegistry sseEmitterRegistry;
 
     public record SubscriptionView(
             UUID subscriptionId,
@@ -161,8 +165,83 @@ public class NotificationController {
         return "feed";
     }
 
+    @GetMapping("/feed/live-summary")
+    @ResponseBody
+    public Map<String, Object> feedLiveSummary(Authentication authentication) {
+        if (authentication == null) return Map.of("matches", List.of());
+        try {
+            UUID userId = userService.findByUsername(authentication.getName()).getId();
+            List<SubscriptionDto> subs = notificationClient.getSubscriptions(userId);
+
+            Set<UUID> leagueIds = new LinkedHashSet<>();
+            for (SubscriptionDto s : subs) {
+                if ("TEAM".equals(s.getEntityType())) {
+                    try {
+                        TeamDto t = teamService.findById(s.getEntityId());
+                        if (t.getLeagueId() != null) leagueIds.add(t.getLeagueId());
+                    } catch (Exception ignored) {}
+                } else if ("LEAGUE".equals(s.getEntityType())) {
+                    leagueIds.add(s.getEntityId());
+                }
+            }
+
+            Set<UUID> followedTeamIds = subs.stream()
+                    .filter(s -> "TEAM".equals(s.getEntityType()))
+                    .map(SubscriptionDto::getEntityId)
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+            Set<UUID> followedMatchIds = subs.stream()
+                    .filter(s -> "MATCH".equals(s.getEntityType()))
+                    .map(SubscriptionDto::getEntityId)
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+
+            Map<UUID, MatchDto> matchMap = new LinkedHashMap<>();
+            for (UUID leagueId : leagueIds) {
+                try {
+                    leagueService.findDetail(leagueId).getMatches().forEach(m -> matchMap.put(m.getId(), m));
+                } catch (Exception ignored) {}
+            }
+            for (UUID matchId : followedMatchIds) {
+                if (matchMap.containsKey(matchId)) continue;
+                try {
+                    matchMap.put(matchId, matchService.findById(matchId));
+                } catch (Exception ignored) {}
+            }
+
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime liveThreshold = now.minusMinutes(90);
+
+            List<MatchDto> live = matchMap.values().stream()
+                    .filter(m -> !m.getPlayedAt().isAfter(now) && m.getPlayedAt().isAfter(liveThreshold))
+                    .filter(m -> followedTeamIds.contains(m.getHomeTeamId())
+                            || followedTeamIds.contains(m.getAwayTeamId())
+                            || followedMatchIds.contains(m.getId()))
+                    .sorted(Comparator.comparing(MatchDto::getPlayedAt))
+                    .toList();
+
+            List<Map<String, Object>> matches = live.stream()
+                    .map(m -> {
+                        Map<String, Object> entry = new LinkedHashMap<>(LiveMatchJsSupport.toJsEntry(m, now));
+                        entry.put("homeTeamName", m.getHomeTeamName());
+                        entry.put("homeTeamCity", m.getHomeTeamCity());
+                        entry.put("awayTeamName", m.getAwayTeamName());
+                        entry.put("awayTeamCity", m.getAwayTeamCity());
+                        entry.put("leagueId", m.getLeagueId() != null ? m.getLeagueId().toString() : null);
+                        entry.put("leagueName", m.getLeagueName());
+                        entry.put("roundNumber", m.getRoundNumber());
+                        entry.put("playedAtUtcIso", m.getPlayedAtUtcIso());
+                        entry.put("followed", followedMatchIds.contains(m.getId()));
+                        return entry;
+                    })
+                    .toList();
+
+            return Map.of("matches", matches);
+        } catch (Exception e) {
+            return Map.of("matches", List.of());
+        }
+    }
+
     private static final Set<String> TOASTABLE_TYPES =
-            Set.of("GOAL", "MATCH_HALFTIME", "MATCH_FULLTIME");
+            Set.of("GOAL", "MATCH_KICKOFF", "MATCH_HALFTIME", "MATCH_SECONDHALF", "MATCH_FULLTIME");
 
     @GetMapping("/notifications/toasts")
     @ResponseBody
@@ -182,6 +261,18 @@ public class NotificationController {
         } catch (Exception e) {
             return List.of();
         }
+    }
+
+    @GetMapping(value = "/notifications/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @ResponseBody
+    public SseEmitter stream(Authentication authentication) {
+        if (authentication == null) {
+            SseEmitter emitter = new SseEmitter(0L);
+            emitter.complete();
+            return emitter;
+        }
+        UUID userId = userService.findByUsername(authentication.getName()).getId();
+        return sseEmitterRegistry.register(userId);
     }
 
     @PostMapping("/notifications/subscribe")

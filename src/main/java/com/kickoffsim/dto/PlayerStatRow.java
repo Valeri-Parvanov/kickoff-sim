@@ -11,6 +11,7 @@ public class PlayerStatRow {
 
     private UUID playerId;
     private String playerName;
+    private UUID teamId;
     private String teamName;
     private String teamCity;
     private int count;

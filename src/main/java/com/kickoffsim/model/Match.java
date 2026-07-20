@@ -43,6 +43,7 @@ public class Match {
 
     private boolean kickoffNotified;
     private boolean halftimeNotified;
+    private boolean secondHalfNotified;
     private boolean fulltimeNotified;
 
     @OneToMany(mappedBy = "match", cascade = CascadeType.ALL, orphanRemoval = true)

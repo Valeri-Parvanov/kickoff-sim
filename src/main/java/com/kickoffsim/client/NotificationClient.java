@@ -26,7 +26,7 @@ public interface NotificationClient {
     boolean isSubscribed(@Param("userId") UUID userId, @Param("entityId") UUID entityId);
 
     @RequestLine("POST /api/notifications/broadcast")
-    void broadcast(BroadcastRequest request);
+    List<UUID> broadcast(BroadcastRequest request);
 
     @RequestLine("POST /api/notifications")
     void notifyUser(NotifyRequest request);

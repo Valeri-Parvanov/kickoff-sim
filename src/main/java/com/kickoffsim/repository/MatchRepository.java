@@ -56,6 +56,10 @@ public interface MatchRepository extends JpaRepository<Match, UUID> {
     List<Match> findForHalftimeNotification(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 
     @EntityGraph(attributePaths = {"homeTeam", "homeTeam.league", "awayTeam"})
+    @Query("SELECT m FROM Match m WHERE m.playedAt BETWEEN :from AND :to AND m.secondHalfNotified = false")
+    List<Match> findForSecondHalfNotification(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
+    @EntityGraph(attributePaths = {"homeTeam", "homeTeam.league", "awayTeam"})
     @Query("SELECT m FROM Match m WHERE m.playedAt BETWEEN :from AND :to AND m.fulltimeNotified = false")
     List<Match> findForFulltimeNotification(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 

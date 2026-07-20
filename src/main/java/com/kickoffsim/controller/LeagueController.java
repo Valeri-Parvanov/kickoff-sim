@@ -70,6 +70,7 @@ public class LeagueController {
 
         model.addAttribute("liveMatchesForJs", List.of());
         model.addAttribute("elapsedByMatchId", Map.of());
+        model.addAttribute("selectedRound", (Integer) null);
 
         if (!league.getMatches().isEmpty()) {
             LocalDateTime now = LocalDateTime.now();
@@ -142,6 +143,55 @@ public class LeagueController {
                 ? request.getRequestURI()
                 : request.getRequestURI() + "?" + request.getQueryString());
         return "leagues/detail";
+    }
+
+    @GetMapping("/{id}/standings-summary")
+    @ResponseBody
+    public List<Map<String, Object>> standingsSummary(@PathVariable UUID id) {
+        return leagueService.findDetail(id).getStandings().stream()
+                .map(row -> Map.<String, Object>of(
+                        "teamId", row.getTeamId().toString(),
+                        "played", row.getPlayed(),
+                        "wins", row.getWins(),
+                        "draws", row.getDraws(),
+                        "losses", row.getLosses(),
+                        "goalsFor", row.getGoalsFor(),
+                        "goalsAgainst", row.getGoalsAgainst(),
+                        "goalDiff", row.getGoalDiff(),
+                        "points", row.getPoints()))
+                .toList();
+    }
+
+    @GetMapping("/{id}/live-summary")
+    @ResponseBody
+    public Map<String, Object> liveSummary(@PathVariable UUID id, @RequestParam(required = false) Integer round,
+                                            Authentication authentication) {
+        var league = leagueService.findDetail(id);
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime liveThreshold = now.minusMinutes(46);
+
+        List<MatchDto> live = league.getMatches().stream()
+                .filter(m -> round == null || Objects.equals(m.getRoundNumber(), round))
+                .filter(m -> m.getPlayedAt().isBefore(now) && m.getPlayedAt().isAfter(liveThreshold))
+                .toList();
+
+        Set<UUID> subscribedMatchIds = matchFollowSupport.subscribedMatchIds(authentication);
+
+        List<Map<String, Object>> matches = live.stream()
+                .map(m -> {
+                    Map<String, Object> entry = new LinkedHashMap<>(LiveMatchJsSupport.toJsEntry(m, now));
+                    entry.put("homeTeamName", m.getHomeTeamName());
+                    entry.put("homeTeamCity", m.getHomeTeamCity());
+                    entry.put("awayTeamName", m.getAwayTeamName());
+                    entry.put("awayTeamCity", m.getAwayTeamCity());
+                    entry.put("roundNumber", m.getRoundNumber());
+                    entry.put("playedAtUtcIso", m.getPlayedAtUtcIso());
+                    entry.put("followed", subscribedMatchIds.contains(m.getId()));
+                    return entry;
+                })
+                .toList();
+
+        return Map.of("matches", matches);
     }
 
     @PostMapping("/{id}/schedule")

@@ -333,9 +333,10 @@ public class MatchServiceImpl implements MatchService {
 
         List<GoalDto> sorted = match.getGoals().stream()
                 .map(this::toGoalDto)
-                .sorted(Comparator.comparingInt(dto ->
-                        dto.getMinute() == null ? Integer.MAX_VALUE
-                                : dto.getHalf() == Half.FIRST ? dto.getMinute() : dto.getMinute() + 20))
+                .sorted(Comparator
+                        .comparingInt((GoalDto dto) -> dto.getMinute() == null ? Integer.MAX_VALUE
+                                : dto.getHalf() == Half.FIRST ? dto.getMinute() : dto.getMinute() + 20)
+                        .thenComparingInt(dto -> dto.getOffsetSeconds() == null ? 0 : dto.getOffsetSeconds()))
                 .toList();
 
         int runningHome = 0, runningAway = 0, homeHalf = 0, awayHalf = 0;
@@ -373,6 +374,7 @@ public class MatchServiceImpl implements MatchService {
         dto.setId(goal.getId());
         dto.setHalf(goal.getHalf());
         dto.setMinute(goal.getMinute());
+        dto.setOffsetSeconds(goal.getOffsetSeconds());
         if (goal.getScorer() != null) {
             dto.setScorerId(goal.getScorer().getId());
             dto.setScorerName(goal.getScorer().getFirstName() + " " + goal.getScorer().getLastName());

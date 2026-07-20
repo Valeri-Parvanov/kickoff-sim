@@ -1,6 +1,8 @@
 package com.kickoffsim.config;
 
 import com.kickoffsim.client.NotificationClient;
+import com.kickoffsim.web.SseEmitterRegistry;
+import com.kickoffsim.web.SsePushingNotificationClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import feign.Feign;
 import feign.Logger;
@@ -17,12 +19,14 @@ public class FeignConfig {
     @Bean
     public NotificationClient notificationClient(
             @Value("${notifications.service.url}") String url,
-            ObjectMapper objectMapper) {
-        return Feign.builder()
+            ObjectMapper objectMapper,
+            SseEmitterRegistry sseEmitterRegistry) {
+        NotificationClient rawClient = Feign.builder()
                 .encoder(new JacksonEncoder(objectMapper))
                 .decoder(new JacksonDecoder(objectMapper))
                 .logger(new Slf4jLogger(NotificationClient.class))
                 .logLevel(Logger.Level.BASIC)
                 .target(NotificationClient.class, url);
+        return new SsePushingNotificationClient(rawClient, sseEmitterRegistry);
     }
 }

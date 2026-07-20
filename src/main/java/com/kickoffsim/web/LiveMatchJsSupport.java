@@ -24,6 +24,7 @@ public final class LiveMatchJsSupport {
         List<Map<String, Object>> goals = match.getGoalTimeline().stream()
                 .map(g -> Map.<String, Object>of(
                         "minute", g.getMinute() != null ? g.getMinute() : 0,
+                        "offsetSeconds", g.getOffsetSeconds() != null ? g.getOffsetSeconds() : 0,
                         "half", g.getHalf() != null ? g.getHalf().name() : "FIRST",
                         "homeGoal", g.isHomeGoal(),
                         "rh", g.getRunningHomeScore() != null ? g.getRunningHomeScore() : 0,

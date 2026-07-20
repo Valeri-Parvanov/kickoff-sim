@@ -215,15 +215,15 @@ public class LeagueServiceImpl implements LeagueService {
                 away.setDraws(away.getDraws() + 1);
             }
 
-            long realMin = isLive ? Duration.between(m.getPlayedAt(), now).toMinutes() : -1;
+            long realSec = isLive ? Duration.between(m.getPlayedAt(), now).getSeconds() : -1;
             for (GoalDto g : m.getGoalTimeline()) {
-                if (isLive && !goalRevealed(g, realMin)) continue;
+                if (isLive && !goalRevealed(g, realSec)) continue;
                 if (!g.isOwnGoal() && g.getScorerId() != null) {
-                    tally(scorerMap, g.getScorerId(), g.getScorerName(),
+                    tally(scorerMap, g.getScorerId(), g.getScorerName(), g.getTeamId(),
                             teamNameById.get(g.getTeamId()), teamCityById.get(g.getTeamId()));
                 }
                 if (g.getAssistantId() != null) {
-                    tally(assistMap, g.getAssistantId(), g.getAssistantName(),
+                    tally(assistMap, g.getAssistantId(), g.getAssistantName(), g.getTeamId(),
                             teamNameById.get(g.getTeamId()), teamCityById.get(g.getTeamId()));
                 }
             }
@@ -347,29 +347,31 @@ public class LeagueServiceImpl implements LeagueService {
     }
 
     private int[] computeLiveScore(MatchDto m, LocalDateTime now) {
-        long realMin = Duration.between(m.getPlayedAt(), now).toMinutes();
+        long realSec = Duration.between(m.getPlayedAt(), now).getSeconds();
         int hs = 0, as = 0;
         for (GoalDto g : m.getGoalTimeline()) {
-            if (goalRevealed(g, realMin)) {
+            if (goalRevealed(g, realSec)) {
                 if (g.isHomeGoal()) hs++; else as++;
             }
         }
         return new int[]{hs, as};
     }
 
-    private boolean goalRevealed(GoalDto g, long realMin) {
-        if (g.getMinute() == null || g.getHalf() == null) return false;
-        return g.getHalf() == Half.FIRST
-                ? (realMin > 20 || g.getMinute() <= realMin)
-                : (realMin > 25 && g.getMinute() <= (realMin - 25));
+    private boolean goalRevealed(GoalDto g, long realSec) {
+        if (g.getHalf() == null) return false;
+        if (g.getOffsetSeconds() == null && g.getMinute() == null) return false;
+        int offset = g.getOffsetSeconds() != null ? g.getOffsetSeconds() : (g.getMinute() - 1) * 60;
+        long revealSec = g.getHalf() == Half.FIRST ? offset : 1500 + offset;
+        return revealSec <= realSec;
     }
 
-    private void tally(Map<UUID, PlayerStatRow> map, UUID playerId, String playerName, String teamName, String teamCity) {
+    private void tally(Map<UUID, PlayerStatRow> map, UUID playerId, String playerName, UUID teamId, String teamName, String teamCity) {
         PlayerStatRow row = map.get(playerId);
         if (row == null) {
             row = new PlayerStatRow();
             row.setPlayerId(playerId);
             row.setPlayerName(playerName);
+            row.setTeamId(teamId);
             row.setTeamName(teamName);
             row.setTeamCity(teamCity);
             map.put(playerId, row);
