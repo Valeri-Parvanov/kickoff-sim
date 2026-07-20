@@ -161,7 +161,7 @@
         <div class="match-list" th:if="${roundMatches != null and !roundMatches.isEmpty()}">
             <th:block th:each="match : ${roundMatches}">
 
-                <div class="match-card upcoming" th:if="${match.playedAt.isAfter(now)}">
+                <div class="match-card upcoming" th:if="${match.playedAt.isAfter(now)}" th:attr="data-match-id=${match.id}">
                     <div class="match-meta">
                         <div th:replace="~{fragments/topbar :: matchStar(${match.id})}"></div>
                         <span class="match-round" th:if="${match.roundNumber != null}" th:text="'Round ' + ${match.roundNumber}"></span>
@@ -170,12 +170,14 @@
                         <a class="team-name home" th:href="@{/teams/{id}(id=${match.homeTeamId})}">
                             <span th:text="${match.homeTeamName + (match.homeTeamCity != null ? ' (' + match.homeTeamCity + ')' : '')}"></span>
                             <img th:src="@{/teams/{id}/logo(id=${match.homeTeamId})}" class="match-logo" alt=""/>
+                            <span class="scoring-dot scoring-dot-home"></span>
                         </a>
                         <div class="score-block">
                             <div class="upcoming-time" th:attr="data-utc=${match.playedAtUtcIso},data-fmt='time'"></div>
                             <div class="upcoming-date" th:attr="data-utc=${match.playedAtUtcIso},data-fmt='date-iso'"></div>
                         </div>
                         <a class="team-name away" th:href="@{/teams/{id}(id=${match.awayTeamId})}">
+                            <span class="scoring-dot scoring-dot-away"></span>
                             <img th:src="@{/teams/{id}/logo(id=${match.awayTeamId})}" class="match-logo" alt=""/>
                             <span th:text="${match.awayTeamName + (match.awayTeamCity != null ? ' (' + match.awayTeamCity + ')' : '')}"></span>
                         </a>
@@ -196,6 +198,7 @@
                             <a class="team-name home" th:href="@{/teams/{id}(id=${match.homeTeamId})}">
                                 <span th:text="${match.homeTeamName + (match.homeTeamCity != null ? ' (' + match.homeTeamCity + ')' : '')}"></span>
                                 <img th:src="@{/teams/{id}/logo(id=${match.homeTeamId})}" class="match-logo" alt=""/>
+                                <span class="scoring-dot scoring-dot-home"></span>
                             </a>
                             <div class="score-block" th:if="${!match.playedAt.isAfter(liveThreshold)}">
                                 <div class="score-time" th:attr="data-utc=${match.playedAtUtcIso},data-fmt='datetime-compact'"></div>
@@ -211,6 +214,7 @@
                                 <div class="live-minute"></div>
                             </div>
                             <a class="team-name away" th:href="@{/teams/{id}(id=${match.awayTeamId})}">
+                                <span class="scoring-dot scoring-dot-away"></span>
                                 <img th:src="@{/teams/{id}/logo(id=${match.awayTeamId})}" class="match-logo" alt=""/>
                                 <span th:text="${match.awayTeamName + (match.awayTeamCity != null ? ' (' + match.awayTeamCity + ')' : '')}"></span>
                             </a>
@@ -232,7 +236,7 @@
                                           th:text="${match.homeScore - match.homeHalfScore} + ':' + ${match.awayScore - match.awayHalfScore}"></span>
                                 </div>
 
-                                <div class="timeline-row" th:attr="data-half=${g.half.name()},data-minute=${g.minute != null ? g.minute : 0}">
+                                <div class="timeline-row" th:attr="data-half=${g.half.name()},data-minute=${g.minute != null ? g.minute : 0},data-offset=${g.offsetSeconds != null ? g.offsetSeconds : 0}">
                                     <div class="tl-home">
                                         <th:block th:if="${g.homeGoal}">
                                             <span class="goal-icon">&#9917;</span>
@@ -322,6 +326,8 @@
 </main>
 <script th:inline="javascript">
 var LIVE_MATCHES = /*[[${liveMatchesForJs}]]*/[];
+var LEAGUE_ID = /*[[${league.id}]]*/'';
+var SELECTED_ROUND = /*[[${selectedRound}]]*/null;
 </script>
 <script>
 var PAGE_LOAD_TIME = Date.now();
@@ -331,6 +337,10 @@ function formatClock(totalSec) {
     var sec = s % 60;
     return m + ':' + (sec < 10 ? '0' : '') + sec;
 }
+function goalRevealSec(g) {
+    var offset = g.offsetSeconds != null ? g.offsetSeconds : (g.minute != null ? (g.minute - 1) * 60 : 0);
+    return g.half === 'FIRST' ? offset : 1500 + offset;
+}
 function getLiveState(elapsedSec, goals) {
     var phase, maxMin;
     if (elapsedSec < 0)         return { phase: 'PRE',    displayMin: '',   homeScore: 0, awayScore: 0, maxMin: 0 };
@@ -339,17 +349,13 @@ function getLiveState(elapsedSec, goals) {
     else if (elapsedSec < 2700)  { phase = 'SECOND'; maxMin = Math.floor((elapsedSec - 1500) / 60) + 1; }
     else                         { phase = 'FT';     maxMin = 20; }
 
-    var hs = 0, as = 0;
+    var hs = 0, as = 0, bestRevealSec = -1;
     for (var i = 0; i < goals.length; i++) {
         var g = goals[i];
-        if (g.half === 'FIRST') {
-            if ((phase === 'FIRST' && g.minute <= maxMin) ||
-                phase === 'HT' || phase === 'SECOND' || phase === 'FT') {
-                hs = g.rh; as = g.ra;
-            }
-        } else if (g.half === 'SECOND') {
-            var secMax = (phase === 'SECOND') ? maxMin : (phase === 'FT' ? 20 : -1);
-            if (secMax >= 0 && g.minute <= secMax) { hs = g.rh; as = g.ra; }
+        var revealSec = goalRevealSec(g);
+        if (revealSec <= elapsedSec && revealSec > bestRevealSec) {
+            bestRevealSec = revealSec;
+            hs = g.rh; as = g.ra;
         }
     }
 
@@ -363,12 +369,14 @@ function getLiveState(elapsedSec, goals) {
 }
 
 function updateLive() {
-    var stateById = {}, teamState = {};
+    var stateById = {}, teamState = {}, elapsedSecById = {};
     (LIVE_MATCHES || []).forEach(function(m) {
         var baseSec = (m.elapsedSec != null) ? m.elapsedSec : m.elapsedMin * 60;
-        var elapsedSec = baseSec + (Date.now() - PAGE_LOAD_TIME) / 1000;
+        var capturedAt = m.capturedAt != null ? m.capturedAt : PAGE_LOAD_TIME;
+        var elapsedSec = baseSec + (Date.now() - capturedAt) / 1000;
         var st = getLiveState(elapsedSec, m.goals);
         stateById[m.id] = st;
+        elapsedSecById[m.id] = elapsedSec;
         teamState[m.homeTeamId] = { st: st, isHome: true,  matchId: m.id };
         teamState[m.awayTeamId] = { st: st, isHome: false, matchId: m.id };
     });
@@ -396,15 +404,13 @@ function updateLive() {
                         }, 45000);
                     })(details);
                 }
+                var preciseElapsed = elapsedSecById[mId];
                 var anyFirstVis = false, anySecondVis = false;
                 details.querySelectorAll('.timeline-row').forEach(function(r) {
                     var rHalf = r.getAttribute('data-half');
-                    var rMin  = parseInt(r.getAttribute('data-minute') || '0');
-                    var show;
-                    if      (st.phase === 'FT')     show = true;
-                    else if (st.phase === 'HT')     show = rHalf === 'FIRST';
-                    else if (st.phase === 'SECOND') show = rHalf === 'FIRST' || (rHalf === 'SECOND' && rMin <= st.maxMin);
-                    else                            show = rHalf === 'FIRST' && rMin <= st.maxMin;
+                    var offset = parseInt(r.getAttribute('data-offset') || '0');
+                    var revealSec = rHalf === 'FIRST' ? offset : 1500 + offset;
+                    var show = revealSec <= preciseElapsed;
                     r.style.display = show ? '' : 'none';
                     if (show && rHalf === 'FIRST')  anyFirstVis  = true;
                     if (show && rHalf === 'SECOND') anySecondVis = true;
@@ -492,6 +498,172 @@ setInterval(updateLive, 1000);
         });
     });
 }());
+
+(function() {
+    if (!LEAGUE_ID) return;
+    var list = document.querySelector('#schedule .match-list');
+    if (!list) return;
+
+    function esc(s) {
+        var d = document.createElement('div');
+        d.textContent = s == null ? '' : s;
+        return d.innerHTML;
+    }
+    function teamLabel(name, city) {
+        return esc(name) + (city ? ' (' + esc(city) + ')' : '');
+    }
+
+    function buildLiveCard(m) {
+        var details = document.createElement('details');
+        details.className = 'match-card';
+
+        var authed = !!document.getElementById('goal-toasts');
+        var starHtml = '';
+        if (authed) {
+            starHtml = '<form action="/notifications/match/' + m.id + '/toggle" method="post" class="match-star-form">'
+                + '<button type="submit" class="match-star' + (m.followed ? ' followed' : '') + '"'
+                + ' title="' + (m.followed ? 'Stop following this match' : 'Follow this match') + '"'
+                + ' aria-pressed="' + !!m.followed + '">'
+                + '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>'
+                + '</button></form>';
+        }
+
+        var roundHtml = m.roundNumber != null ? '<span class="match-round">Round ' + esc(m.roundNumber) + '</span>' : '';
+
+        details.innerHTML =
+            '<summary class="match-card-summary">' +
+                '<div class="match-meta">' + starHtml + roundHtml + '</div>' +
+                '<div class="match-scoreline">' +
+                    '<a class="team-name home" href="/teams/' + esc(m.homeTeamId) + '">' +
+                        '<span>' + teamLabel(m.homeTeamName, m.homeTeamCity) + '</span>' +
+                        '<img src="/teams/' + esc(m.homeTeamId) + '/logo" class="match-logo" alt=""/>' +
+                        '<span class="scoring-dot scoring-dot-home"></span>' +
+                    '</a>' +
+                    '<div class="score-block" data-elapsed="' + esc(m.elapsedMin) + '" data-match-id="' + esc(m.id) + '">' +
+                        '<div class="score-time" data-utc="' + esc(m.playedAtUtcIso) + '" data-fmt="datetime-compact"></div>' +
+                        '<div class="ls-score-main"><span class="ls-h">-</span>&thinsp;:&thinsp;<span class="ls-a">-</span></div>' +
+                        '<div class="live-badge">LIVE</div>' +
+                        '<div class="live-minute"></div>' +
+                    '</div>' +
+                    '<a class="team-name away" href="/teams/' + esc(m.awayTeamId) + '">' +
+                        '<span class="scoring-dot scoring-dot-away"></span>' +
+                        '<img src="/teams/' + esc(m.awayTeamId) + '/logo" class="match-logo" alt=""/>' +
+                        '<span>' + teamLabel(m.awayTeamName, m.awayTeamCity) + '</span>' +
+                    '</a>' +
+                '</div>' +
+            '</summary>' +
+            '<div class="match-card-expand">' +
+                '<p style="font-size:0.82rem;color:var(--muted);margin:0.4rem 0 0;text-align:center;">Match in progress.</p>' +
+            '</div>';
+
+        var timeEl = details.querySelector('[data-utc]');
+        if (timeEl) {
+            try {
+                var d = new Date(timeEl.dataset.utc);
+                if (!isNaN(d.getTime())) {
+                    timeEl.textContent = String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + d.getFullYear() + ' · ' + d.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+                }
+            } catch(e) {}
+        }
+        return details;
+    }
+
+    function currentLiveIds() {
+        var ids = {};
+        list.querySelectorAll('.score-block[data-match-id]').forEach(function(el) {
+            ids[el.getAttribute('data-match-id')] = true;
+        });
+        return ids;
+    }
+
+    function fadeOutAndHide(card) {
+        if (!card || card.dataset.ftScheduled) return;
+        card.dataset.ftScheduled = '1';
+        card.style.transition = 'opacity 0.6s ease';
+        card.style.opacity = '0';
+        setTimeout(function() { card.style.display = 'none'; }, 650);
+    }
+
+    function poll() {
+        fetch('/leagues/' + LEAGUE_ID + '/live-summary' + (SELECTED_ROUND != null ? '?round=' + encodeURIComponent(SELECTED_ROUND) : ''),
+              {headers: {'Accept': 'application/json'}})
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var matches = data.matches || [];
+                var known = currentLiveIds();
+                var seenNow = {};
+
+                matches.forEach(function(m) {
+                    seenNow[m.id] = true;
+                    if (known[m.id]) return;
+
+                    var upcomingCard = list.querySelector('.match-card.upcoming[data-match-id="' + m.id + '"]');
+                    var card = buildLiveCard(m);
+                    if (upcomingCard) {
+                        upcomingCard.parentNode.replaceChild(card, upcomingCard);
+                    } else {
+                        list.appendChild(card);
+                    }
+
+                    window.LIVE_MATCHES = (window.LIVE_MATCHES || [])
+                        .filter(function(x) { return x.id !== m.id; })
+                        .concat([{ id: m.id, homeTeamId: m.homeTeamId, awayTeamId: m.awayTeamId,
+                                   elapsedMin: m.elapsedMin, elapsedSec: m.elapsedSec, goals: m.goals,
+                                   capturedAt: Date.now() }]);
+                });
+
+                Object.keys(known).forEach(function(id) {
+                    if (seenNow[id]) return;
+                    var el = list.querySelector('.score-block[data-match-id="' + id + '"]');
+                    fadeOutAndHide(el && el.closest('details'));
+                });
+            }).catch(function() {});
+    }
+
+    setInterval(poll, 5000);
+})();
+
+(function() {
+    if (!LEAGUE_ID) return;
+
+    function applyStandings(rows) {
+        rows.forEach(function(row) {
+            var tr = document.querySelector('tr[data-team-id="' + row.teamId + '"]');
+            if (!tr) return;
+            var pEl = tr.querySelector('.cell-p');
+            var wEl = tr.querySelector('.cell-w');
+            var dEl = tr.querySelector('.cell-d');
+            var lEl = tr.querySelector('.cell-l');
+            var gfEl = tr.querySelector('.cell-gf');
+            var gaEl = tr.querySelector('.cell-ga');
+            var gdEl = tr.querySelector('.cell-gd');
+            var ptsEl = tr.querySelector('.cell-pts');
+            if (pEl) pEl.textContent = row.played;
+            if (wEl) wEl.textContent = row.wins;
+            if (dEl) dEl.textContent = row.draws;
+            if (lEl) lEl.textContent = row.losses;
+            if (gfEl) gfEl.textContent = row.goalsFor;
+            if (gaEl) gaEl.textContent = row.goalsAgainst;
+            if (gdEl) {
+                gdEl.textContent = row.goalDiff;
+                gdEl.classList.remove('cell-gd-pos', 'cell-gd-neg');
+                if (row.goalDiff > 0) gdEl.classList.add('cell-gd-pos');
+                else if (row.goalDiff < 0) gdEl.classList.add('cell-gd-neg');
+            }
+            if (ptsEl) ptsEl.textContent = row.points;
+        });
+    }
+
+    function poll() {
+        if (!(LIVE_MATCHES && LIVE_MATCHES.length > 0)) return;
+        fetch('/leagues/' + LEAGUE_ID + '/standings-summary', {headers: {'Accept': 'application/json'}})
+            .then(function(r) { return r.json(); })
+            .then(applyStandings)
+            .catch(function() {});
+    }
+
+    setInterval(poll, 5000);
+})();
 
 (function() {
     var hidden = document.getElementById('startTime');

@@ -75,7 +75,7 @@
 <section id="squad" class="team-tab-section">
     <div th:if="${players.isEmpty()}" class="no-matches">No players registered yet.</div>
     <div class="table-wrapper" th:if="${!players.isEmpty()}">
-        <table border="1" cellpadding="6">
+        <table border="1" cellpadding="6" class="squad-table">
             <thead>
             <tr>
                 <th>#</th>
@@ -94,11 +94,11 @@
             </thead>
             <tbody id="squadTableBody">
             <tr th:each="p : ${players}" th:attr="data-goals=${p.goals},data-assists=${p.assists}">
-                <td th:text="${p.shirtNumber}"></td>
-                <td th:text="${p.firstName}"></td>
-                <td th:text="${p.lastName}"></td>
-                <td th:text="${p.goals}"></td>
-                <td th:text="${p.assists}"></td>
+                <td><span class="squad-number" th:text="${p.shirtNumber}"></span></td>
+                <td class="squad-name" th:text="${p.firstName}"></td>
+                <td class="squad-name" th:text="${p.lastName}"></td>
+                <td><span class="squad-stat squad-stat-goals" th:text="${p.goals}"></span></td>
+                <td><span class="squad-stat squad-stat-assists" th:text="${p.assists}"></span></td>
                 <td sec:authorize="hasRole('ADMIN')" th:if="${team.leagueId == null}">
                     <a th:href="@{/players/{id}/form(id=${p.id})}">Edit</a>
                     <form th:action="@{/players/{id}(id=${p.id},returnTeam=${team.id})}" th:method="delete" style="display:inline">
@@ -119,9 +119,9 @@
 
 <!-- Matches -->
 <section id="matches" class="team-tab-section">
-    <div th:if="${!teamResults.isEmpty()}">
+    <div th:if="${!teamResults.isEmpty()}" id="teamResultsWrap">
         <div class="ls-section-header ls-results-header">&#127955; Results</div>
-        <div class="match-list">
+        <div class="match-list" id="teamResultsList">
             <th:block th:each="m, stat : ${teamResults}">
 
                 <details class="match-card">
@@ -139,6 +139,7 @@
                             <a class="team-name home" th:href="@{/teams/{id}(id=${m.homeTeamId})}">
                                 <span th:text="${m.homeTeamName + (m.homeTeamCity != null ? ' (' + m.homeTeamCity + ')' : '')}"></span>
                                 <img th:src="@{/teams/{id}/logo(id=${m.homeTeamId})}" class="match-logo" alt=""/>
+                                <span class="scoring-dot scoring-dot-home"></span>
                             </a>
                             <div class="score-block"
                                  th:if="${m.playedAt.isAfter(liveThreshold)}"
@@ -153,6 +154,7 @@
                                 <div class="score-main" th:text="${m.homeScore} + ' : ' + ${m.awayScore}"></div>
                             </div>
                             <a class="team-name away" th:href="@{/teams/{id}(id=${m.awayTeamId})}">
+                                <span class="scoring-dot scoring-dot-away"></span>
                                 <img th:src="@{/teams/{id}/logo(id=${m.awayTeamId})}" class="match-logo" alt=""/>
                                 <span th:text="${m.awayTeamName + (m.awayTeamCity != null ? ' (' + m.awayTeamCity + ')' : '')}"></span>
                             </a>
@@ -161,14 +163,14 @@
                     <div class="match-card-expand">
                         <div class="goal-timeline" th:if="${!m.goalTimeline.isEmpty()}">
                             <th:block th:each="g : ${m.goalTimeline}">
-                                <div class="half-label" th:if="${g.firstInHalf}">
+                                <div class="half-label" th:if="${g.firstInHalf}" th:attr="data-half=${g.half.name()}">
                                     <span th:text="${g.half.name() == 'FIRST' ? '1st Half' : '2nd Half'}"></span>
                                     <span class="half-score" th:if="${g.half.name() == 'FIRST'}"
                                           th:text="${m.homeHalfScore} + ':' + ${m.awayHalfScore}"></span>
                                     <span class="half-score" th:unless="${g.half.name() == 'FIRST'}"
                                           th:text="${m.homeScore - m.homeHalfScore} + ':' + ${m.awayScore - m.awayHalfScore}"></span>
                                 </div>
-                                <div class="timeline-row">
+                                <div class="timeline-row" th:attr="data-half=${g.half.name()},data-minute=${g.minute != null ? g.minute : 0},data-offset=${g.offsetSeconds != null ? g.offsetSeconds : 0}">
                                     <div class="tl-home">
                                         <th:block th:if="${g.homeGoal}">
                                             <span class="goal-icon">&#9917;</span>
@@ -210,10 +212,10 @@
         </div>
     </div>
 
-    <div th:if="${!teamUpcoming.isEmpty()}" style="margin-top:1rem;">
+    <div th:if="${!teamUpcoming.isEmpty()}" id="teamUpcomingWrap" style="margin-top:1rem;">
         <div class="ls-section-header ls-upcoming-header">&#128197; Upcoming</div>
-        <div class="match-list">
-            <div class="match-card upcoming" th:each="m : ${teamUpcoming}">
+        <div class="match-list" id="teamUpcomingList">
+            <div class="match-card upcoming" th:each="m : ${teamUpcoming}" th:attr="data-match-id=${m.id}">
                 <div class="match-meta">
                     <div th:replace="~{fragments/topbar :: matchStar(${m.id})}"></div>
                     <span class="match-meta-info">
@@ -227,12 +229,14 @@
                     <a class="team-name home" th:href="@{/teams/{id}(id=${m.homeTeamId})}">
                         <span th:text="${m.homeTeamName + (m.homeTeamCity != null ? ' (' + m.homeTeamCity + ')' : '')}"></span>
                         <img th:src="@{/teams/{id}/logo(id=${m.homeTeamId})}" class="match-logo" alt=""/>
+                        <span class="scoring-dot scoring-dot-home"></span>
                     </a>
                     <div class="score-block">
                         <div class="upcoming-time" th:attr="data-utc=${m.playedAtUtcIso},data-fmt='time'"></div>
                         <div class="upcoming-date" th:attr="data-utc=${m.playedAtUtcIso},data-fmt='date-iso'"></div>
                     </div>
                     <a class="team-name away" th:href="@{/teams/{id}(id=${m.awayTeamId})}">
+                        <span class="scoring-dot scoring-dot-away"></span>
                         <img th:src="@{/teams/{id}/logo(id=${m.awayTeamId})}" class="match-logo" alt=""/>
                         <span th:text="${m.awayTeamName + (m.awayTeamCity != null ? ' (' + m.awayTeamCity + ')' : '')}"></span>
                     </a>
@@ -241,7 +245,7 @@
         </div>
     </div>
 
-    <p th:if="${teamResults.isEmpty() and teamUpcoming.isEmpty()}" class="no-matches">No matches yet.</p>
+    <p th:if="${teamResults.isEmpty() and teamUpcoming.isEmpty()}" id="teamNoMatches" class="no-matches">No matches yet.</p>
 </section>
 
 <p><a th:href="@{/teams}" class="back-link">&#8592; Back to teams</a></p>
@@ -304,7 +308,7 @@
 <script th:inline="javascript">
 (function() {
     var liveData = /*[[${liveMatchesForJs}]]*/ [];
-    if (!liveData.length) return;
+    window.TEAM_LIVE_DATA = liveData;
     var PAGE_LOAD_TIME = Date.now();
 
     function formatClock(totalSec) {
@@ -314,6 +318,11 @@
         return m + ':' + (sec < 10 ? '0' : '') + sec;
     }
 
+    function goalRevealSec(g) {
+        var offset = g.offsetSeconds != null ? g.offsetSeconds : (g.minute != null ? (g.minute - 1) * 60 : 0);
+        return g.half === 'FIRST' ? offset : 1500 + offset;
+    }
+
     function getLiveState(elapsedSec, goals) {
         if (elapsedSec < 0) return { phase: 'PRE', homeScore: 0, awayScore: 0, displayMin: '' };
         var phase, maxMin, displayMin;
@@ -321,28 +330,25 @@
         else if (elapsedSec < 1500) { phase = 'HT';     maxMin = 20;                                       displayMin = 'HT'; }
         else if (elapsedSec < 2700) { phase = 'SECOND'; maxMin = Math.floor((elapsedSec - 1500) / 60) + 1; displayMin = formatClock(1200 + (elapsedSec - 1500)); }
         else                        { phase = 'FT';     maxMin = 20;                                       displayMin = 'FT'; }
-        var hs = 0, as_ = 0;
+        var hs = 0, as_ = 0, bestRevealSec = -1;
         for (var i = 0; i < goals.length; i++) {
             var g = goals[i];
-            if (g.half === 'FIRST') {
-                if ((phase === 'FIRST' && g.minute <= maxMin) ||
-                    phase === 'HT' || phase === 'SECOND' || phase === 'FT') {
-                    hs = g.rh; as_ = g.ra;
-                }
-            } else if (g.half === 'SECOND') {
-                var secMax = (phase === 'SECOND') ? maxMin : (phase === 'FT' ? 20 : -1);
-                if (secMax >= 0 && g.minute <= secMax) { hs = g.rh; as_ = g.ra; }
+            var revealSec = goalRevealSec(g);
+            if (revealSec <= elapsedSec && revealSec > bestRevealSec) {
+                bestRevealSec = revealSec;
+                hs = g.rh; as_ = g.ra;
             }
         }
-        return { phase: phase, homeScore: hs, awayScore: as_, displayMin: displayMin };
+        return { phase: phase, homeScore: hs, awayScore: as_, displayMin: displayMin, maxMin: maxMin };
     }
 
     function updateLive() {
         var stateById = {};
         liveData.forEach(function(m) {
             var baseSec = (m.elapsedSec != null) ? m.elapsedSec : m.elapsedMin * 60;
-            var elapsedSec = baseSec + (Date.now() - PAGE_LOAD_TIME) / 1000;
-            stateById[m.id] = { st: getLiveState(elapsedSec, m.goals), homeTeamId: m.homeTeamId, awayTeamId: m.awayTeamId };
+            var capturedAt = m.capturedAt != null ? m.capturedAt : PAGE_LOAD_TIME;
+            var elapsedSec = baseSec + (Date.now() - capturedAt) / 1000;
+            stateById[m.id] = { st: getLiveState(elapsedSec, m.goals), homeTeamId: m.homeTeamId, awayTeamId: m.awayTeamId, elapsedSec: elapsedSec };
         });
 
         Object.keys(stateById).forEach(function(mId) {
@@ -375,9 +381,30 @@
             if (hEl) hEl.textContent = st.homeScore;
             if (aEl) aEl.textContent = st.awayScore;
             if (minEl) minEl.textContent = st.displayMin;
-            if (st.phase === 'FT') {
-                var card = el.closest('details');
-                if (card && !card.dataset.ftScheduled) {
+            var card = el.closest('details');
+            if (card) {
+                var preciseElapsed = stateById[mId].elapsedSec;
+                var anyFirstVis = false, anySecondVis = false;
+                card.querySelectorAll('.timeline-row').forEach(function(r) {
+                    var rHalf = r.getAttribute('data-half');
+                    var offset = parseInt(r.getAttribute('data-offset') || '0');
+                    var revealSec = rHalf === 'FIRST' ? offset : 1500 + offset;
+                    var show = revealSec <= preciseElapsed;
+                    r.style.display = show ? '' : 'none';
+                    if (show && rHalf === 'FIRST')  anyFirstVis  = true;
+                    if (show && rHalf === 'SECOND') anySecondVis = true;
+                });
+                card.querySelectorAll('.half-label').forEach(function(hl) {
+                    var halfName = hl.getAttribute('data-half');
+                    hl.style.display = (halfName === 'FIRST' ? anyFirstVis : anySecondVis) ? '' : 'none';
+                    var scoreSpan = hl.querySelector('.half-score');
+                    if (scoreSpan) {
+                        var halfDone = (halfName === 'FIRST' && (st.phase === 'HT' || st.phase === 'SECOND' || st.phase === 'FT')) ||
+                                       (halfName === 'SECOND' && st.phase === 'FT');
+                        scoreSpan.style.display = halfDone ? '' : 'none';
+                    }
+                });
+                if (st.phase === 'FT' && !card.dataset.ftScheduled) {
                     card.dataset.ftScheduled = '1';
                     setTimeout(function() {
                         card.style.transition = 'opacity 0.6s ease';
@@ -391,6 +418,198 @@
 
     updateLive();
     setInterval(updateLive, 1000);
+})();
+</script>
+<script th:inline="javascript">
+(function() {
+    var TEAM_ID = /*[[${team.id}]]*/ '';
+    var LEAGUE_ID = /*[[${team.leagueId}]]*/ '';
+    if (!TEAM_ID) return;
+
+    function esc(s) {
+        var d = document.createElement('div');
+        d.textContent = s == null ? '' : s;
+        return d.innerHTML;
+    }
+    function teamLabel(name, city) {
+        return esc(name) + (city ? ' (' + esc(city) + ')' : '');
+    }
+
+    function ensureResultsList() {
+        var list = document.getElementById('teamResultsList');
+        if (list) return list;
+        var section = document.getElementById('matches');
+        if (!section) return null;
+        var wrap = document.createElement('div');
+        wrap.id = 'teamResultsWrap';
+        wrap.innerHTML = '<div class="ls-section-header ls-results-header">&#127955; Results</div>'
+            + '<div class="match-list" id="teamResultsList"></div>';
+        section.insertBefore(wrap, section.firstChild);
+        var noMatches = document.getElementById('teamNoMatches');
+        if (noMatches) noMatches.style.display = 'none';
+        return document.getElementById('teamResultsList');
+    }
+
+    function buildLiveCard(m) {
+        var details = document.createElement('details');
+        details.className = 'match-card';
+
+        var authed = !!document.getElementById('goal-toasts');
+        var starHtml = '';
+        if (authed) {
+            starHtml = '<form action="/notifications/match/' + m.id + '/toggle" method="post" class="match-star-form">'
+                + '<button type="submit" class="match-star' + (m.followed ? ' followed' : '') + '"'
+                + ' title="' + (m.followed ? 'Stop following this match' : 'Follow this match') + '"'
+                + ' aria-pressed="' + !!m.followed + '">'
+                + '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>'
+                + '</button></form>';
+        }
+
+        var metaInfo = '';
+        if (m.leagueId) {
+            metaInfo += '<a class="match-league-tag" href="/leagues/' + esc(m.leagueId) + '">' + esc(m.leagueName) + '</a>';
+        }
+        if (m.roundNumber != null) {
+            metaInfo += '<span class="match-round">Round ' + esc(m.roundNumber) + '</span>';
+        }
+
+        details.innerHTML =
+            '<summary class="match-card-summary">' +
+                '<div class="match-meta">' + starHtml + '<span class="match-meta-info">' + metaInfo + '</span></div>' +
+                '<div class="match-scoreline">' +
+                    '<a class="team-name home" href="/teams/' + esc(m.homeTeamId) + '">' +
+                        '<span>' + teamLabel(m.homeTeamName, m.homeTeamCity) + '</span>' +
+                        '<img src="/teams/' + esc(m.homeTeamId) + '/logo" class="match-logo" alt=""/>' +
+                        '<span class="scoring-dot scoring-dot-home"></span>' +
+                    '</a>' +
+                    '<div class="score-block" data-elapsed="' + esc(m.elapsedMin) + '" data-match-id="' + esc(m.id) + '">' +
+                        '<div class="score-time" data-utc="' + esc(m.playedAtUtcIso) + '" data-fmt="datetime-compact"></div>' +
+                        '<div class="ls-score-main"><span class="ls-h">-</span>&thinsp;:&thinsp;<span class="ls-a">-</span></div>' +
+                        '<div class="live-badge">LIVE</div>' +
+                        '<div class="live-minute"></div>' +
+                    '</div>' +
+                    '<a class="team-name away" href="/teams/' + esc(m.awayTeamId) + '">' +
+                        '<span class="scoring-dot scoring-dot-away"></span>' +
+                        '<img src="/teams/' + esc(m.awayTeamId) + '/logo" class="match-logo" alt=""/>' +
+                        '<span>' + teamLabel(m.awayTeamName, m.awayTeamCity) + '</span>' +
+                    '</a>' +
+                '</div>' +
+            '</summary>' +
+            '<div class="match-card-expand">' +
+                '<p style="font-size:0.82rem;color:var(--muted);margin:0.4rem 0 0;text-align:center;">No goals recorded.</p>' +
+            '</div>';
+
+        var timeEl = details.querySelector('[data-utc]');
+        if (timeEl) {
+            try {
+                var d = new Date(timeEl.dataset.utc);
+                if (!isNaN(d.getTime())) {
+                    timeEl.textContent = String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + d.getFullYear() + ' · ' + d.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+                }
+            } catch(e) {}
+        }
+        return details;
+    }
+
+    function currentLiveIds() {
+        var ids = {};
+        document.querySelectorAll('#teamResultsList [data-match-id]').forEach(function(el) {
+            ids[el.getAttribute('data-match-id')] = true;
+        });
+        return ids;
+    }
+
+    function fadeOutAndHide(card) {
+        if (!card || card.dataset.ftScheduled) return;
+        card.dataset.ftScheduled = '1';
+        card.style.transition = 'opacity 0.6s ease';
+        card.style.opacity = '0';
+        setTimeout(function() { card.style.display = 'none'; }, 650);
+    }
+
+    function poll() {
+        fetch('/teams/' + TEAM_ID + '/live-summary', {headers: {'Accept': 'application/json'}})
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var matches = data.matches || [];
+                var known = currentLiveIds();
+                var seenNow = {};
+
+                matches.forEach(function(m) {
+                    seenNow[m.id] = true;
+                    if (known[m.id]) return;
+
+                    var list = ensureResultsList();
+                    if (!list) return;
+                    list.insertBefore(buildLiveCard(m), list.firstChild);
+
+                    var upcomingCard = document.querySelector('#teamUpcomingList [data-match-id="' + m.id + '"]');
+                    if (upcomingCard) {
+                        upcomingCard.parentNode.removeChild(upcomingCard);
+                        var upcomingList = document.getElementById('teamUpcomingList');
+                        if (upcomingList && !upcomingList.children.length) {
+                            var wrap = document.getElementById('teamUpcomingWrap');
+                            if (wrap) wrap.style.display = 'none';
+                        }
+                    }
+
+                    var arr = window.TEAM_LIVE_DATA || (window.TEAM_LIVE_DATA = []);
+                    var idx = -1;
+                    for (var i = 0; i < arr.length; i++) { if (arr[i].id === m.id) { idx = i; break; } }
+                    var entry = { id: m.id, homeTeamId: m.homeTeamId, awayTeamId: m.awayTeamId,
+                                  elapsedMin: m.elapsedMin, elapsedSec: m.elapsedSec, goals: m.goals,
+                                  capturedAt: Date.now() };
+                    if (idx >= 0) arr[idx] = entry; else arr.push(entry);
+                });
+
+                Object.keys(known).forEach(function(id) {
+                    if (seenNow[id]) return;
+                    var el = document.querySelector('#teamResultsList [data-match-id="' + id + '"]');
+                    fadeOutAndHide(el && el.closest('details'));
+                });
+            }).catch(function() {});
+    }
+
+    setInterval(poll, 5000);
+
+    function applyStandings(rows) {
+        rows.forEach(function(row) {
+            var tr = document.querySelector('tr[data-team-id="' + row.teamId + '"]');
+            if (!tr) return;
+            var pEl = tr.querySelector('.cell-p');
+            var wEl = tr.querySelector('.cell-w');
+            var dEl = tr.querySelector('.cell-d');
+            var lEl = tr.querySelector('.cell-l');
+            var gfEl = tr.querySelector('.cell-gf');
+            var gaEl = tr.querySelector('.cell-ga');
+            var gdEl = tr.querySelector('.cell-gd');
+            var ptsEl = tr.querySelector('.cell-pts');
+            if (pEl) pEl.textContent = row.played;
+            if (wEl) wEl.textContent = row.wins;
+            if (dEl) dEl.textContent = row.draws;
+            if (lEl) lEl.textContent = row.losses;
+            if (gfEl) gfEl.textContent = row.goalsFor;
+            if (gaEl) gaEl.textContent = row.goalsAgainst;
+            if (gdEl) {
+                gdEl.textContent = row.goalDiff;
+                gdEl.classList.remove('cell-gd-pos', 'cell-gd-neg');
+                if (row.goalDiff > 0) gdEl.classList.add('cell-gd-pos');
+                else if (row.goalDiff < 0) gdEl.classList.add('cell-gd-neg');
+            }
+            if (ptsEl) ptsEl.textContent = row.points;
+        });
+    }
+
+    function pollStandings() {
+        if (!LEAGUE_ID) return;
+        if (!(window.TEAM_LIVE_DATA && window.TEAM_LIVE_DATA.length > 0)) return;
+        fetch('/leagues/' + LEAGUE_ID + '/standings-summary', {headers: {'Accept': 'application/json'}})
+            .then(function(r) { return r.json(); })
+            .then(applyStandings)
+            .catch(function() {});
+    }
+
+    setInterval(pollStandings, 5000);
 })();
 </script>
 <script>

@@ -95,7 +95,8 @@
     }
 
     var GOAL_TOAST_RE = /^GOAL for (.+?)!\s*(.+?)(?:\s\(assist:\s(.+?)\))?\s+(\d+)'(?:\s\((own goal|penalty)\))?\s+—\s+(.+?)\s+(\d+):(\d+)\s+(.+)$/;
-    var STATUS_TOAST_RE = /^(.+?)\s+vs\s+(.+?)\s+—\s+(FULL TIME|HALF TIME)\s+(\d+)-(\d+)$/;
+    var STATUS_TOAST_RE = /^(.+?)\s+vs\s+(.+?)\s+—\s+(FULL TIME|HALF TIME|SECOND HALF)\s+(\d+)-(\d+)$/;
+    var KICKOFF_TOAST_RE = /^(.+?)\s+vs\s+(.+?)\s+—\s+KICK OFF!$/;
 
     function showToast(message, type) {
         var wrap = document.getElementById('goal-toasts');
@@ -116,11 +117,17 @@
             var homeTeam = goalMatch[6];
             var homeScore = goalMatch[7];
             var awayScore = goalMatch[8];
+            var awayTeam = goalMatch[9];
 
             var teamLine = document.createElement('div');
             teamLine.className = 'goal-toast-team';
             teamLine.textContent = '⚽ ' + team;
             body.appendChild(teamLine);
+
+            var matchLine = document.createElement('div');
+            matchLine.className = 'goal-toast-match';
+            matchLine.textContent = homeTeam + ' vs ' + awayTeam;
+            body.appendChild(matchLine);
 
             var scoreLine = document.createElement('div');
             scoreLine.className = 'goal-toast-score';
@@ -157,7 +164,28 @@
                 assistLine.textContent = 'assist: ' + assist;
                 body.appendChild(assistLine);
             }
-        } else if (type === 'MATCH_HALFTIME' || type === 'MATCH_FULLTIME') {
+        } else if (type === 'MATCH_KICKOFF') {
+            var kickoffMatch = message.match(KICKOFF_TOAST_RE);
+            if (kickoffMatch) {
+                var koHome = kickoffMatch[1];
+                var koAway = kickoffMatch[2];
+
+                var koStatusLine = document.createElement('div');
+                koStatusLine.className = 'goal-toast-status';
+                koStatusLine.textContent = '🟢 KICK OFF!';
+                body.appendChild(koStatusLine);
+
+                var koMatchLine = document.createElement('div');
+                koMatchLine.className = 'goal-toast-scorer';
+                koMatchLine.textContent = koHome + ' vs ' + koAway;
+                body.appendChild(koMatchLine);
+            } else {
+                var koText = document.createElement('div');
+                koText.className = 'goal-toast-msg';
+                koText.textContent = message;
+                body.appendChild(koText);
+            }
+        } else if (type === 'MATCH_HALFTIME' || type === 'MATCH_SECONDHALF' || type === 'MATCH_FULLTIME') {
             var statusMatch = message.match(STATUS_TOAST_RE);
             if (statusMatch) {
                 var home = statusMatch[1];
@@ -166,9 +194,10 @@
                 var hScore = statusMatch[4];
                 var aScore = statusMatch[5];
 
+                var statusIcon = label === 'FULL TIME' ? '🏁 ' : (label === 'SECOND HALF' ? '▶️ ' : '⏸ ');
                 var statusLine = document.createElement('div');
                 statusLine.className = 'goal-toast-status';
-                statusLine.textContent = (label === 'FULL TIME' ? '🏁 ' : '⏸ ') + label;
+                statusLine.textContent = statusIcon + label;
                 body.appendChild(statusLine);
 
                 var matchLine = document.createElement('div');
@@ -207,23 +236,42 @@
         close.addEventListener('click', dismiss);
     }
 
+    function toastKey(type, message) {
+        return type + '|' + message;
+    }
+
+    function showIfNew(type, message) {
+        if (!message) return;
+        var key = toastKey(type, message);
+        if (shownIds().indexOf(key) !== -1) return;
+        remember(key);
+        showToast(message, type);
+    }
+
     function pollToasts() {
         fetch('/notifications/toasts')
             .then(function(r) { return r.ok ? r.json() : []; })
             .then(function(list) {
                 if (!list || !list.length) return;
-                var seen = shownIds();
-                list.forEach(function(n) {
-                    if (seen.indexOf(n.id) !== -1) return;
-                    remember(n.id);
-                    showToast(n.message, n.type);
-                });
+                list.forEach(function(n) { showIfNew(n.type, n.message); });
             })
             .catch(function() {});
     }
 
+    function connectLiveStream() {
+        if (!window.EventSource) return;
+        var es = new EventSource('/notifications/stream');
+        es.addEventListener('toast', function(e) {
+            try {
+                var data = JSON.parse(e.data);
+                showIfNew(data.type, data.message);
+            } catch (err) {}
+        });
+    }
+
     pollToasts();
-    setInterval(pollToasts, 1000);
+    connectLiveStream();
+    setInterval(pollToasts, 20000);
 }());
 </script>
 <script sec:authorize="isAuthenticated()">
@@ -272,7 +320,7 @@
               th:text="${m.homeScore - m.homeHalfScore} + ':' + ${m.awayScore - m.awayHalfScore}"></span>
     </div>
     <div class="timeline-row"
-         th:attr="data-half=${g.half.name()},data-minute=${g.minute != null ? g.minute : 0}">
+         th:attr="data-half=${g.half.name()},data-minute=${g.minute != null ? g.minute : 0},data-offset=${g.offsetSeconds != null ? g.offsetSeconds : 0}">
         <div class="tl-home">
             <th:block th:if="${g.homeGoal}">
                 <span class="goal-icon">&#9917;</span>

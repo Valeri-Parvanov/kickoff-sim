@@ -62,7 +62,7 @@
                           th:text="${match.homeScore - match.homeHalfScore} + ':' + ${match.awayScore - match.awayHalfScore}"></span>
                 </div>
 
-                <div class="timeline-row" th:attr="data-half=${g.half.name()},data-minute=${g.minute != null ? g.minute : 0}">
+                <div class="timeline-row" th:attr="data-half=${g.half.name()},data-minute=${g.minute != null ? g.minute : 0},data-offset=${g.offsetSeconds != null ? g.offsetSeconds : 0}">
                     <div class="tl-home">
                         <th:block th:if="${g.homeGoal}">
                             <span class="goal-icon">&#9917;</span>
@@ -135,6 +135,10 @@ function formatClock(totalSec) {
     var sec = s % 60;
     return m + ':' + (sec < 10 ? '0' : '') + sec;
 }
+function goalRevealSec(g) {
+    var offset = g.offsetSeconds != null ? g.offsetSeconds : (g.minute != null ? (g.minute - 1) * 60 : 0);
+    return g.half === 'FIRST' ? offset : 1500 + offset;
+}
 function getLiveState(elapsedSec, goals) {
     if (elapsedSec < 0) return { phase: 'PRE', displayMin: '', homeScore: 0, awayScore: 0, maxMin: 0 };
     var phase, maxMin;
@@ -142,16 +146,13 @@ function getLiveState(elapsedSec, goals) {
     else if (elapsedSec < 1500) { phase = 'HT';     maxMin = 20; }
     else if (elapsedSec < 2700) { phase = 'SECOND'; maxMin = Math.floor((elapsedSec - 1500) / 60) + 1; }
     else                        { phase = 'FT';     maxMin = 20; }
-    var hs = 0, as = 0;
+    var hs = 0, as = 0, bestRevealSec = -1;
     for (var i = 0; i < goals.length; i++) {
         var g = goals[i];
-        if (g.half === 'FIRST') {
-            if ((phase === 'FIRST' && g.minute <= maxMin) || phase === 'HT' || phase === 'SECOND' || phase === 'FT') {
-                hs = g.rh; as = g.ra;
-            }
-        } else if (g.half === 'SECOND') {
-            var secMax = phase === 'SECOND' ? maxMin : (phase === 'FT' ? 20 : -1);
-            if (secMax >= 0 && g.minute <= secMax) { hs = g.rh; as = g.ra; }
+        var revealSec = goalRevealSec(g);
+        if (revealSec <= elapsedSec && revealSec > bestRevealSec) {
+            bestRevealSec = revealSec;
+            hs = g.rh; as = g.ra;
         }
     }
     var d;
@@ -172,21 +173,17 @@ function updateLive() {
     if (hEl) hEl.textContent = st.homeScore;
     if (aEl) aEl.textContent = st.awayScore;
     if (mEl) mEl.textContent = st.displayMin;
-    var maxMin = st.maxMin;
     var inSecond = st.phase === 'SECOND' || st.phase === 'FT';
-    document.querySelectorAll('.timeline-row[data-half="FIRST"]').forEach(function(r) {
-        var gMin = parseInt(r.dataset.minute || '0');
-        r.style.display = (st.phase !== 'FIRST' || gMin <= maxMin) ? '' : 'none';
+    document.querySelectorAll('.timeline-row').forEach(function(r) {
+        var rHalf = r.dataset.half;
+        var offset = parseInt(r.dataset.offset || '0');
+        var revealSec = rHalf === 'FIRST' ? offset : 1500 + offset;
+        r.style.display = revealSec <= elapsedSec ? '' : 'none';
     });
     var htScore = document.querySelector('.half-label[data-half="FIRST"] .half-score');
     if (htScore) htScore.style.display = st.phase !== 'FIRST' && st.phase !== 'PRE' ? '' : 'none';
     document.querySelectorAll('.half-label[data-half="SECOND"]').forEach(function(r) {
         r.style.display = inSecond ? '' : 'none';
-    });
-    document.querySelectorAll('.timeline-row[data-half="SECOND"]').forEach(function(r) {
-        if (!inSecond) { r.style.display = 'none'; return; }
-        var gMin = parseInt(r.dataset.minute || '0');
-        r.style.display = gMin <= maxMin ? '' : 'none';
     });
     var ht2Score = document.querySelector('.half-label[data-half="SECOND"] .half-score');
     if (ht2Score) ht2Score.style.display = st.phase === 'FT' ? '' : 'none';

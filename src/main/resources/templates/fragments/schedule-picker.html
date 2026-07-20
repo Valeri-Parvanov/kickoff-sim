@@ -126,6 +126,11 @@
         var clientOffset = -new Date().getTimezoneOffset();
         var delta = sofiaOffset - clientOffset;
 
+        function sofiaMinToLocalStr(sofiaMin) {
+            var localMin = ((sofiaMin - delta) % 1440 + 1440) % 1440;
+            return String(Math.floor(localMin / 60)).padStart(2, '0') + ':' + String(localMin % 60).padStart(2, '0');
+        }
+
         function updateInfoBox() {
             var banner = document.getElementById('tzBanner');
             var bannerLocal = document.getElementById('tzBannerLocal');
@@ -137,9 +142,7 @@
             if (showLocal) {
                 var parts = sel.value.split(':');
                 var sofiaMin = parseInt(parts[0]) * 60 + parseInt(parts[1]);
-                var localMin = ((sofiaMin - delta) % 1440 + 1440) % 1440;
-                var localStr = String(Math.floor(localMin / 60)).padStart(2, '0') + ':' + String(localMin % 60).padStart(2, '0');
-                if (bannerLocal) bannerLocal.textContent = localStr;
+                if (bannerLocal) bannerLocal.textContent = sofiaMinToLocalStr(sofiaMin);
                 if (localLine) localLine.style.display = 'block';
             } else if (localLine) {
                 localLine.style.display = 'none';
@@ -147,8 +150,11 @@
 
             var info = computeLastMatchInfo();
             if (info && lastMatchLine) {
+                var lastParts = info.lastTime.split(':');
+                var lastSofiaMin = parseInt(lastParts[0], 10) * 60 + parseInt(lastParts[1], 10);
+                var lastLocalNote = showLocal ? ' (' + sofiaMinToLocalStr(lastSofiaMin) + ' your local time)' : '';
                 lastMatchLine.textContent = 'Every round has ' + info.matchesPerRound + ' match' + (info.matchesPerRound === 1 ? '' : 'es')
-                    + ', 1 hour apart — the last match of each round kicks off at ' + info.lastTime + ' Sofia time'
+                    + ', 1 hour apart — the last match of each round kicks off at ' + info.lastTime + ' Sofia time' + lastLocalNote
                     + (info.overflow ? '. That is past the 23:30 cutoff — pick an earlier kick-off time.' : '.');
                 lastMatchLine.style.color = info.overflow ? '#b91c1c' : '#78350f';
                 lastMatchLine.style.fontWeight = info.overflow ? '700' : '400';

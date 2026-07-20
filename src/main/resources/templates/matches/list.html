@@ -93,6 +93,7 @@
                         <a class="team-name home" th:href="@{/teams/{id}(id=${match.homeTeamId})}">
                             <span th:text="${match.homeTeamName + (match.homeTeamCity != null ? ' (' + match.homeTeamCity + ')' : '')}"></span>
                             <img th:src="@{/teams/{id}/logo(id=${match.homeTeamId})}" class="match-logo" alt=""/>
+                            <span class="scoring-dot scoring-dot-home"></span>
                         </a>
                         <div class="score-block" th:if="${!match.playedAt.isAfter(liveThreshold)}">
                             <div class="score-time" th:attr="data-utc=${match.playedAtUtcIso},data-fmt='datetime-compact'"></div>
@@ -108,6 +109,7 @@
                             <div class="live-minute"></div>
                         </div>
                         <a class="team-name away" th:href="@{/teams/{id}(id=${match.awayTeamId})}">
+                            <span class="scoring-dot scoring-dot-away"></span>
                             <img th:src="@{/teams/{id}/logo(id=${match.awayTeamId})}" class="match-logo" alt=""/>
                             <span th:text="${match.awayTeamName + (match.awayTeamCity != null ? ' (' + match.awayTeamCity + ')' : '')}"></span>
                         </a>
@@ -177,12 +179,14 @@
                     <a class="team-name home" th:href="@{/teams/{id}(id=${match.homeTeamId})}">
                         <span th:text="${match.homeTeamName + (match.homeTeamCity != null ? ' (' + match.homeTeamCity + ')' : '')}"></span>
                         <img th:src="@{/teams/{id}/logo(id=${match.homeTeamId})}" class="match-logo" alt=""/>
+                        <span class="scoring-dot scoring-dot-home"></span>
                     </a>
                     <div class="score-block">
                         <div class="upcoming-time" th:attr="data-utc=${match.playedAtUtcIso},data-fmt='time'"></div>
                         <div class="upcoming-date" th:attr="data-utc=${match.playedAtUtcIso},data-fmt='date-iso'"></div>
                     </div>
                     <a class="team-name away" th:href="@{/teams/{id}(id=${match.awayTeamId})}">
+                        <span class="scoring-dot scoring-dot-away"></span>
                         <img th:src="@{/teams/{id}/logo(id=${match.awayTeamId})}" class="match-logo" alt=""/>
                         <span th:text="${match.awayTeamName + (match.awayTeamCity != null ? ' (' + match.awayTeamCity + ')' : '')}"></span>
                     </a>
@@ -231,6 +235,7 @@
                                 <a class="team-name home" th:href="@{/teams/{id}(id=${match.homeTeamId})}">
                                     <span th:text="${match.homeTeamName + (match.homeTeamCity != null ? ' (' + match.homeTeamCity + ')' : '')}"></span>
                                     <img th:src="@{/teams/{id}/logo(id=${match.homeTeamId})}" class="match-logo" alt=""/>
+                                    <span class="scoring-dot scoring-dot-home"></span>
                                 </a>
                                 <div class="score-block"
                                      th:attr="data-elapsed=${elapsedByMatchId[match.id]},data-match-id=${match.id}">
@@ -240,6 +245,7 @@
                                     <div class="live-minute"></div>
                                 </div>
                                 <a class="team-name away" th:href="@{/teams/{id}(id=${match.awayTeamId})}">
+                                    <span class="scoring-dot scoring-dot-away"></span>
                                     <img th:src="@{/teams/{id}/logo(id=${match.awayTeamId})}" class="match-logo" alt=""/>
                                     <span th:text="${match.awayTeamName + (match.awayTeamCity != null ? ' (' + match.awayTeamCity + ')' : '')}"></span>
                                 </a>
@@ -257,7 +263,7 @@
                                         <span class="half-score" th:unless="${g.half.name() == 'FIRST'}"
                                               th:text="${match.homeScore - match.homeHalfScore} + ':' + ${match.awayScore - match.awayHalfScore}"></span>
                                     </div>
-                                    <div class="timeline-row" th:attr="data-half=${g.half.name()},data-minute=${g.minute != null ? g.minute : 0}">
+                                    <div class="timeline-row" th:attr="data-half=${g.half.name()},data-minute=${g.minute != null ? g.minute : 0},data-offset=${g.offsetSeconds != null ? g.offsetSeconds : 0}">
                                         <div class="tl-home">
                                             <th:block th:if="${g.homeGoal}">
                                                 <span class="goal-icon">&#9917;</span>
@@ -314,12 +320,14 @@
                         <a class="team-name home" th:href="@{/teams/{id}(id=${match.homeTeamId})}">
                             <span th:text="${match.homeTeamName + (match.homeTeamCity != null ? ' (' + match.homeTeamCity + ')' : '')}"></span>
                             <img th:src="@{/teams/{id}/logo(id=${match.homeTeamId})}" class="match-logo" alt=""/>
+                            <span class="scoring-dot scoring-dot-home"></span>
                         </a>
                         <div class="score-block">
                             <div class="upcoming-time" th:attr="data-utc=${match.playedAtUtcIso},data-fmt='time'"></div>
                             <div class="upcoming-date" th:attr="data-utc=${match.playedAtUtcIso},data-fmt='date-iso'"></div>
                         </div>
                         <a class="team-name away" th:href="@{/teams/{id}(id=${match.awayTeamId})}">
+                            <span class="scoring-dot scoring-dot-away"></span>
                             <img th:src="@{/teams/{id}/logo(id=${match.awayTeamId})}" class="match-logo" alt=""/>
                             <span th:text="${match.awayTeamName + (match.awayTeamCity != null ? ' (' + match.awayTeamCity + ')' : '')}"></span>
                         </a>
@@ -349,6 +357,7 @@
                                 <a class="team-name home" th:href="@{/teams/{id}(id=${match.homeTeamId})}">
                                     <span th:text="${match.homeTeamName + (match.homeTeamCity != null ? ' (' + match.homeTeamCity + ')' : '')}"></span>
                                     <img th:src="@{/teams/{id}/logo(id=${match.homeTeamId})}" class="match-logo" alt=""/>
+                                    <span class="scoring-dot scoring-dot-home"></span>
                                 </a>
                                 <div class="score-block">
                                     <div class="score-time" th:attr="data-utc=${match.playedAtUtcIso},data-fmt='datetime-compact'"></div>
@@ -356,6 +365,7 @@
                                          th:text="${match.homeScore != null ? match.homeScore : '-'} + ' : ' + ${match.awayScore != null ? match.awayScore : '-'}"></div>
                                 </div>
                                 <a class="team-name away" th:href="@{/teams/{id}(id=${match.awayTeamId})}">
+                                    <span class="scoring-dot scoring-dot-away"></span>
                                     <img th:src="@{/teams/{id}/logo(id=${match.awayTeamId})}" class="match-logo" alt=""/>
                                     <span th:text="${match.awayTeamName + (match.awayTeamCity != null ? ' (' + match.awayTeamCity + ')' : '')}"></span>
                                 </a>
@@ -540,6 +550,133 @@ var HAS_TODAY_RESULTS = /*[[${hasTodayResults}]]*/false;
             activate(t.getAttribute('href'));
         });
     });
+})();
+
+(function() {
+    var liveSection = document.getElementById('live');
+    if (!liveSection) return;
+    var list = liveSection.querySelector('.match-list');
+    if (!list) return;
+
+    function esc(s) {
+        var d = document.createElement('div');
+        d.textContent = s == null ? '' : s;
+        return d.innerHTML;
+    }
+
+    function teamLabel(name, city) {
+        return esc(name) + (city ? ' (' + esc(city) + ')' : '');
+    }
+
+    function currentIds() {
+        var ids = {};
+        liveSection.querySelectorAll('[data-match-id]').forEach(function(el) {
+            ids[el.getAttribute('data-match-id')] = true;
+        });
+        return ids;
+    }
+
+    function fadeOutAndHide(card) {
+        if (!card || card.dataset.ftScheduled) return;
+        card.dataset.ftScheduled = '1';
+        card.style.transition = 'opacity 0.6s ease';
+        card.style.opacity = '0';
+        setTimeout(function() { card.style.display = 'none'; }, 650);
+    }
+
+    function buildCard(m) {
+        var details = document.createElement('details');
+        details.className = 'match-card';
+
+        var authed = !!document.getElementById('goal-toasts');
+        var starHtml = '';
+        if (authed) {
+            starHtml = '<form action="/notifications/match/' + m.id + '/toggle" method="post" class="match-star-form">'
+                + '<button type="submit" class="match-star' + (m.followed ? ' followed' : '') + '"'
+                + ' title="' + (m.followed ? 'Stop following this match' : 'Follow this match') + '"'
+                + ' aria-pressed="' + !!m.followed + '">'
+                + '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>'
+                + '</button></form>';
+        }
+
+        var metaInfo = '';
+        if (m.leagueId) {
+            metaInfo += '<a class="match-league-tag" href="/leagues/' + esc(m.leagueId) + '">' + esc(m.leagueName) + '</a>';
+        }
+        if (m.roundNumber != null) {
+            metaInfo += '<span class="match-round">Round ' + esc(m.roundNumber) + '</span>';
+        }
+
+        details.innerHTML =
+            '<summary class="match-card-summary">' +
+                '<div class="match-meta">' + starHtml + '<span class="match-meta-info">' + metaInfo + '</span></div>' +
+                '<div class="match-scoreline">' +
+                    '<a class="team-name home" href="/teams/' + esc(m.homeTeamId) + '">' +
+                        '<span>' + teamLabel(m.homeTeamName, m.homeTeamCity) + '</span>' +
+                        '<img src="/teams/' + esc(m.homeTeamId) + '/logo" class="match-logo" alt=""/>' +
+                        '<span class="scoring-dot scoring-dot-home"></span>' +
+                    '</a>' +
+                    '<div class="score-block" data-elapsed="' + esc(m.elapsedMin) + '" data-match-id="' + esc(m.id) + '">' +
+                        '<div class="score-time" data-utc="' + esc(m.playedAtUtcIso) + '" data-fmt="datetime-compact"></div>' +
+                        '<div class="ls-score-main"><span class="ls-h">-</span>&thinsp;:&thinsp;<span class="ls-a">-</span></div>' +
+                        '<div class="live-badge">LIVE</div>' +
+                        '<div class="live-minute"></div>' +
+                    '</div>' +
+                    '<a class="team-name away" href="/teams/' + esc(m.awayTeamId) + '">' +
+                        '<span class="scoring-dot scoring-dot-away"></span>' +
+                        '<img src="/teams/' + esc(m.awayTeamId) + '/logo" class="match-logo" alt=""/>' +
+                        '<span>' + teamLabel(m.awayTeamName, m.awayTeamCity) + '</span>' +
+                    '</a>' +
+                '</div>' +
+            '</summary>' +
+            '<div class="match-card-expand">' +
+                '<p style="font-size:0.82rem;color:var(--muted);margin:0.4rem 0 0;text-align:center;">Match in progress.</p>' +
+            '</div>';
+
+        var timeEl = details.querySelector('[data-utc]');
+        if (timeEl) {
+            try {
+                var d = new Date(timeEl.dataset.utc);
+                if (!isNaN(d.getTime())) {
+                    timeEl.textContent = String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + d.getFullYear() + ' · ' + d.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+                }
+            } catch(e) {}
+        }
+        return details;
+    }
+
+    function poll() {
+        var params = [];
+        if (CAL_LEAGUE) params.push('league=' + encodeURIComponent(CAL_LEAGUE));
+        if (CAL_TEAM)   params.push('team=' + encodeURIComponent(CAL_TEAM));
+        var url = '/matches/live-summary' + (params.length ? '?' + params.join('&') : '');
+        fetch(url, {headers: {'Accept': 'application/json'}}).then(function(r) { return r.json(); }).then(function(data) {
+            var matches = data.matches || [];
+            var known = currentIds();
+            var seenNow = {};
+            var noMatchesMsg = liveSection.querySelector('.no-matches');
+
+            matches.forEach(function(m) {
+                seenNow[m.id] = true;
+                if (known[m.id]) return;
+                list.appendChild(buildCard(m));
+                window.LIVE_MATCHES = (window.LIVE_MATCHES || [])
+                    .filter(function(x) { return x.id !== m.id; })
+                    .concat([{ id: m.id, homeTeamId: m.homeTeamId, awayTeamId: m.awayTeamId,
+                               elapsedMin: m.elapsedMin, elapsedSec: m.elapsedSec, goals: m.goals,
+                               capturedAt: Date.now() }]);
+                if (noMatchesMsg) noMatchesMsg.style.display = 'none';
+            });
+
+            Object.keys(known).forEach(function(id) {
+                if (seenNow[id]) return;
+                var el = liveSection.querySelector('[data-match-id="' + id + '"]');
+                fadeOutAndHide(el && el.closest('details'));
+            });
+        }).catch(function() {});
+    }
+
+    setInterval(poll, 5000);
 })();
 
 (function() {

@@ -2,7 +2,8 @@ var PAGE_LOAD_TIME = Date.now();
 
 function elapsedMinutesNow(lm) {
     var baseSec = (lm.elapsedSec != null) ? lm.elapsedSec : lm.elapsedMin * 60;
-    return (baseSec + (Date.now() - PAGE_LOAD_TIME) / 1000) / 60;
+    var capturedAt = lm.capturedAt != null ? lm.capturedAt : PAGE_LOAD_TIME;
+    return (baseSec + (Date.now() - capturedAt) / 1000) / 60;
 }
 
 function formatClock(totalSec) {
@@ -10,6 +11,11 @@ function formatClock(totalSec) {
     var m = Math.floor(s / 60);
     var sec = s % 60;
     return m + ':' + (sec < 10 ? '0' : '') + sec;
+}
+
+function goalRevealSec(g) {
+    var offset = g.offsetSeconds != null ? g.offsetSeconds : (g.minute != null ? (g.minute - 1) * 60 : 0);
+    return g.half === 'FIRST' ? offset : 1500 + offset;
 }
 
 function getLiveState(realMinFloat, goals) {
@@ -20,17 +26,13 @@ function getLiveState(realMinFloat, goals) {
     else if (elapsedSec < 1500) { phase = 'HT';     maxMin = 20; }
     else if (elapsedSec < 2700) { phase = 'SECOND'; maxMin = Math.floor((elapsedSec - 1500) / 60) + 1; }
     else                        { phase = 'FT';     maxMin = 20; }
-    var hs = 0, as = 0;
+    var hs = 0, as = 0, bestRevealSec = -1;
     for (var i = 0; i < goals.length; i++) {
         var g = goals[i];
-        if (g.half === 'FIRST') {
-            if ((phase === 'FIRST' && g.minute <= maxMin) ||
-                    phase === 'HT' || phase === 'SECOND' || phase === 'FT') {
-                hs = g.rh; as = g.ra;
-            }
-        } else if (g.half === 'SECOND') {
-            var secMax = phase === 'SECOND' ? maxMin : (phase === 'FT' ? 20 : -1);
-            if (secMax >= 0 && g.minute <= secMax) { hs = g.rh; as = g.ra; }
+        var revealSec = goalRevealSec(g);
+        if (revealSec <= elapsedSec && revealSec > bestRevealSec) {
+            bestRevealSec = revealSec;
+            hs = g.rh; as = g.ra;
         }
     }
     var d;
@@ -39,6 +41,30 @@ function getLiveState(realMinFloat, goals) {
     else if (phase === 'SECOND')  d = formatClock(1200 + (elapsedSec - 1500));
     else                          d = 'FT';
     return { phase: phase, displayMin: d, homeScore: hs, awayScore: as, maxMin: maxMin };
+}
+
+var SCORING_ANTICIPATION_SEC = 12;
+
+function upcomingGoalSide(elapsedSec, goals) {
+    for (var i = 0; i < goals.length; i++) {
+        var g = goals[i];
+        var revealSec = goalRevealSec(g);
+        if (elapsedSec < revealSec && revealSec - elapsedSec <= SCORING_ANTICIPATION_SEC) {
+            return g.homeGoal ? 'home' : 'away';
+        }
+    }
+    return null;
+}
+
+function updateScoringDots(scoreBlockEl, elapsedSec, goals) {
+    var card = scoreBlockEl.closest('.match-scoreline');
+    if (!card) return;
+    var homeDot = card.querySelector('.scoring-dot-home');
+    var awayDot = card.querySelector('.scoring-dot-away');
+    if (!homeDot && !awayDot) return;
+    var side = upcomingGoalSide(elapsedSec, goals);
+    if (homeDot) homeDot.classList.toggle('show', side === 'home');
+    if (awayDot) awayDot.classList.toggle('show', side === 'away');
 }
 
 var FT_HIDE_DELAY_MS = 45000;
@@ -70,19 +96,18 @@ function updateLiveMinutes() {
             var asEl = el.querySelector('.ls-a');
             if (hsEl && hsEl.textContent != state.homeScore) hsEl.textContent = state.homeScore;
             if (asEl && asEl.textContent != state.awayScore) asEl.textContent = state.awayScore;
+            updateScoringDots(el, realMinFloat * 60, lm.goals);
 
             var details = el.closest('details');
             if (details) {
                 if (state.phase === 'FT') scheduleFtRemoval(details);
+                var elapsedSecPrecise = realMinFloat * 60;
                 var anyFirstVis = false, anySecondVis = false;
                 details.querySelectorAll('.timeline-row').forEach(function(r) {
                     var rHalf = r.getAttribute('data-half');
-                    var rMin  = parseInt(r.getAttribute('data-minute') || '0');
-                    var show;
-                    if      (state.phase === 'FT')     show = true;
-                    else if (state.phase === 'HT')     show = rHalf === 'FIRST';
-                    else if (state.phase === 'SECOND') show = rHalf === 'FIRST' || (rHalf === 'SECOND' && rMin <= state.maxMin);
-                    else                               show = rHalf === 'FIRST' && rMin <= state.maxMin;
+                    var offset = parseInt(r.getAttribute('data-offset') || '0');
+                    var revealSec = rHalf === 'FIRST' ? offset : 1500 + offset;
+                    var show = revealSec <= elapsedSecPrecise;
                     r.style.display = show ? '' : 'none';
                     if (show && rHalf === 'FIRST')  anyFirstVis  = true;
                     if (show && rHalf === 'SECOND') anySecondVis = true;

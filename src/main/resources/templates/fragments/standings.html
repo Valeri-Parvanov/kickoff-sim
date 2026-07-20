@@ -42,13 +42,13 @@
                     <span class="slb-score"></span>
                 </a>
             </td>
-            <td th:text="${row.played}"></td>
+            <td class="cell-p" th:text="${row.played}"></td>
             <td class="cell-w" th:text="${row.wins}"></td>
             <td class="cell-d" th:text="${row.draws}"></td>
             <td class="cell-l" th:text="${row.losses}"></td>
-            <td th:text="${row.goalsFor}"></td>
-            <td th:text="${row.goalsAgainst}"></td>
-            <td th:classappend="${row.goalDiff > 0} ? 'cell-gd-pos' : (${row.goalDiff < 0} ? 'cell-gd-neg' : '')"
+            <td class="cell-gf" th:text="${row.goalsFor}"></td>
+            <td class="cell-ga" th:text="${row.goalsAgainst}"></td>
+            <td class="cell-gd" th:classappend="${row.goalDiff > 0} ? 'cell-gd-pos' : (${row.goalDiff < 0} ? 'cell-gd-neg' : '')"
                 th:text="${row.goalDiff}"></td>
             <td><strong class="cell-pts" th:text="${row.points}"></strong></td>
         </tr>
@@ -58,25 +58,23 @@
 </th:block>
 
 <th:block th:fragment="playerStatTable(rows, countLabel)">
-<div class="table-wrapper" th:if="${!#lists.isEmpty(rows)}">
-    <table border="1" cellpadding="6">
-        <thead>
-        <tr>
-            <th>#</th>
-            <th>Player</th>
-            <th>Team</th>
-            <th th:text="${countLabel}"></th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr th:each="row, stat : ${rows}">
-            <td th:text="${stat.index + 1}"></td>
-            <td th:text="${row.playerName}"></td>
-            <td th:text="${row.teamName + (row.teamCity != null ? ' (' + row.teamCity + ')' : '')}"></td>
-            <td><strong th:text="${row.count}"></strong></td>
-        </tr>
-        </tbody>
-    </table>
+<div class="stat-list" th:if="${!#lists.isEmpty(rows)}">
+    <div class="stat-row" th:each="row, stat : ${rows}"
+         th:classappend="${stat.index == 0} ? 'stat-row-gold' : (${stat.index == 1} ? 'stat-row-silver' : (${stat.index == 2} ? 'stat-row-bronze' : ''))">
+        <span class="stat-rank" th:text="${stat.index + 1}"></span>
+        <img th:if="${row.teamId != null}" th:src="@{/teams/{id}/logo(id=${row.teamId})}" class="stat-team-logo" alt=""/>
+        <div class="stat-player">
+            <div class="stat-player-name" th:text="${row.playerName}"></div>
+            <a class="stat-team-link" th:if="${row.teamId != null}" th:href="@{/teams/{id}(id=${row.teamId})}"
+               th:text="${row.teamName + (row.teamCity != null ? ' (' + row.teamCity + ')' : '')}"></a>
+            <span class="stat-team-link stat-team-plain" th:unless="${row.teamId != null}"
+                  th:text="${row.teamName + (row.teamCity != null ? ' (' + row.teamCity + ')' : '')}"></span>
+        </div>
+        <span class="stat-count">
+            <strong th:text="${row.count}"></strong>
+            <span class="stat-count-label" th:text="${countLabel}"></span>
+        </span>
+    </div>
 </div>
 <p th:if="${#lists.isEmpty(rows)}" class="no-matches">No goals yet.</p>
 </th:block>
