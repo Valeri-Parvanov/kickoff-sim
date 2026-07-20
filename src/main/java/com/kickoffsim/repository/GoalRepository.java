@@ -36,9 +36,11 @@ public interface GoalRepository extends JpaRepository<Goal, UUID> {
                                                @Param("minute") Integer minute,
                                                @Param("excludeId") UUID excludeId);
 
-    @Query("SELECT g.scorer.id, COUNT(g) FROM Goal g WHERE g.scorer.team.id = :teamId AND g.ownGoal = false GROUP BY g.scorer.id")
-    List<Object[]> countGoalsByTeamGroupedByScorer(@Param("teamId") UUID teamId);
+    @Query("SELECT g.scorer.id, COUNT(g) FROM Goal g WHERE g.scorer.team.id = :teamId AND g.ownGoal = false " +
+           "AND g.match.playedAt <= :now GROUP BY g.scorer.id")
+    List<Object[]> countGoalsByTeamGroupedByScorer(@Param("teamId") UUID teamId, @Param("now") LocalDateTime now);
 
-    @Query("SELECT g.assistant.id, COUNT(g) FROM Goal g WHERE g.assistant.team.id = :teamId GROUP BY g.assistant.id")
-    List<Object[]> countAssistsByTeamGroupedByAssistant(@Param("teamId") UUID teamId);
+    @Query("SELECT g.assistant.id, COUNT(g) FROM Goal g WHERE g.assistant.team.id = :teamId " +
+           "AND g.match.playedAt <= :now GROUP BY g.assistant.id")
+    List<Object[]> countAssistsByTeamGroupedByAssistant(@Param("teamId") UUID teamId, @Param("now") LocalDateTime now);
 }

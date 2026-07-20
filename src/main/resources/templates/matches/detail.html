@@ -104,6 +104,15 @@
 
     </div>
 
+    <div class="match-weather" th:if="${weatherForecast.isPresent()}">
+        <span class="weather-icon">&#9925;</span>
+        <span class="weather-label" th:text="'Forecast for ' + ${match.homeTeamCity} + ':'"></span>
+        <span class="weather-temp"
+              th:text="${#numbers.formatDecimal(weatherForecast.get().minTempC,1,1)} + '&#176; / ' + ${#numbers.formatDecimal(weatherForecast.get().maxTempC,1,1)} + '&#176;C'"></span>
+        <span class="weather-precip" th:if="${weatherForecast.get().precipitationProbability != null}"
+              th:text="'Rain chance: ' + ${weatherForecast.get().precipitationProbability} + '%'"></span>
+    </div>
+
 </div>
 </main>
 <script>

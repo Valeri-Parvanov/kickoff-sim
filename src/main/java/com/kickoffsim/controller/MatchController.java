@@ -49,6 +49,7 @@ public class MatchController {
     private final MatchFollowSupport matchFollowSupport;
     private final ViewerZone viewerZone;
     private final Clock clock;
+    private final WeatherService weatherService;
 
     @GetMapping("/{id}")
     public String detail(@PathVariable UUID id, Model model) {
@@ -62,6 +63,8 @@ public class MatchController {
         if (isLive) {
             model.addAttribute("liveMatchForJs", LiveMatchJsSupport.toJsEntry(match, now));
         }
+        model.addAttribute("weatherForecast",
+                weatherService.forecastFor(match.getHomeTeamCity(), match.getPlayedAt().toLocalDate()));
         return "matches/detail";
     }
 

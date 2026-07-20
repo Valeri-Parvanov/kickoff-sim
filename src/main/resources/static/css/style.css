@@ -741,6 +741,26 @@ span[style*="color: red"] {
     flex-wrap: wrap;
 }
 
+.match-weather {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.75rem;
+    padding: 0.6rem 0.9rem;
+    border-radius: 10px;
+    background: rgba(22, 163, 74, 0.08);
+    font-size: 0.85rem;
+    color: #4b5563;
+}
+.match-weather .weather-icon {
+    font-size: 1rem;
+}
+.match-weather .weather-temp {
+    font-weight: 600;
+    color: #111827;
+}
+
 .goal-toast-wrap {
     position: fixed;
     bottom: 1rem;

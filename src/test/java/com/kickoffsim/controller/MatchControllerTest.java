@@ -12,6 +12,7 @@ import com.kickoffsim.service.LeagueService;
 import com.kickoffsim.service.MatchService;
 import com.kickoffsim.service.PlayerService;
 import com.kickoffsim.service.TeamService;
+import com.kickoffsim.service.WeatherService;
 import com.kickoffsim.web.MatchFollowSupport;
 import com.kickoffsim.web.ViewerZone;
 import jakarta.servlet.http.HttpServletRequest;
@@ -59,6 +60,7 @@ class MatchControllerTest {
     @Mock private ChangeRequestService changeRequestService;
     @Mock private MatchFollowSupport matchFollowSupport;
     @Mock private ViewerZone viewerZone;
+    @Mock private WeatherService weatherService;
     @Spy private Clock clock = Clock.systemDefaultZone();
 
     @InjectMocks private MatchController controller;
@@ -664,7 +666,7 @@ class MatchControllerTest {
         LocalDateTime anchor = LocalDate.now().atTime(LocalTime.NOON);
         Clock fixedClock = Clock.fixed(anchor.atZone(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault());
         MatchController fixedController = new MatchController(matchService, teamService, playerService,
-                leagueService, changeRequestService, matchFollowSupport, viewerZone, fixedClock);
+                leagueService, changeRequestService, matchFollowSupport, viewerZone, fixedClock, weatherService);
 
         when(viewerZone.resolve(any())).thenReturn(ZoneId.of("Europe/Sofia"));
         when(viewerZone.today(any())).thenReturn(anchor.toLocalDate());

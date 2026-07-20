@@ -26,6 +26,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -49,8 +50,8 @@ class PlayerServiceImplTest {
         team = new Team();
         team.setId(teamId);
         team.setName("Test FC");
-        when(goalRepository.countGoalsByTeamGroupedByScorer(any())).thenReturn(List.of());
-        when(goalRepository.countAssistsByTeamGroupedByAssistant(any())).thenReturn(List.of());
+        when(goalRepository.countGoalsByTeamGroupedByScorer(any(), any())).thenReturn(List.of());
+        when(goalRepository.countAssistsByTeamGroupedByAssistant(any(), any())).thenReturn(List.of());
     }
 
     @Test
@@ -131,9 +132,9 @@ class PlayerServiceImplTest {
 
         when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
         when(playerRepository.findAllByTeam(team)).thenReturn(List.of(p9, p1));
-        when(goalRepository.countGoalsByTeamGroupedByScorer(teamId))
+        when(goalRepository.countGoalsByTeamGroupedByScorer(eq(teamId), any()))
                 .thenReturn(List.<Object[]>of(new Object[]{p9.getId(), 5L}));
-        when(goalRepository.countAssistsByTeamGroupedByAssistant(teamId))
+        when(goalRepository.countAssistsByTeamGroupedByAssistant(eq(teamId), any()))
                 .thenReturn(List.<Object[]>of(new Object[]{p1.getId(), 3L}));
 
         List<PlayerDto> result = playerService.findAllByTeam(teamId);

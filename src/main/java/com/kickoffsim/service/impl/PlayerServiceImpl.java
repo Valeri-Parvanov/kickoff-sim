@@ -16,6 +16,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -50,8 +51,9 @@ public class PlayerServiceImpl implements PlayerService {
     @Override
     public List<PlayerDto> findAllByTeam(UUID teamId) {
         Team team = getTeamOrThrow(teamId);
-        Map<UUID, Long> goalsByPlayer = toCountMap(goalRepository.countGoalsByTeamGroupedByScorer(teamId));
-        Map<UUID, Long> assistsByPlayer = toCountMap(goalRepository.countAssistsByTeamGroupedByAssistant(teamId));
+        LocalDateTime now = LocalDateTime.now();
+        Map<UUID, Long> goalsByPlayer = toCountMap(goalRepository.countGoalsByTeamGroupedByScorer(teamId, now));
+        Map<UUID, Long> assistsByPlayer = toCountMap(goalRepository.countAssistsByTeamGroupedByAssistant(teamId, now));
 
         return playerRepository.findAllByTeam(team).stream()
                 .map(this::toDto)
