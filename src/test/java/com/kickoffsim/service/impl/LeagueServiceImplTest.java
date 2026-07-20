@@ -398,6 +398,35 @@ class LeagueServiceImplTest {
     }
 
     @Test
+    void findDetail_liveMatch_goalWithOffsetSeconds_revealedByPreciseSecond() {
+        UUID leagueId = UUID.randomUUID();
+        Team teamA = teamEntity("Alpha");
+        Team teamB = teamEntity("Bravo");
+
+        League league = new League();
+        league.setId(leagueId);
+        league.setName("Premier");
+        league.getTeams().addAll(List.of(teamA, teamB));
+        when(leagueRepository.findById(leagueId)).thenReturn(Optional.of(league));
+
+        MatchDto live = matchDto(teamA.getId(), teamB.getId(), LocalDateTime.now().minusMinutes(5), 0, 0);
+        GoalDto revealed = goal(1, Half.FIRST, true);
+        revealed.setOffsetSeconds(60);
+        GoalDto notYetRevealed = goal(1, Half.FIRST, false);
+        notYetRevealed.setOffsetSeconds(500);
+        live.getGoalTimeline().add(revealed);
+        live.getGoalTimeline().add(notYetRevealed);
+
+        when(matchService.findByLeague(leagueId)).thenReturn(List.of(live));
+
+        LeagueDetailView view = leagueService.findDetail(leagueId);
+
+        StandingRow rowA = view.getStandings().stream().filter(r -> r.getTeamId().equals(teamA.getId())).findFirst().orElseThrow();
+        assertThat(rowA.getGoalsFor()).isEqualTo(1);
+        assertThat(rowA.getGoalsAgainst()).isEqualTo(0);
+    }
+
+    @Test
     void findDetail_tiedTeams_sortsByHeadToHead() {
         UUID leagueId = UUID.randomUUID();
         Team teamA = teamEntity("Alpha");

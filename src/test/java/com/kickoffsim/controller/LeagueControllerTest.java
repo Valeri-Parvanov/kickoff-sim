@@ -896,6 +896,105 @@ class LeagueControllerTest {
     }
 
     @Test
+    void standingsSummary_mapsStandingRowFields() {
+        UUID id = UUID.randomUUID();
+        UUID teamId = UUID.randomUUID();
+        com.kickoffsim.dto.StandingRow row = new com.kickoffsim.dto.StandingRow();
+        row.setTeamId(teamId);
+        row.setPlayed(2);
+        row.setWins(1);
+        row.setDraws(1);
+        row.setLosses(0);
+        row.setGoalsFor(5);
+        row.setGoalsAgainst(3);
+        LeagueDetailView league = mock(LeagueDetailView.class);
+        when(league.getStandings()).thenReturn(List.of(row));
+        when(leagueService.findDetail(id)).thenReturn(league);
+
+        List<Map<String, Object>> result = controller.standingsSummary(id);
+
+        assertThat(result).hasSize(1);
+        Map<String, Object> entry = result.get(0);
+        assertThat(entry.get("teamId")).isEqualTo(teamId.toString());
+        assertThat(entry.get("played")).isEqualTo(2);
+        assertThat(entry.get("wins")).isEqualTo(1);
+        assertThat(entry.get("draws")).isEqualTo(1);
+        assertThat(entry.get("losses")).isEqualTo(0);
+        assertThat(entry.get("goalsFor")).isEqualTo(5);
+        assertThat(entry.get("goalsAgainst")).isEqualTo(3);
+        assertThat(entry.get("goalDiff")).isEqualTo(2);
+        assertThat(entry.get("points")).isEqualTo(4);
+    }
+
+    @Test
+    void liveSummary_noRoundFilter_includesAllLiveMatchesRegardlessOfRound() {
+        UUID id = UUID.randomUUID();
+        MatchDto roundOne = new MatchDto();
+        roundOne.setId(UUID.randomUUID());
+        roundOne.setHomeTeamId(UUID.randomUUID());
+        roundOne.setAwayTeamId(UUID.randomUUID());
+        roundOne.setRoundNumber(1);
+        roundOne.setPlayedAt(LocalDateTime.now().minusMinutes(10));
+        MatchDto roundTwo = new MatchDto();
+        roundTwo.setId(UUID.randomUUID());
+        roundTwo.setHomeTeamId(UUID.randomUUID());
+        roundTwo.setAwayTeamId(UUID.randomUUID());
+        roundTwo.setRoundNumber(2);
+        roundTwo.setPlayedAt(LocalDateTime.now().minusMinutes(15));
+        LeagueDetailView league = mock(LeagueDetailView.class);
+        when(league.getMatches()).thenReturn(List.of(roundOne, roundTwo));
+        when(leagueService.findDetail(id)).thenReturn(league);
+        when(matchFollowSupport.subscribedMatchIds(auth)).thenReturn(Set.of());
+
+        Map<String, Object> result = controller.liveSummary(id, null, auth);
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> matches = (List<Map<String, Object>>) result.get("matches");
+        assertThat(matches).hasSize(2);
+    }
+
+    @Test
+    void liveSummary_roundFilter_excludesOtherRoundsAndOutOfWindowMatches() {
+        UUID id = UUID.randomUUID();
+        MatchDto matchingRound = new MatchDto();
+        matchingRound.setId(UUID.randomUUID());
+        matchingRound.setHomeTeamId(UUID.randomUUID());
+        matchingRound.setAwayTeamId(UUID.randomUUID());
+        matchingRound.setRoundNumber(2);
+        matchingRound.setPlayedAt(LocalDateTime.now().minusMinutes(10));
+        MatchDto otherRound = new MatchDto();
+        otherRound.setId(UUID.randomUUID());
+        otherRound.setHomeTeamId(UUID.randomUUID());
+        otherRound.setAwayTeamId(UUID.randomUUID());
+        otherRound.setRoundNumber(1);
+        otherRound.setPlayedAt(LocalDateTime.now().minusMinutes(10));
+        MatchDto tooOld = new MatchDto();
+        tooOld.setId(UUID.randomUUID());
+        tooOld.setHomeTeamId(UUID.randomUUID());
+        tooOld.setAwayTeamId(UUID.randomUUID());
+        tooOld.setRoundNumber(2);
+        tooOld.setPlayedAt(LocalDateTime.now().minusHours(2));
+        MatchDto future = new MatchDto();
+        future.setId(UUID.randomUUID());
+        future.setHomeTeamId(UUID.randomUUID());
+        future.setAwayTeamId(UUID.randomUUID());
+        future.setRoundNumber(2);
+        future.setPlayedAt(LocalDateTime.now().plusHours(1));
+        LeagueDetailView league = mock(LeagueDetailView.class);
+        when(league.getMatches()).thenReturn(List.of(matchingRound, otherRound, tooOld, future));
+        when(leagueService.findDetail(id)).thenReturn(league);
+        when(matchFollowSupport.subscribedMatchIds(auth)).thenReturn(Set.of(matchingRound.getId()));
+
+        Map<String, Object> result = controller.liveSummary(id, 2, auth);
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> matches = (List<Map<String, Object>>) result.get("matches");
+        assertThat(matches).hasSize(1);
+        assertThat(matches.get(0).get("id")).isEqualTo(matchingRound.getId().toString());
+        assertThat(matches.get(0).get("followed")).isEqualTo(true);
+    }
+
+    @Test
     void detail_allMatchesNullRound_fallsBackToRoundOne() {
         UUID id = UUID.randomUUID();
         LeagueDetailView league = mock(LeagueDetailView.class);

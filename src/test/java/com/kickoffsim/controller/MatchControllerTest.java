@@ -853,6 +853,91 @@ class MatchControllerTest {
     }
 
     @Test
+    void liveSummary_noFilters_noLiveMatches_returnsEmpty() {
+        when(matchService.findAll(any(Sort.class))).thenReturn(List.of());
+        when(matchFollowSupport.subscribedMatchIds(auth)).thenReturn(Set.of());
+
+        Map<String, Object> result = controller.liveSummary(null, null, auth);
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> matches = (List<Map<String, Object>>) result.get("matches");
+        assertThat(matches).isEmpty();
+    }
+
+    @Test
+    void liveSummary_leagueFilter_liveMatch_includesLeagueFieldsAndFollowed() {
+        UUID leagueId = UUID.randomUUID();
+        MatchDto live = matchWithTeams();
+        live.setPlayedAt(LocalDateTime.now().minusMinutes(10));
+        live.setLeagueId(leagueId);
+        live.setLeagueName("Premier");
+        live.setRoundNumber(2);
+        live.setHomeTeamName("Home");
+        live.setHomeTeamCity("HCity");
+        live.setAwayTeamName("Away");
+        live.setAwayTeamCity("ACity");
+        when(matchService.findByLeague(leagueId)).thenReturn(List.of(live));
+        when(matchFollowSupport.subscribedMatchIds(auth)).thenReturn(Set.of(live.getId()));
+
+        Map<String, Object> result = controller.liveSummary(leagueId, null, auth);
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> matches = (List<Map<String, Object>>) result.get("matches");
+        assertThat(matches).hasSize(1);
+        Map<String, Object> entry = matches.get(0);
+        assertThat(entry.get("leagueId")).isEqualTo(leagueId.toString());
+        assertThat(entry.get("leagueName")).isEqualTo("Premier");
+        assertThat(entry.get("homeTeamName")).isEqualTo("Home");
+        assertThat(entry.get("followed")).isEqualTo(true);
+    }
+
+    @Test
+    void liveSummary_teamFilter_excludesNonMatchingAndOutOfWindowMatches() {
+        UUID team = UUID.randomUUID();
+        MatchDto liveHome = matchWithTeams();
+        liveHome.setHomeTeamId(team);
+        liveHome.setPlayedAt(LocalDateTime.now().minusMinutes(10));
+        MatchDto liveAway = matchWithTeams();
+        liveAway.setAwayTeamId(team);
+        liveAway.setPlayedAt(LocalDateTime.now().minusMinutes(15));
+        MatchDto notTeam = matchWithTeams();
+        notTeam.setPlayedAt(LocalDateTime.now().minusMinutes(10));
+        MatchDto tooOld = matchWithTeams();
+        tooOld.setHomeTeamId(team);
+        tooOld.setPlayedAt(LocalDateTime.now().minusHours(2));
+        MatchDto future = matchWithTeams();
+        future.setHomeTeamId(team);
+        future.setPlayedAt(LocalDateTime.now().plusHours(1));
+
+        when(matchService.findAll(any(Sort.class)))
+                .thenReturn(List.of(liveHome, liveAway, notTeam, tooOld, future));
+        when(matchFollowSupport.subscribedMatchIds(auth)).thenReturn(Set.of());
+
+        Map<String, Object> result = controller.liveSummary(null, team, auth);
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> matches = (List<Map<String, Object>>) result.get("matches");
+        assertThat(matches).extracting(m -> m.get("id"))
+                .containsExactlyInAnyOrder(liveHome.getId().toString(), liveAway.getId().toString());
+    }
+
+    @Test
+    void liveSummary_matchWithNullLeagueId_leagueIdIsNullInEntry() {
+        MatchDto live = matchWithTeams();
+        live.setPlayedAt(LocalDateTime.now().minusMinutes(10));
+        live.setLeagueId(null);
+        when(matchService.findAll(any(Sort.class))).thenReturn(List.of(live));
+        when(matchFollowSupport.subscribedMatchIds(auth)).thenReturn(Set.of());
+
+        Map<String, Object> result = controller.liveSummary(null, null, auth);
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> matches = (List<Map<String, Object>>) result.get("matches");
+        assertThat(matches.get(0).get("leagueId")).isNull();
+        assertThat(matches.get(0).get("followed")).isEqualTo(false);
+    }
+
+    @Test
     void editGoalForm_secondHalf_addsTwentyMinutes() {
         UUID id = UUID.randomUUID();
         UUID goalId = UUID.randomUUID();

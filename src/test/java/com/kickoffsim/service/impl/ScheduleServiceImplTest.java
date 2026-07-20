@@ -485,14 +485,15 @@ class ScheduleServiceImplTest {
     }
 
     @Test
-    void notifyGoals_goalOlderThanToastWindow_isSkipped() {
+    void notifyGoals_goalOlderThanFormerToastWindow_stillBroadcastsSoNothingIsLost() {
         Goal goal = liveGoal(40, Half.FIRST, 5);
         when(goalRepository.findUnnotifiedForMatchesStartedBetween(any(), any())).thenReturn(List.of(goal));
+        when(goalRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         scheduleService.notifyGoals();
 
-        verify(notificationClient, never()).broadcast(any());
-        assertThat(goal.isNotified()).isFalse();
+        verify(notificationClient).broadcast(any());
+        assertThat(goal.isNotified()).isTrue();
     }
 
     @Test
@@ -756,6 +757,86 @@ class ScheduleServiceImplTest {
         scheduleService.notifyMatchEvents();
 
         assertThat(match.isHalftimeNotified()).isFalse();
+        verify(matchRepository, never()).save(match);
+    }
+
+    @Test
+    void notifySecondHalfStarts_reportsFirstHalfScoreNotFinalScore() {
+        Goal firstHalfGoal = liveGoal(27, Half.FIRST, 10);
+        Match match = firstHalfGoal.getMatch();
+        match.setHomeScore(1);
+        match.setAwayScore(3);
+        Goal secondHalfGoal = new Goal();
+        secondHalfGoal.setId(UUID.randomUUID());
+        secondHalfGoal.setMatch(match);
+        secondHalfGoal.setScorer(firstHalfGoal.getScorer());
+        secondHalfGoal.setHalf(Half.SECOND);
+        secondHalfGoal.setMinute(5);
+        match.getGoals().add(secondHalfGoal);
+
+        when(matchRepository.findForKickoffNotification(any(), any())).thenReturn(List.of());
+        when(matchRepository.findForHalftimeNotification(any(), any())).thenReturn(List.of());
+        when(matchRepository.findForSecondHalfNotification(any(), any())).thenReturn(List.of(match));
+        when(matchRepository.findForFulltimeNotification(any(), any())).thenReturn(List.of());
+        when(matchRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        scheduleService.notifyMatchEvents();
+
+        ArgumentCaptor<BroadcastRequest> captor = ArgumentCaptor.forClass(BroadcastRequest.class);
+        verify(notificationClient).broadcast(captor.capture());
+        assertThat(captor.getValue().getMessage())
+                .contains("SECOND HALF 1-0")
+                .doesNotContain("1-3");
+        assertThat(match.isSecondHalfNotified()).isTrue();
+        verify(matchRepository).save(match);
+    }
+
+    @Test
+    void notifySecondHalfStarts_awayGoalAndCityLabel_countsAwaySide() {
+        Goal g = liveGoal(27, Half.FIRST, 10);
+        Match match = g.getMatch();
+        match.getHomeTeam().setCity("Sofia");
+        Player awayScorer = new Player();
+        awayScorer.setId(UUID.randomUUID());
+        awayScorer.setFirstName("Georgi");
+        awayScorer.setLastName("Georgiev");
+        awayScorer.setTeam(match.getAwayTeam());
+        Goal firstHalfAway = new Goal();
+        firstHalfAway.setId(UUID.randomUUID());
+        firstHalfAway.setMatch(match);
+        firstHalfAway.setScorer(awayScorer);
+        firstHalfAway.setHalf(Half.FIRST);
+        firstHalfAway.setMinute(15);
+        match.getGoals().add(firstHalfAway);
+
+        when(matchRepository.findForKickoffNotification(any(), any())).thenReturn(List.of());
+        when(matchRepository.findForHalftimeNotification(any(), any())).thenReturn(List.of());
+        when(matchRepository.findForSecondHalfNotification(any(), any())).thenReturn(List.of(match));
+        when(matchRepository.findForFulltimeNotification(any(), any())).thenReturn(List.of());
+        when(matchRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        scheduleService.notifyMatchEvents();
+
+        ArgumentCaptor<BroadcastRequest> captor = ArgumentCaptor.forClass(BroadcastRequest.class);
+        verify(notificationClient).broadcast(captor.capture());
+        assertThat(captor.getValue().getMessage())
+                .contains("SECOND HALF 1-1")
+                .contains("Home (Sofia)");
+    }
+
+    @Test
+    void notifySecondHalfStarts_broadcastFails_flagNotSet() {
+        Goal g = liveGoal(27, Half.FIRST, 10);
+        Match match = g.getMatch();
+        when(matchRepository.findForKickoffNotification(any(), any())).thenReturn(List.of());
+        when(matchRepository.findForHalftimeNotification(any(), any())).thenReturn(List.of());
+        when(matchRepository.findForSecondHalfNotification(any(), any())).thenReturn(List.of(match));
+        when(matchRepository.findForFulltimeNotification(any(), any())).thenReturn(List.of());
+        doThrow(new RuntimeException("down")).when(notificationClient).broadcast(any());
+
+        scheduleService.notifyMatchEvents();
+
+        assertThat(match.isSecondHalfNotified()).isFalse();
         verify(matchRepository, never()).save(match);
     }
 

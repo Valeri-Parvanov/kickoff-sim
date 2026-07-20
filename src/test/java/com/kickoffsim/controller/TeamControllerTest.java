@@ -39,6 +39,7 @@ import com.kickoffsim.model.User;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -828,5 +829,96 @@ class TeamControllerTest {
 
         assertThat(view).isEqualTo("redirect:/teams");
         assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("Submitted for admin approval.");
+    }
+
+    @Test
+    void liveSummary_anonymous_returnsLiveMatchAsUnfollowed() {
+        UUID id = UUID.randomUUID();
+        MatchDto live = sideMatch(id, UUID.randomUUID(), LocalDateTime.now().minusMinutes(10));
+        when(matchService.findAll(any(Sort.class))).thenReturn(List.of(live));
+
+        Map<String, Object> result = controller.liveSummary(id, null);
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> matches = (List<Map<String, Object>>) result.get("matches");
+        assertThat(matches).hasSize(1);
+        assertThat(matches.get(0).get("followed")).isEqualTo(false);
+    }
+
+    @Test
+    void liveSummary_matchWithLeagueId_includesLeagueIdInEntry() {
+        UUID id = UUID.randomUUID();
+        UUID leagueId = UUID.randomUUID();
+        MatchDto live = sideMatch(id, UUID.randomUUID(), LocalDateTime.now().minusMinutes(10));
+        live.setLeagueId(leagueId);
+        when(matchService.findAll(any(Sort.class))).thenReturn(List.of(live));
+
+        Map<String, Object> result = controller.liveSummary(id, null);
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> matches = (List<Map<String, Object>>) result.get("matches");
+        assertThat(matches.get(0).get("leagueId")).isEqualTo(leagueId.toString());
+    }
+
+    @Test
+    void liveSummary_authenticated_marksFollowedMatch() {
+        UUID id = UUID.randomUUID();
+        Authentication a = authWithSubs("bob", UUID.randomUUID());
+        MatchDto live = sideMatch(id, UUID.randomUUID(), LocalDateTime.now().minusMinutes(10));
+        when(matchService.findAll(any(Sort.class))).thenReturn(List.of(live));
+
+        SubscriptionDto matchSub = new SubscriptionDto();
+        matchSub.setEntityType("MATCH");
+        matchSub.setEntityId(live.getId());
+        when(notificationClient.getSubscriptions(any())).thenReturn(List.of(matchSub));
+
+        Map<String, Object> result = controller.liveSummary(id, a);
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> matches = (List<Map<String, Object>>) result.get("matches");
+        assertThat(matches.get(0).get("followed")).isEqualTo(true);
+    }
+
+    @Test
+    void liveSummary_authenticatedLookupFails_defaultsToUnfollowed() {
+        UUID id = UUID.randomUUID();
+        Authentication a = authWithSubs("bob", UUID.randomUUID());
+        MatchDto live = sideMatch(id, UUID.randomUUID(), LocalDateTime.now().minusMinutes(10));
+        when(matchService.findAll(any(Sort.class))).thenReturn(List.of(live));
+        when(notificationClient.getSubscriptions(any())).thenThrow(new RuntimeException("down"));
+
+        Map<String, Object> result = controller.liveSummary(id, a);
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> matches = (List<Map<String, Object>>) result.get("matches");
+        assertThat(matches.get(0).get("followed")).isEqualTo(false);
+    }
+
+    @Test
+    void liveSummary_awaySideMatch_isIncluded() {
+        UUID id = UUID.randomUUID();
+        MatchDto live = sideMatch(UUID.randomUUID(), id, LocalDateTime.now().minusMinutes(10));
+        when(matchService.findAll(any(Sort.class))).thenReturn(List.of(live));
+
+        Map<String, Object> result = controller.liveSummary(id, null);
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> matches = (List<Map<String, Object>>) result.get("matches");
+        assertThat(matches).hasSize(1);
+    }
+
+    @Test
+    void liveSummary_excludesOtherTeamsAndOutOfWindowMatches() {
+        UUID id = UUID.randomUUID();
+        MatchDto notTeam = sideMatch(UUID.randomUUID(), UUID.randomUUID(), LocalDateTime.now().minusMinutes(10));
+        MatchDto tooOld = sideMatch(id, UUID.randomUUID(), LocalDateTime.now().minusHours(2));
+        MatchDto future = sideMatch(id, UUID.randomUUID(), LocalDateTime.now().plusHours(1));
+        when(matchService.findAll(any(Sort.class))).thenReturn(List.of(notTeam, tooOld, future));
+
+        Map<String, Object> result = controller.liveSummary(id, null);
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> matches = (List<Map<String, Object>>) result.get("matches");
+        assertThat(matches).isEmpty();
     }
 }

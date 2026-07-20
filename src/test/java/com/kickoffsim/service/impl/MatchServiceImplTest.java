@@ -690,6 +690,56 @@ class MatchServiceImplTest {
     }
 
     @Test
+    void findById_goalsInSameMinute_sortedByOffsetSecondsForTieBreak() {
+        Goal earlier = goalWithScorer(homePlayer);
+        earlier.setHalf(Half.SECOND);
+        earlier.setMinute(10);
+        earlier.setOffsetSeconds(5);
+
+        Goal later = new Goal();
+        later.setId(UUID.randomUUID());
+        later.setScorer(awayPlayer);
+        later.setHalf(Half.SECOND);
+        later.setMinute(10);
+        later.setOffsetSeconds(45);
+        later.setMatch(match);
+
+        match.getGoals().addAll(List.of(later, earlier));
+        when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
+
+        MatchDto result = matchService.findById(matchId);
+
+        assertThat(result.getGoalTimeline()).hasSize(2);
+        assertThat(result.getGoalTimeline().get(0).getScorerId()).isEqualTo(homePlayerId);
+        assertThat(result.getGoalTimeline().get(1).getScorerId()).isEqualTo(awayPlayerId);
+    }
+
+    @Test
+    void findById_goalsInSameMinuteNullOffset_treatsNullOffsetAsZero() {
+        Goal noOffset = goalWithScorer(homePlayer);
+        noOffset.setHalf(Half.SECOND);
+        noOffset.setMinute(10);
+        noOffset.setOffsetSeconds(null);
+
+        Goal withOffset = new Goal();
+        withOffset.setId(UUID.randomUUID());
+        withOffset.setScorer(awayPlayer);
+        withOffset.setHalf(Half.SECOND);
+        withOffset.setMinute(10);
+        withOffset.setOffsetSeconds(20);
+        withOffset.setMatch(match);
+
+        match.getGoals().addAll(List.of(withOffset, noOffset));
+        when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
+
+        MatchDto result = matchService.findById(matchId);
+
+        assertThat(result.getGoalTimeline()).hasSize(2);
+        assertThat(result.getGoalTimeline().get(0).getScorerId()).isEqualTo(homePlayerId);
+        assertThat(result.getGoalTimeline().get(1).getScorerId()).isEqualTo(awayPlayerId);
+    }
+
+    @Test
     void findById_noGoals_doesNotSetHalfScores() {
         when(matchRepository.findById(matchId)).thenReturn(Optional.of(match));
 

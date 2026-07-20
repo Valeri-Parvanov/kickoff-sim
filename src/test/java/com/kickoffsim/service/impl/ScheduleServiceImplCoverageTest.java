@@ -197,7 +197,7 @@ class ScheduleServiceImplCoverageTest {
     }
 
     @Test
-    void notifyGoals_inWindow_broadcastsAndMarksNotified() {
+    void notifyGoals_pastGoalBroadcasts_futureGoalSkippedUntilItHappens() {
         Team home = team("Home");
         Team away = team("Away");
         Match match = new Match();
@@ -206,30 +206,32 @@ class ScheduleServiceImplCoverageTest {
         match.setAwayTeam(away);
         match.setPlayedAt(LocalDateTime.now().minusMinutes(10));
 
-        Goal inWindow = new Goal();
-        inWindow.setId(UUID.randomUUID());
-        inWindow.setMatch(match);
-        inWindow.setScorer(player(home));
-        inWindow.setHalf(Half.FIRST);
-        inWindow.setMinute(8);
+        // 10 minutes have elapsed since kickoff: a goal at minute 8 has already happened.
+        Goal pastGoal = new Goal();
+        pastGoal.setId(UUID.randomUUID());
+        pastGoal.setMatch(match);
+        pastGoal.setScorer(player(home));
+        pastGoal.setHalf(Half.FIRST);
+        pastGoal.setMinute(8);
 
-        Goal outOfWindow = new Goal();
-        outOfWindow.setId(UUID.randomUUID());
-        outOfWindow.setMatch(match);
-        outOfWindow.setScorer(player(away));
-        outOfWindow.setHalf(Half.FIRST);
-        outOfWindow.setMinute(1);
+        // A goal at minute 15 is still 4 minutes in the future and must not be spoiled yet.
+        Goal futureGoal = new Goal();
+        futureGoal.setId(UUID.randomUUID());
+        futureGoal.setMatch(match);
+        futureGoal.setScorer(player(away));
+        futureGoal.setHalf(Half.FIRST);
+        futureGoal.setMinute(15);
 
-        match.getGoals().add(inWindow);
-        match.getGoals().add(outOfWindow);
+        match.getGoals().add(pastGoal);
+        match.getGoals().add(futureGoal);
         when(goalRepository.findUnnotifiedForMatchesStartedBetween(any(), any()))
-                .thenReturn(List.of(inWindow, outOfWindow));
+                .thenReturn(List.of(pastGoal, futureGoal));
 
         service.notifyGoals();
 
         verify(notificationClient).broadcast(any());
-        verify(goalRepository).save(inWindow);
-        verify(goalRepository, never()).save(outOfWindow);
+        verify(goalRepository).save(pastGoal);
+        verify(goalRepository, never()).save(futureGoal);
     }
 
     @Test

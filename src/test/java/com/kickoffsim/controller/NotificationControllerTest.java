@@ -17,6 +17,7 @@ import com.kickoffsim.service.MatchService;
 import com.kickoffsim.service.TeamService;
 import com.kickoffsim.service.UserService;
 import com.kickoffsim.web.MatchFollowSupport;
+import com.kickoffsim.web.SseEmitterRegistry;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -55,8 +56,28 @@ class NotificationControllerTest {
     @Mock private LeagueService leagueService;
     @Mock private MatchService matchService;
     @Mock private MatchFollowSupport matchFollowSupport;
+    @Mock private SseEmitterRegistry sseEmitterRegistry;
 
     @InjectMocks private NotificationController controller;
+
+    @Test
+    void stream_authenticated_registersAndReturnsEmitter() {
+        UUID userId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+        org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter =
+                new org.springframework.web.servlet.mvc.method.annotation.SseEmitter();
+        when(sseEmitterRegistry.register(userId)).thenReturn(emitter);
+
+        assertThat(controller.stream(auth)).isSameAs(emitter);
+    }
+
+    @Test
+    void stream_anonymous_returnsCompletedEmitter() {
+        org.springframework.web.servlet.mvc.method.annotation.SseEmitter result = controller.stream(null);
+
+        assertThat(result).isNotNull();
+        verify(sseEmitterRegistry, never()).register(any());
+    }
 
     @Test
     void toggleMatchFollow_notFollowing_subscribesAndSendsInstantStatus() {
@@ -105,7 +126,234 @@ class NotificationControllerTest {
     }
 
     @Test
-    void liveToasts_includesGoalHalftimeAndFulltimeButNotOtherTypes() {
+    void feedLiveSummary_nullAuth_returnsEmpty() {
+        Map<String, Object> result = controller.feedLiveSummary(null);
+
+        assertThat((List<?>) result.get("matches")).isEmpty();
+    }
+
+    @Test
+    void feedLiveSummary_outerLookupFails_returnsEmpty() {
+        Authentication auth = authFor("ghost", UUID.randomUUID());
+        when(notificationClient.getSubscriptions(any())).thenThrow(new RuntimeException("down"));
+
+        Map<String, Object> result = controller.feedLiveSummary(auth);
+
+        assertThat((List<?>) result.get("matches")).isEmpty();
+    }
+
+    @Test
+    void feedLiveSummary_teamLookupThrows_ignored() {
+        UUID userId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+        UUID teamId = UUID.randomUUID();
+        SubscriptionDto teamSub = new SubscriptionDto();
+        teamSub.setEntityType("TEAM");
+        teamSub.setEntityId(teamId);
+        when(notificationClient.getSubscriptions(userId)).thenReturn(List.of(teamSub));
+        when(teamService.findById(teamId)).thenThrow(new RuntimeException("down"));
+
+        Map<String, Object> result = controller.feedLiveSummary(auth);
+
+        assertThat((List<?>) result.get("matches")).isEmpty();
+    }
+
+    @Test
+    void feedLiveSummary_teamWithoutLeague_notAddedToLeagueIds() {
+        UUID userId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+        UUID teamId = UUID.randomUUID();
+        SubscriptionDto teamSub = new SubscriptionDto();
+        teamSub.setEntityType("TEAM");
+        teamSub.setEntityId(teamId);
+        when(notificationClient.getSubscriptions(userId)).thenReturn(List.of(teamSub));
+        TeamDto team = new TeamDto();
+        team.setId(teamId);
+        team.setLeagueId(null);
+        when(teamService.findById(teamId)).thenReturn(team);
+
+        Map<String, Object> result = controller.feedLiveSummary(auth);
+
+        assertThat((List<?>) result.get("matches")).isEmpty();
+        verify(leagueService, never()).findDetail(any());
+    }
+
+    @Test
+    void feedLiveSummary_leagueSub_addsLeagueIdDirectly() {
+        UUID userId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+        UUID leagueId = UUID.randomUUID();
+        SubscriptionDto leagueSub = new SubscriptionDto();
+        leagueSub.setEntityType("LEAGUE");
+        leagueSub.setEntityId(leagueId);
+        when(notificationClient.getSubscriptions(userId)).thenReturn(List.of(leagueSub));
+        MatchDto live = feedMatch(UUID.randomUUID(), LocalDateTime.now().minusMinutes(5));
+        LeagueDetailView league = org.mockito.Mockito.mock(LeagueDetailView.class);
+        when(league.getMatches()).thenReturn(List.of(live));
+        when(leagueService.findDetail(leagueId)).thenReturn(league);
+
+        Map<String, Object> result = controller.feedLiveSummary(auth);
+
+        verify(leagueService).findDetail(leagueId);
+        assertThat((List<?>) result.get("matches")).isEmpty();
+    }
+
+    @Test
+    void feedLiveSummary_findDetailThrows_ignored() {
+        UUID userId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+        UUID leagueId = UUID.randomUUID();
+        SubscriptionDto leagueSub = new SubscriptionDto();
+        leagueSub.setEntityType("LEAGUE");
+        leagueSub.setEntityId(leagueId);
+        when(notificationClient.getSubscriptions(userId)).thenReturn(List.of(leagueSub));
+        when(leagueService.findDetail(leagueId)).thenThrow(new RuntimeException("down"));
+
+        Map<String, Object> result = controller.feedLiveSummary(auth);
+
+        assertThat((List<?>) result.get("matches")).isEmpty();
+    }
+
+    @Test
+    void feedLiveSummary_followedMatchLookupThrows_ignored() {
+        UUID userId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+        UUID matchId = UUID.randomUUID();
+        SubscriptionDto matchSub = new SubscriptionDto();
+        matchSub.setEntityType("MATCH");
+        matchSub.setEntityId(matchId);
+        when(notificationClient.getSubscriptions(userId)).thenReturn(List.of(matchSub));
+        when(matchService.findById(matchId)).thenThrow(new RuntimeException("down"));
+
+        Map<String, Object> result = controller.feedLiveSummary(auth);
+
+        assertThat((List<?>) result.get("matches")).isEmpty();
+    }
+
+    @Test
+    void feedLiveSummary_followedMatchAlreadyInLeagueMatches_skipsRedundantFetch() {
+        UUID userId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+        UUID leagueId = UUID.randomUUID();
+        UUID matchId = UUID.randomUUID();
+        SubscriptionDto leagueSub = new SubscriptionDto();
+        leagueSub.setEntityType("LEAGUE");
+        leagueSub.setEntityId(leagueId);
+        SubscriptionDto matchSub = new SubscriptionDto();
+        matchSub.setEntityType("MATCH");
+        matchSub.setEntityId(matchId);
+        when(notificationClient.getSubscriptions(userId)).thenReturn(List.of(leagueSub, matchSub));
+
+        MatchDto match = feedMatch(UUID.randomUUID(), LocalDateTime.now().minusMinutes(5));
+        match.setId(matchId);
+        LeagueDetailView league = org.mockito.Mockito.mock(LeagueDetailView.class);
+        when(league.getMatches()).thenReturn(List.of(match));
+        when(leagueService.findDetail(leagueId)).thenReturn(league);
+
+        Map<String, Object> result = controller.feedLiveSummary(auth);
+
+        verify(matchService, never()).findById(any());
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> matches = (List<Map<String, Object>>) result.get("matches");
+        assertThat(matches).hasSize(1);
+        assertThat(matches.get(0).get("followed")).isEqualTo(true);
+    }
+
+    @Test
+    void feedLiveSummary_followedTeamIsAwaySide_isIncluded() {
+        UUID userId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+        UUID teamId = UUID.randomUUID();
+        UUID leagueId = UUID.randomUUID();
+
+        SubscriptionDto teamSub = new SubscriptionDto();
+        teamSub.setEntityType("TEAM");
+        teamSub.setEntityId(teamId);
+        when(notificationClient.getSubscriptions(userId)).thenReturn(List.of(teamSub));
+
+        TeamDto team = new TeamDto();
+        team.setId(teamId);
+        team.setLeagueId(leagueId);
+        when(teamService.findById(teamId)).thenReturn(team);
+
+        MatchDto liveAwayMatch = otherMatch(teamId, LocalDateTime.now().minusMinutes(10), false);
+        LeagueDetailView league = org.mockito.Mockito.mock(LeagueDetailView.class);
+        when(league.getMatches()).thenReturn(List.of(liveAwayMatch));
+        when(leagueService.findDetail(leagueId)).thenReturn(league);
+
+        Map<String, Object> result = controller.feedLiveSummary(auth);
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> matches = (List<Map<String, Object>>) result.get("matches");
+        assertThat(matches).hasSize(1);
+        assertThat(matches.get(0).get("id")).isEqualTo(liveAwayMatch.getId().toString());
+    }
+
+    @Test
+    void feedLiveSummary_authenticated_returnsFollowedLiveMatchesWithFieldsAndExcludesUnrelated() {
+        UUID userId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+        UUID teamId = UUID.randomUUID();
+        UUID leagueId = UUID.randomUUID();
+        UUID starredMatchId = UUID.randomUUID();
+
+        SubscriptionDto teamSub = new SubscriptionDto();
+        teamSub.setEntityType("TEAM");
+        teamSub.setEntityId(teamId);
+        SubscriptionDto matchSub = new SubscriptionDto();
+        matchSub.setEntityType("MATCH");
+        matchSub.setEntityId(starredMatchId);
+        when(notificationClient.getSubscriptions(userId)).thenReturn(List.of(teamSub, matchSub));
+
+        TeamDto team = new TeamDto();
+        team.setId(teamId);
+        team.setLeagueId(leagueId);
+        when(teamService.findById(teamId)).thenReturn(team);
+
+        MatchDto liveTeamMatch = feedMatch(teamId, LocalDateTime.now().minusMinutes(10));
+        liveTeamMatch.setLeagueId(leagueId);
+        liveTeamMatch.setLeagueName("Premier");
+        liveTeamMatch.setRoundNumber(3);
+        liveTeamMatch.setHomeTeamName("Home");
+        liveTeamMatch.setHomeTeamCity("HCity");
+        liveTeamMatch.setAwayTeamName("Away");
+        liveTeamMatch.setAwayTeamCity("ACity");
+
+        MatchDto futureLeagueMatch = feedMatch(teamId, LocalDateTime.now().plusDays(1));
+        MatchDto tooOldLeagueMatch = feedMatch(teamId, LocalDateTime.now().minusDays(1));
+        MatchDto unrelatedLiveMatch = feedMatch(UUID.randomUUID(), LocalDateTime.now().minusMinutes(8));
+
+        LeagueDetailView league = org.mockito.Mockito.mock(LeagueDetailView.class);
+        when(league.getMatches()).thenReturn(
+                List.of(liveTeamMatch, futureLeagueMatch, tooOldLeagueMatch, unrelatedLiveMatch));
+        when(leagueService.findDetail(leagueId)).thenReturn(league);
+
+        MatchDto starredLiveMatch = new MatchDto();
+        starredLiveMatch.setId(starredMatchId);
+        starredLiveMatch.setHomeTeamId(UUID.randomUUID());
+        starredLiveMatch.setAwayTeamId(UUID.randomUUID());
+        starredLiveMatch.setPlayedAt(LocalDateTime.now().minusMinutes(5));
+        starredLiveMatch.setLeagueId(null);
+        when(matchService.findById(starredMatchId)).thenReturn(starredLiveMatch);
+
+        Map<String, Object> result = controller.feedLiveSummary(auth);
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> matches = (List<Map<String, Object>>) result.get("matches");
+        assertThat(matches).hasSize(2);
+        Map<String, Object> teamEntry = matches.stream()
+                .filter(m -> m.get("id").equals(liveTeamMatch.getId().toString())).findFirst().orElseThrow();
+        assertThat(teamEntry.get("leagueId")).isEqualTo(leagueId.toString());
+        assertThat(teamEntry.get("leagueName")).isEqualTo("Premier");
+        assertThat(teamEntry.get("followed")).isEqualTo(false);
+        Map<String, Object> starredEntry = matches.stream()
+                .filter(m -> m.get("id").equals(starredMatchId.toString())).findFirst().orElseThrow();
+        assertThat(starredEntry.get("leagueId")).isNull();
+        assertThat(starredEntry.get("followed")).isEqualTo(true);
+    }
+
+    @Test
+    void liveToasts_includesGoalKickoffHalftimeAndFulltimeButNotOtherTypes() {
         UUID userId = UUID.randomUUID();
         Authentication auth = authFor("alice", userId);
 
@@ -119,7 +367,7 @@ class NotificationControllerTest {
         List<Map<String, Object>> toasts = controller.liveToasts(auth);
 
         assertThat(toasts).extracting(t -> t.get("type"))
-                .containsExactlyInAnyOrder("GOAL", "MATCH_HALFTIME", "MATCH_FULLTIME");
+                .containsExactlyInAnyOrder("GOAL", "MATCH_HALFTIME", "MATCH_FULLTIME", "MATCH_KICKOFF");
     }
 
     private NotificationDto recentNotification(String type, String message) {
