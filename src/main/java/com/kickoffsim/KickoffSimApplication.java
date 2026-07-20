@@ -23,5 +23,4 @@ public class KickoffSimApplication {
     public Clock clock() {
         return Clock.systemDefaultZone();
     }
-
 }

@@ -34,3 +34,4 @@ build/
 
 CLAUDE.md
 run-local.ps1
+*.log
