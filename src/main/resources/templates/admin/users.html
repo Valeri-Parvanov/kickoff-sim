@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Management - Kickoff Sim</title>
+    <title th:text="#{admin.users.title} + ' - Kickoff Sim'">User Management - Kickoff Sim</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"/>
@@ -15,24 +15,24 @@
 
 <main class="page">
 <div th:replace="~{fragments/topbar :: messages}"></div>
-<h1>&#128101; User Management</h1>
-<p class="section-meta" th:text="'Total: ' + ${totalUsers} + ' users · ' + ${adminCount} + ' admin(s)'"></p>
+<h1 th:text="'&#128101; ' + #{admin.users.title}">&#128101; User Management</h1>
+<p class="section-meta" th:text="#{admin.users.total} + ' ' + ${totalUsers} + ' ' + #{admin.users.usersword} + ' · ' + ${adminCount} + ' ' + #{admin.users.adminsword}"></p>
 
 <div class="table-wrapper">
 <table class="data-table">
     <thead>
         <tr>
-            <th>Username</th>
-            <th>Email</th>
-            <th>Role</th>
-            <th>Actions</th>
+            <th th:text="#{admin.users.username}">Username</th>
+            <th th:text="#{admin.users.email}">Email</th>
+            <th th:text="#{admin.users.role}">Role</th>
+            <th th:text="#{common.actions}">Actions</th>
         </tr>
     </thead>
     <tbody>
         <tr th:each="u : ${users}">
             <td>
                 <span th:text="${u.username}"></span>
-                <span th:if="${#authentication.name == u.username}" class="you-badge">YOU</span>
+                <span th:if="${#authentication.name == u.username}" class="you-badge" th:text="#{admin.users.you}">YOU</span>
             </td>
             <td th:text="${u.email != null ? u.email : '—'}"></td>
             <td>
@@ -45,7 +45,7 @@
                       th:action="@{/admin/users/{id}/role(id=${u.id})}" method="post" style="display:inline">
                     <input type="hidden" name="newRole" value="ADMIN"/>
                     <input type="hidden" name="targetUsername" th:value="${u.username}"/>
-                    <button type="submit" class="btn-approve">Promote to Admin</button>
+                    <button type="submit" class="btn-approve" th:text="#{admin.users.promote}">Promote to Admin</button>
                 </form>
                 <form th:if="${u.role.name() == 'ADMIN'}"
                       th:action="@{/admin/users/{id}/role(id=${u.id})}" method="post" style="display:inline">
@@ -53,7 +53,7 @@
                     <input type="hidden" name="targetUsername" th:value="${u.username}"/>
                     <button type="submit" class="btn-del"
                             th:disabled="${adminCount <= 1}"
-                            th:title="${adminCount <= 1} ? 'Cannot demote the last administrator' : ''">Demote to User</button>
+                            th:title="${adminCount <= 1} ? #{admin.users.lastadmin} : ''" th:text="#{admin.users.demote}">Demote to User</button>
                 </form>
             </td>
         </tr>
@@ -64,7 +64,7 @@
 <div th:if="${totalPages > 1}" class="pagination-bar">
     <a th:if="${currentPage > 0}"
        th:href="@{/admin/users(page=${currentPage - 1})}"
-       class="page-btn">&lsaquo; Prev</a>
+       class="page-btn" th:text="'&lsaquo; ' + #{admin.users.prev}">&lsaquo; Prev</a>
     <span th:each="p : ${pageNumbers}">
         <span th:if="${p == -1}" class="page-ellipsis">&#8230;</span>
         <a th:if="${p != -1 and p != currentPage}"
@@ -75,7 +75,7 @@
     </span>
     <a th:if="${currentPage < totalPages - 1}"
        th:href="@{/admin/users(page=${currentPage + 1})}"
-       class="page-btn">Next &rsaquo;</a>
+       class="page-btn" th:text="#{admin.users.next} + ' &rsaquo;'">Next &rsaquo;</a>
 </div>
 
 </main>

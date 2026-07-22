@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Players</title>
+    <title th:text="#{players.title}">Players</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"/>
@@ -15,21 +15,21 @@
 
 <main class="page">
 <div th:replace="~{fragments/topbar :: messages}"></div>
-<h1>&#129489; Players</h1>
+<h1 th:text="'&#129489; ' + #{players.title}">&#129489; Players</h1>
 
 <div class="add-new-bar" sec:authorize="isAuthenticated()">
-    <a th:href="@{/players/form}" class="btn-add">Add new player</a>
+    <a th:href="@{/players/form}" class="btn-add" th:text="#{players.addnew}">Add new player</a>
 </div>
 
 <div class="table-wrapper">
 <table border="1" cellpadding="6">
     <thead>
     <tr>
-        <th th:replace="~{fragments/sortable :: sortTh('/players', 'firstName', 'First name')}"></th>
-        <th th:replace="~{fragments/sortable :: sortTh('/players', 'lastName', 'Last name')}"></th>
-        <th th:replace="~{fragments/sortable :: sortTh('/players', 'shirtNumber', 'Shirt number')}"></th>
-        <th th:replace="~{fragments/sortable :: sortTh('/players', 'team', 'Team')}"></th>
-        <th sec:authorize="hasRole('ADMIN')">Actions</th>
+        <th th:replace="~{fragments/sortable :: sortTh('/players', 'firstName', #{players.firstname})}"></th>
+        <th th:replace="~{fragments/sortable :: sortTh('/players', 'lastName', #{players.lastname})}"></th>
+        <th th:replace="~{fragments/sortable :: sortTh('/players', 'shirtNumber', #{players.shirtnumber})}"></th>
+        <th th:replace="~{fragments/sortable :: sortTh('/players', 'team', #{teams.singular})}"></th>
+        <th sec:authorize="hasRole('ADMIN')" th:text="#{common.actions}">Actions</th>
     </tr>
     </thead>
     <tbody>
@@ -39,9 +39,9 @@
         <td th:text="${player.shirtNumber}"></td>
         <td th:text="${player.teamName}"></td>
         <td sec:authorize="hasRole('ADMIN')">
-            <a th:href="@{/players/{id}/form(id=${player.id})}">Edit</a>
+            <a th:href="@{/players/{id}/form(id=${player.id})}" th:text="#{common.edit}">Edit</a>
             <form th:action="@{/players/{id}(id=${player.id})}" th:method="delete" style="display:inline">
-                <button type="submit">Delete</button>
+                <button type="submit" th:text="#{common.delete}">Delete</button>
             </form>
         </td>
     </tr>

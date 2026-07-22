@@ -142,22 +142,22 @@
                 <span class="home-brand-ball">&#9917;</span>
                 Kickoff Sim
             </div>
-            <p class="home-tagline">
+            <p class="home-tagline" th:text="#{home.tagline}">
                 Simulate football leagues with live scoring, goal-by-goal timelines, and real-time standings.
             </p>
         </div>
 
         <div class="home-account-hint" sec:authorize="!isAuthenticated()">
-            &#128274; An account is required to use Kickoff Sim. Sign up — it's free.
+            &#128274; <span th:text="#{home.account.hint}">An account is required to use Kickoff Sim. Sign up — it's free.</span>
         </div>
         <div class="home-cta" sec:authorize="!isAuthenticated()">
-            <a th:href="@{/login}" class="btn-hero btn-hero-primary">Login</a>
-            <a th:href="@{/register}" class="btn-hero btn-hero-secondary">Register</a>
+            <a th:href="@{/login}" class="btn-hero btn-hero-primary" th:text="#{nav.login}">Login</a>
+            <a th:href="@{/register}" class="btn-hero btn-hero-secondary" th:text="#{nav.register}">Register</a>
         </div>
         <div class="home-cta" sec:authorize="isAuthenticated()">
-            <a th:href="@{/leagues}" class="btn-hero btn-hero-primary">&#127942; Leagues</a>
-            <a th:href="@{/matches}" class="btn-hero btn-hero-secondary">&#9917; Matches</a>
-            <a th:href="@{/teams}" class="btn-hero btn-hero-secondary">&#128101; Teams</a>
+            <a th:href="@{/leagues}" class="btn-hero btn-hero-primary">&#127942; <span th:text="#{nav.leagues}">Leagues</span></a>
+            <a th:href="@{/matches}" class="btn-hero btn-hero-secondary">&#9917; <span th:text="#{nav.matches}">Matches</span></a>
+            <a th:href="@{/teams}" class="btn-hero btn-hero-secondary">&#128101; <span th:text="#{nav.teams}">Teams</span></a>
         </div>
 
         <hr class="home-divider"/>
@@ -165,24 +165,24 @@
         <div class="home-features">
             <a th:href="@{/leagues}" class="home-feature">
                 <div class="home-feature-icon">&#127942;</div>
-                <div class="home-feature-title">Leagues</div>
-                <div class="home-feature-desc">Create tournaments, generate full schedules, and track live standings.</div>
+                <div class="home-feature-title" th:text="#{home.feature.leagues.title}">Leagues</div>
+                <div class="home-feature-desc" th:text="#{home.feature.leagues.desc}">Create tournaments, generate full schedules, and track live standings.</div>
             </a>
             <a th:href="@{/teams}" class="home-feature">
                 <div class="home-feature-icon">&#128101;</div>
-                <div class="home-feature-title">Teams &amp; Players</div>
-                <div class="home-feature-desc">Build squads, assign shirt numbers, and follow each team's form.</div>
+                <div class="home-feature-title" th:text="#{home.feature.teams.title}">Teams &amp; Players</div>
+                <div class="home-feature-desc" th:text="#{home.feature.teams.desc}">Build squads, assign shirt numbers, and follow each team's form.</div>
             </a>
             <a th:href="@{/matches}" class="home-feature">
                 <div class="home-feature-icon">&#128200;</div>
-                <div class="home-feature-title">Live Scores</div>
-                <div class="home-feature-desc">Watch matches unfold in real time with minute-by-minute goal updates.</div>
+                <div class="home-feature-title" th:text="#{home.feature.livescores.title}">Live Scores</div>
+                <div class="home-feature-desc" th:text="#{home.feature.livescores.desc}">Watch matches unfold in real time with minute-by-minute goal updates.</div>
             </a>
         </div>
 
         <div class="home-auth-row" sec:authorize="isAuthenticated()">
-            Logged in as <strong sec:authentication="name"></strong>.
-            <a th:href="@{/leagues}">Go to your leagues &#8594;</a>
+            <span th:text="#{home.loggedinas}">Logged in as</span> <strong sec:authentication="name"></strong>.
+            <a th:href="@{/leagues}" th:text="#{home.goto}">Go to your leagues &#8594;</a>
         </div>
 
     </div>

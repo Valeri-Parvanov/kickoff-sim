@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Add team</title>
+    <title th:text="#{teams.form.add}">Add team</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"/>
@@ -14,13 +14,13 @@
 
 <main class="page">
 <div th:replace="~{fragments/topbar :: messages}"></div>
-<h1 style="text-align:center">&#128737; Add team</h1>
-<p style="text-align:center;color:var(--muted);max-width:580px;margin:0 auto 0.75rem">Fill in the team name, city, and squad. Leave unused rows empty.</p>
+<h1 style="text-align:center" th:text="'&#128737; ' + #{teams.form.add}">&#128737; Add team</h1>
+<p style="text-align:center;color:var(--muted);max-width:580px;margin:0 auto 0.75rem" th:text="#{teams.create.intro}">Fill in the team name, city, and squad. Leave unused rows empty.</p>
 <div th:if="${teamCreateForm.teamId == null}" class="league-warn-banner" style="max-width:760px;margin:0 auto 1.25rem;">
     <div class="league-ready-icon">&#9432;</div>
     <div class="league-ready-body">
-        <div class="league-warn-title">How to add a team</div>
-        <div class="league-warn-sub">
+        <div class="league-warn-title" th:text="#{teams.create.howto}">How to add a team</div>
+        <div class="league-warn-sub" th:text="#{teams.create.howto.desc}">
             Enter the team name, city, and at least <strong>6 players</strong> (maximum 12).
             Rows left empty will be ignored — only filled rows count toward the squad.
         </div>
@@ -35,30 +35,30 @@
     </div>
 
     <div>
-        <label for="name">Name</label>
+        <label for="name" th:text="#{common.name}">Name</label>
         <div class="input-row">
             <input type="text" id="name" th:field="*{name}"/>
-            <button type="button" class="dice-btn" onclick="fillRandomTeamName('name')" title="Generate random name">&#127922;</button>
+            <button type="button" class="dice-btn" onclick="fillRandomTeamName('name')" th:title="#{leagues.form.randomname}" title="Generate random name">&#127922;</button>
         </div>
         <span style="color:red" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></span>
     </div>
 
     <div>
-        <label for="city">City</label>
+        <label for="city" th:text="#{teams.city}">City</label>
         <div class="input-row">
             <input type="text" id="city" th:field="*{city}"/>
-            <button type="button" class="dice-btn" onclick="fillRandomCity('city')" title="Generate random city">&#127922;</button>
+            <button type="button" class="dice-btn" onclick="fillRandomCity('city')" th:title="#{leagues.wizard.randomcity}" title="Generate random city">&#127922;</button>
         </div>
         <span style="color:red" th:if="${#fields.hasErrors('city')}" th:errors="*{city}"></span>
     </div>
 
     <div>
-        <label>Squad <span class="field-hint" style="display:inline">(minimum 6, maximum 12 players)</span></label>
+        <label th:text="#{leagues.wizard.squad}">Squad</label> <span class="field-hint" style="display:inline" th:text="#{leagues.wizard.squad.hint}">(minimum 6, maximum 12 players)</span>
         <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;margin:0.3rem 0 0.8rem">
-            <button type="button" class="btn-add" onclick="randomizeAllSquad()">&#127922; Full squad (12)</button>
-            <button type="button" class="btn-goal" onclick="randomizeMinSquad()" th:unless="${teamCreateForm.teamId != null}">&#127922; Min squad (6)</button>
-            <button type="button" class="btn-add" onclick="randomizeOneRow()" th:if="${teamCreateForm.teamId != null}">&#127922; + 1 player</button>
-            <button type="submit" style="margin-left:auto">&#10003; Save</button>
+            <button type="button" class="btn-add" onclick="randomizeAllSquad()" th:text="'&#127922; ' + #{teams.create.fullsquad}">&#127922; Full squad (12)</button>
+            <button type="button" class="btn-goal" onclick="randomizeMinSquad()" th:unless="${teamCreateForm.teamId != null}" th:text="'&#127922; ' + #{teams.create.minsquad}">&#127922; Min squad (6)</button>
+            <button type="button" class="btn-add" onclick="randomizeOneRow()" th:if="${teamCreateForm.teamId != null}" th:text="'&#127922; + 1 ' + #{leagues.wizard.player}">&#127922; + 1 player</button>
+            <button type="submit" style="margin-left:auto" th:text="'&#10003; ' + #{common.save}">&#10003; Save</button>
         </div>
 
         <div class="table-wrapper">
@@ -66,9 +66,9 @@
             <thead>
             <tr>
                 <th>#</th>
-                <th>Shirt no.</th>
-                <th>First name</th>
-                <th>Last name</th>
+                <th th:text="#{players.shirtno}">Shirt no.</th>
+                <th th:text="#{players.firstname}">First name</th>
+                <th th:text="#{players.lastname}">Last name</th>
             </tr>
             </thead>
             <tbody>
@@ -101,10 +101,10 @@
         </div>
     </div>
 
-    <button type="submit">Save</button>
+    <button type="submit" th:text="#{common.save}">Save</button>
 </form>
 
-<p><a th:href="@{/teams}" class="back-link">&#8592; Back to teams</a></p>
+<p><a th:href="@{/teams}" class="back-link" th:text="'&#8592; ' + #{teams.backtoteams}">&#8592; Back to teams</a></p>
 </main>
 <script th:src="@{/js/random-names.js}"></script>
 </body>

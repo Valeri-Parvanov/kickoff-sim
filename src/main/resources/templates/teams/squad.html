@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Add squad</title>
+    <title th:text="#{teams.squad.add}">Add squad</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"/>
@@ -17,9 +17,9 @@
 
 <!-- Edit mode: team has no league — full squad management (League Wizard style) -->
 <div th:if="${editMode}">
-    <h1>&#128101; Manage squad</h1>
-    <p>Add, edit, or remove players for <strong th:text="${team.name}"></strong> (minimum 6, maximum 12 players).
-        Clear a row's name to remove that player.</p>
+    <h1 th:text="'&#128101; ' + #{teams.squad.manage}">&#128101; Manage squad</h1>
+    <p><span th:text="#{teams.squad.manage.desc1}">Add, edit, or remove players for</span> <strong th:text="${team.name}"></strong> <span th:text="#{teams.squad.manage.desc2}">(minimum 6, maximum 12 players).
+        Clear a row's name to remove that player.</span></p>
 
     <form th:action="@{/teams/{id}/squad(id=${team.id})}" th:object="${squadForm}" method="post">
         <div th:if="${#fields.hasGlobalErrors()}">
@@ -28,17 +28,17 @@
 
         <div class="wizard-team-block">
             <div class="wizard-team-summary">
-                <span>Squad</span>
-                <span class="wizard-squad-count">6 players</span>
+                <span th:text="#{leagues.wizard.squad}">Squad</span>
+                <span class="wizard-squad-count" th:text="'6 ' + #{leagues.form.players}">6 players</span>
             </div>
             <div class="wizard-team-body">
                 <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;margin:0 0 0.6rem">
-                    <button type="button" class="btn-add" onclick="setSquadSizeIn(this.closest('.wizard-team-block'), 12)">&#127922; 12 players</button>
-                    <button type="button" class="btn-add" onclick="setSquadSizeIn(this.closest('.wizard-team-block'), 9)">&#127922; 9 players</button>
-                    <button type="button" class="btn-add" onclick="setSquadSizeIn(this.closest('.wizard-team-block'), 6)">&#127922; 6 players</button>
-                    <button type="button" class="btn-goal wizard-grow-btn" onclick="growSquadIn(this.closest('.wizard-team-block'))">&#43; 1 player</button>
-                    <button type="button" class="btn-del wizard-shrink-btn" onclick="shrinkSquadIn(this.closest('.wizard-team-block'))">&#8722; 1 player</button>
-                    <button type="button" class="btn-edit" onclick="clearSquadIn(this.closest('.wizard-team-block'))">Clear all</button>
+                    <button type="button" class="btn-add" onclick="setSquadSizeIn(this.closest('.wizard-team-block'), 12)" th:text="'&#127922; 12 ' + #{leagues.form.players}">&#127922; 12 players</button>
+                    <button type="button" class="btn-add" onclick="setSquadSizeIn(this.closest('.wizard-team-block'), 9)" th:text="'&#127922; 9 ' + #{leagues.form.players}">&#127922; 9 players</button>
+                    <button type="button" class="btn-add" onclick="setSquadSizeIn(this.closest('.wizard-team-block'), 6)" th:text="'&#127922; 6 ' + #{leagues.form.players}">&#127922; 6 players</button>
+                    <button type="button" class="btn-goal wizard-grow-btn" onclick="growSquadIn(this.closest('.wizard-team-block'))" th:text="'&#43; 1 ' + #{leagues.wizard.player}">&#43; 1 player</button>
+                    <button type="button" class="btn-del wizard-shrink-btn" onclick="shrinkSquadIn(this.closest('.wizard-team-block'))" th:text="'&#8722; 1 ' + #{leagues.wizard.player}">&#8722; 1 player</button>
+                    <button type="button" class="btn-edit" onclick="clearSquadIn(this.closest('.wizard-team-block'))" th:text="#{leagues.wizard.clearall}">Clear all</button>
                 </div>
 
                 <div class="table-wrapper">
@@ -46,9 +46,9 @@
                     <thead>
                     <tr>
                         <th>#</th>
-                        <th>Shirt no.</th>
-                        <th>First name</th>
-                        <th>Last name</th>
+                        <th th:text="#{players.shirtno}">Shirt no.</th>
+                        <th th:text="#{players.firstname}">First name</th>
+                        <th th:text="#{players.lastname}">Last name</th>
                         <th></th>
                     </tr>
                     </thead>
@@ -79,7 +79,7 @@
                                   th:errors="*{rows[__${stat.index}__].lastName}"></span>
                         </td>
                         <td>
-                            <button type="button" class="dice-btn" onclick="randomizeRow(this)" title="Random player">&#127922;</button>
+                            <button type="button" class="dice-btn" onclick="randomizeRow(this)" th:title="#{teams.squad.randomplayer}" title="Random player">&#127922;</button>
                         </td>
                     </tr>
                     </tbody>
@@ -88,21 +88,21 @@
             </div>
         </div>
 
-        <button type="submit" style="margin-top:1rem">Save squad</button>
+        <button type="submit" style="margin-top:1rem" th:text="#{teams.squad.save}">Save squad</button>
     </form>
 
-    <p><a th:href="@{/teams}" class="back-link">&#8592; Back to teams</a></p>
+    <p><a th:href="@{/teams}" class="back-link" th:text="'&#8592; ' + #{teams.backtoteams}">&#8592; Back to teams</a></p>
 </div>
 
 <!-- Add-only mode: team is in a league — can only fill remaining slots -->
 <div th:unless="${editMode}">
-    <h1>&#128101; Add squad</h1>
-    <p>Fill in players for <strong th:text="${team.name}"></strong>. You can add up to
-        <strong th:text="${remaining}"></strong> more player(s). Leave rows empty to skip them.</p>
+    <h1 th:text="'&#128101; ' + #{teams.squad.add}">&#128101; Add squad</h1>
+    <p><span th:text="#{teams.squad.add.desc1}">Fill in players for</span> <strong th:text="${team.name}"></strong>. <span th:text="#{teams.squad.add.desc2}">You can add up to</span>
+        <strong th:text="${remaining}"></strong> <span th:text="#{teams.squad.add.desc3}">more player(s). Leave rows empty to skip them.</span></p>
 
     <div th:if="${remaining <= 0}">
-        <p class="status-message">This team already has a full squad (12 players).</p>
-        <p><a th:href="@{/teams}" class="back-link">&#8592; Back to teams</a></p>
+        <p class="status-message" th:text="#{teams.squad.full}">This team already has a full squad (12 players).</p>
+        <p><a th:href="@{/teams}" class="back-link" th:text="'&#8592; ' + #{teams.backtoteams}">&#8592; Back to teams</a></p>
     </div>
 
     <div th:if="${remaining > 0}">
@@ -112,8 +112,8 @@
             </div>
 
             <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem">
-                <button type="button" class="btn-add" onclick="randomizeAllSquad()">&#127922; Randomize all</button>
-                <button type="button" class="btn-add" onclick="randomizeOneRow()">&#127922; + 1 player</button>
+                <button type="button" class="btn-add" onclick="randomizeAllSquad()" th:text="'&#127922; ' + #{teams.squad.randomizeall}">&#127922; Randomize all</button>
+                <button type="button" class="btn-add" onclick="randomizeOneRow()" th:text="'&#127922; + 1 ' + #{leagues.wizard.player}">&#127922; + 1 player</button>
             </div>
 
             <div class="table-wrapper">
@@ -121,9 +121,9 @@
                 <thead>
                 <tr>
                     <th>#</th>
-                    <th>Shirt no.</th>
-                    <th>First name</th>
-                    <th>Last name</th>
+                    <th th:text="#{players.shirtno}">Shirt no.</th>
+                    <th th:text="#{players.firstname}">First name</th>
+                    <th th:text="#{players.lastname}">Last name</th>
                     <th></th>
                 </tr>
                 </thead>
@@ -159,10 +159,10 @@
             </table>
             </div>
 
-            <button type="submit" style="margin-top:1rem">Save squad</button>
+            <button type="submit" style="margin-top:1rem" th:text="#{teams.squad.save}">Save squad</button>
         </form>
 
-        <p><a th:href="@{/teams}" class="back-link">&#8592; Back to teams</a></p>
+        <p><a th:href="@{/teams}" class="back-link" th:text="'&#8592; ' + #{teams.backtoteams}">&#8592; Back to teams</a></p>
     </div>
 </div>
 </main>

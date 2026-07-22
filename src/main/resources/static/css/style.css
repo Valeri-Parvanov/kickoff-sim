@@ -2336,6 +2336,13 @@ details.match-card[open] > summary .match-expand-hint {
     border-top: 1px solid #e8f3eb;
 }
 
+.standings-export-links {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    margin-bottom: 0.6rem;
+}
+
 .btn-view {
     font-size: 0.78rem;
     font-weight: 600;
@@ -3789,6 +3796,26 @@ body { padding-left: 220px; }
     border-top: 1px solid rgba(251,146,60,0.15);
     margin-top: 0.4rem;
     padding-top: 0.75rem;
+}
+
+.sidebar-lang-switch {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.9rem 0.8rem 0.3rem;
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.4);
+}
+.sidebar-lang-switch a {
+    color: rgba(255,255,255,0.5);
+    text-decoration: none;
+    font-weight: 600;
+}
+.sidebar-lang-switch a.lang-active {
+    color: #fff;
+}
+.sidebar-lang-switch a:hover {
+    color: #fff;
 }
 
 .sidebar-badge {

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>League wizard</title>
+    <title th:text="#{leagues.wizard.title}">League wizard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"/>
@@ -14,17 +14,17 @@
 
 <main class="page">
 <div th:replace="~{fragments/topbar :: messages}"></div>
-<h1>&#127942; Create league (wizard)</h1>
+<h1 th:text="'&#127942; ' + #{leagues.wizard.title}">&#127942; Create league (wizard)</h1>
 
 <div class="wizard-steps">
-    <span class="wizard-step done">1<span class="wizard-step-label">Format</span></span>
+    <span class="wizard-step done">1<span class="wizard-step-label" th:text="#{leagues.wizard.step.format}">Format</span></span>
     <span class="wizard-step-sep"></span>
-    <span class="wizard-step done">2<span class="wizard-step-label">Teams</span></span>
+    <span class="wizard-step done">2<span class="wizard-step-label" th:text="#{leagues.wizard.step.teams}">Teams</span></span>
     <span class="wizard-step-sep"></span>
-    <span class="wizard-step active">3<span class="wizard-step-label">Squads</span></span>
+    <span class="wizard-step active">3<span class="wizard-step-label" th:text="#{leagues.wizard.step.squads}">Squads</span></span>
 </div>
 
-<p style="color:var(--muted);max-width:640px">
+<p style="color:var(--muted);max-width:640px" th:text="#{leagues.wizard.newteams.step3}">
     Step 3 of 3: name the league, review the existing teams you selected, and fill in the squads for the remaining new teams.
     Each new team needs a name, city, and 6–12 players — use the dice buttons to fill things in fast.
 </p>
@@ -38,10 +38,10 @@
     </div>
 
     <div>
-        <label for="leagueName">League name</label>
+        <label for="leagueName" th:text="#{leagues.wizard.leaguename}">League name</label>
         <div class="input-row">
             <input type="text" id="leagueName" th:field="*{leagueName}"/>
-            <button type="button" class="dice-btn" onclick="fillRandomLeagueName('leagueName')" title="Generate random name">&#127922;</button>
+            <button type="button" class="dice-btn" onclick="fillRandomLeagueName('leagueName')" th:title="#{leagues.form.randomname}" title="Generate random name">&#127922;</button>
         </div>
         <span style="color:red" th:if="${#fields.hasErrors('leagueName')}" th:errors="*{leagueName}"></span>
     </div>
@@ -49,47 +49,47 @@
     <div th:replace="~{fragments/schedule-picker :: picker(${leagueWizardForm.format})}"></div>
 
     <div th:unless="${#lists.isEmpty(existingTeams)}" style="margin-top:16px;">
-        <label>Selected existing teams (<span th:text="${existingTeams.size()}"></span>)</label>
+        <label><span th:text="#{leagues.wizard.selectedexisting}">Selected existing teams</span> (<span th:text="${existingTeams.size()}"></span>)</label>
         <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.4rem">
             <span class="wizard-existing-chip" th:each="team : ${existingTeams}"
-                  th:text="${team.name} + ' (' + ${team.city} + ') · ' + ${team.playerCount} + ' players'"></span>
+                  th:text="${team.name} + ' (' + ${team.city} + ') · ' + ${team.playerCount} + ' ' + #{leagues.form.players}"></span>
         </div>
     </div>
 
     <div style="margin-top:24px;" th:unless="${#lists.isEmpty(leagueWizardForm.newTeams)}">
-        <label>New teams to create (<span th:text="${leagueWizardForm.newTeams.size()}"></span>)</label>
-        <p class="field-hint" style="margin:0.2rem 0 0.6rem">Tap a team to expand it. Use the dice to fill names fast, or type your own.</p>
+        <label><span th:text="#{leagues.wizard.newteamscreate}">New teams to create</span> (<span th:text="${leagueWizardForm.newTeams.size()}"></span>)</label>
+        <p class="field-hint" style="margin:0.2rem 0 0.6rem" th:text="#{leagues.wizard.tapteam}">Tap a team to expand it. Use the dice to fill names fast, or type your own.</p>
 
         <details class="wizard-team-block" th:each="block, blockStat : *{newTeams}"
                   th:attr="data-index=${blockStat.index},open=${(blockStat.index == 0 or #fields.hasErrors('newTeams[__${blockStat.index}__].*')) ? 'open' : null}">
 
             <summary class="wizard-team-summary">
-                <span>Team <span th:text="${existingTeams.size() + blockStat.index + 1}"></span></span>
-                <span class="wizard-squad-count">6 players</span>
+                <span><span th:text="#{leagues.wizard.team}">Team</span> <span th:text="${existingTeams.size() + blockStat.index + 1}"></span></span>
+                <span class="wizard-squad-count" th:text="'6 ' + #{leagues.form.players}">6 players</span>
             </summary>
 
             <div class="wizard-team-body">
                 <div style="display:flex;gap:16px;flex-wrap:wrap;">
                     <div>
-                        <label th:for="|newTeams${blockStat.index}.name|">Name</label>
+                        <label th:for="|newTeams${blockStat.index}.name|" th:text="#{common.name}">Name</label>
                         <div class="input-row">
                             <input type="text" th:id="|newTeams${blockStat.index}.name|"
                                    th:field="*{newTeams[__${blockStat.index}__].name}"/>
                             <button type="button" class="dice-btn"
                                     th:onclick="|fillRandomTeamName('newTeams${blockStat.index}.name')|"
-                                    title="Generate random name">&#127922;</button>
+                                    th:title="#{leagues.form.randomname}" title="Generate random name">&#127922;</button>
                         </div>
                         <span style="color:red" th:if="${#fields.hasErrors('newTeams[__${blockStat.index}__].name')}"
                               th:errors="*{newTeams[__${blockStat.index}__].name}"></span>
                     </div>
                     <div>
-                        <label th:for="|newTeams${blockStat.index}.city|">City</label>
+                        <label th:for="|newTeams${blockStat.index}.city|" th:text="#{leagues.wizard.city}">City</label>
                         <div class="input-row">
                             <input type="text" th:id="|newTeams${blockStat.index}.city|"
                                    th:field="*{newTeams[__${blockStat.index}__].city}"/>
                             <button type="button" class="dice-btn"
                                     th:onclick="|fillRandomCity('newTeams${blockStat.index}.city')|"
-                                    title="Generate random city">&#127922;</button>
+                                    th:title="#{leagues.wizard.randomcity}" title="Generate random city">&#127922;</button>
                         </div>
                         <span style="color:red" th:if="${#fields.hasErrors('newTeams[__${blockStat.index}__].city')}"
                               th:errors="*{newTeams[__${blockStat.index}__].city}"></span>
@@ -97,14 +97,14 @@
                 </div>
 
                 <div style="margin-top:10px">
-                    <label>Squad <span class="field-hint" style="display:inline">(minimum 6, maximum 12 players)</span></label>
+                    <label th:text="#{leagues.wizard.squad}">Squad</label> <span class="field-hint" style="display:inline" th:text="#{leagues.wizard.squad.hint}">(minimum 6, maximum 12 players)</span>
                     <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;margin:0.3rem 0 0.6rem">
-                        <button type="button" class="btn-add" onclick="setSquadSizeIn(this.closest('.wizard-team-block'), 12)">&#127922; 12 players</button>
-                        <button type="button" class="btn-add" onclick="setSquadSizeIn(this.closest('.wizard-team-block'), 9)">&#127922; 9 players</button>
-                        <button type="button" class="btn-add" onclick="setSquadSizeIn(this.closest('.wizard-team-block'), 6)">&#127922; 6 players</button>
-                        <button type="button" class="btn-goal wizard-grow-btn" onclick="growSquadIn(this.closest('.wizard-team-block'))">&#43; 1 player</button>
-                        <button type="button" class="btn-del wizard-shrink-btn" onclick="shrinkSquadIn(this.closest('.wizard-team-block'))">&#8722; 1 player</button>
-                        <button type="button" class="btn-edit" onclick="clearSquadIn(this.closest('.wizard-team-block'))">Clear all</button>
+                        <button type="button" class="btn-add" onclick="setSquadSizeIn(this.closest('.wizard-team-block'), 12)" th:text="'&#127922; 12 ' + #{leagues.form.players}">&#127922; 12 players</button>
+                        <button type="button" class="btn-add" onclick="setSquadSizeIn(this.closest('.wizard-team-block'), 9)" th:text="'&#127922; 9 ' + #{leagues.form.players}">&#127922; 9 players</button>
+                        <button type="button" class="btn-add" onclick="setSquadSizeIn(this.closest('.wizard-team-block'), 6)" th:text="'&#127922; 6 ' + #{leagues.form.players}">&#127922; 6 players</button>
+                        <button type="button" class="btn-goal wizard-grow-btn" onclick="growSquadIn(this.closest('.wizard-team-block'))" th:text="'&#43; 1 ' + #{leagues.wizard.player}">&#43; 1 player</button>
+                        <button type="button" class="btn-del wizard-shrink-btn" onclick="shrinkSquadIn(this.closest('.wizard-team-block'))" th:text="'&#8722; 1 ' + #{leagues.wizard.player}">&#8722; 1 player</button>
+                        <button type="button" class="btn-edit" onclick="clearSquadIn(this.closest('.wizard-team-block'))" th:text="#{leagues.wizard.clearall}">Clear all</button>
                     </div>
 
                     <div class="table-wrapper">
@@ -112,9 +112,9 @@
                         <thead>
                         <tr>
                             <th>#</th>
-                            <th>Shirt no.</th>
-                            <th>First name</th>
-                            <th>Last name</th>
+                            <th th:text="#{players.shirtno}">Shirt no.</th>
+                            <th th:text="#{players.firstname}">First name</th>
+                            <th th:text="#{players.lastname}">Last name</th>
                         </tr>
                         </thead>
                         <tbody>
@@ -152,8 +152,8 @@
     </div>
 
     <div class="wizard-actions">
-        <button type="submit">&#10003; Create league</button>
-        <a th:href="@{/leagues/wizard}" class="btn-outline">&#8592; Start over</a>
+        <button type="submit" th:text="'&#10003; ' + #{leagues.form.createleague}">&#10003; Create league</button>
+        <a th:href="@{/leagues/wizard}" class="btn-outline" th:text="'&#8592; ' + #{leagues.wizard.startover}">&#8592; Start over</a>
     </div>
 </form>
 </main>
@@ -172,16 +172,16 @@ document.querySelectorAll('.wizard-team-block').forEach(function (block) {
 </script>
 <div id="lcModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:900;align-items:center;justify-content:center;">
     <div style="background:#ffffff;border-radius:14px;padding:1.75rem 2rem;max-width:420px;width:92%;box-shadow:0 8px 40px rgba(0,0,0,0.3);color:#111;">
-        <h2 style="margin:0 0 1.1rem;font-size:1.15rem;font-weight:700;color:#111;">Confirm league creation</h2>
+        <h2 style="margin:0 0 1.1rem;font-size:1.15rem;font-weight:700;color:#111;" th:text="#{leagues.form.confirmtitle}">Confirm league creation</h2>
         <table style="width:100%;border-collapse:collapse;font-size:0.93rem;margin-bottom:1.4rem;">
-            <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;">Name</td><td id="lcmName" style="font-weight:600;color:#111;"></td></tr>
-            <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;">Round 1 date</td><td id="lcmDate" style="font-weight:600;color:#111;"></td></tr>
-            <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;">First kick-off</td><td id="lcmTime" style="font-weight:600;color:#111;"></td></tr>
-            <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;">Last kick-off (every round)</td><td id="lcmLast" style="font-weight:600;color:#111;"></td></tr>
+            <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;" th:text="#{common.name}">Name</td><td id="lcmName" style="font-weight:600;color:#111;"></td></tr>
+            <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;" th:text="#{schedule.round1date}">Round 1 date</td><td id="lcmDate" style="font-weight:600;color:#111;"></td></tr>
+            <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;" th:text="#{leagues.form.firstkickoff}">First kick-off</td><td id="lcmTime" style="font-weight:600;color:#111;"></td></tr>
+            <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;" th:text="#{leagues.form.lastkickoff}">Last kick-off (every round)</td><td id="lcmLast" style="font-weight:600;color:#111;"></td></tr>
         </table>
         <div style="display:flex;gap:0.75rem;justify-content:flex-end;">
-            <button type="button" id="lcmCancel" style="margin:0;background:transparent;border:2px solid #ccc;color:#333;border-radius:999px;padding:0.55rem 1.2rem;font-weight:600;cursor:pointer;">Cancel</button>
-            <button type="button" id="lcmConfirm" style="margin:0;">Create league</button>
+            <button type="button" id="lcmCancel" style="margin:0;background:transparent;border:2px solid #ccc;color:#333;border-radius:999px;padding:0.55rem 1.2rem;font-weight:600;cursor:pointer;" th:text="#{common.cancel}">Cancel</button>
+            <button type="button" id="lcmConfirm" style="margin:0;" th:text="#{leagues.form.createleague}">Create league</button>
         </div>
     </div>
 </div>

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My proposals</title>
+    <title th:text="#{nav.myproposals}">My proposals</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"/>
@@ -15,48 +15,48 @@
 
 <main class="page">
 <div th:replace="~{fragments/topbar :: messages}"></div>
-<h1>&#128221; My proposals</h1>
+<h1 th:text="'&#128221; ' + #{nav.myproposals}">&#128221; My proposals</h1>
 
 <div class="cr-status-tabs">
     <a th:href="@{/my-change-requests(type=${selectedType})}" th:classappend="${selectedStatus == 'ALL'} ? ' active' : ''">
-        All <span class="cr-tab-count" th:text="${totalCount}"></span>
+        <span th:text="#{mycr.all}">All</span> <span class="cr-tab-count" th:text="${totalCount}"></span>
     </a>
     <a th:href="@{/my-change-requests(status='PENDING', type=${selectedType})}" th:classappend="${selectedStatus == 'PENDING'} ? ' active' : ''">
-        Pending <span class="cr-tab-count" th:text="${pendingCount}"></span>
+        <span th:text="#{mycr.pending}">Pending</span> <span class="cr-tab-count" th:text="${pendingCount}"></span>
     </a>
     <a th:href="@{/my-change-requests(status='REJECTED', type=${selectedType})}" th:classappend="${selectedStatus == 'REJECTED'} ? ' active' : ''">
-        Rejected <span class="cr-tab-count" th:text="${rejectedCount}"></span>
+        <span th:text="#{mycr.rejected}">Rejected</span> <span class="cr-tab-count" th:text="${rejectedCount}"></span>
     </a>
     <a th:href="@{/my-change-requests(status='APPROVED', type=${selectedType})}" th:classappend="${selectedStatus == 'APPROVED'} ? ' active' : ''">
-        Approved <span class="cr-tab-count" th:text="${approvedCount}"></span>
+        <span th:text="#{mycr.approved}">Approved</span> <span class="cr-tab-count" th:text="${approvedCount}"></span>
     </a>
 </div>
 
 <form method="get" th:action="@{/my-change-requests}" style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;">
     <input type="hidden" name="status" th:value="${selectedStatus}"/>
-    <span class="ls-filter-label">Type</span>
+    <span class="ls-filter-label" th:text="#{mycr.type}">Type</span>
     <select name="type" class="ls-filter-select" onchange="this.form.submit()">
-        <option value="ALL" th:selected="${selectedType == 'ALL'}">All types</option>
-        <option value="LEAGUE" th:selected="${selectedType == 'LEAGUE'}">&#127942; League</option>
-        <option value="TEAM" th:selected="${selectedType == 'TEAM'}">&#128737; Team</option>
-        <option value="PLAYER" th:selected="${selectedType == 'PLAYER'}">&#129489; Player</option>
-        <option value="MATCH" th:selected="${selectedType == 'MATCH'}">&#9917; Match</option>
-        <option value="TEAM_SQUAD" th:selected="${selectedType == 'TEAM_SQUAD'}">&#128101; Team &amp; squad</option>
+        <option value="ALL" th:selected="${selectedType == 'ALL'}" th:text="#{mycr.alltypes}">All types</option>
+        <option value="LEAGUE" th:selected="${selectedType == 'LEAGUE'}" th:text="'&#127942; ' + #{nav.leagues.singular}">&#127942; League</option>
+        <option value="TEAM" th:selected="${selectedType == 'TEAM'}" th:text="'&#128737; ' + #{teams.singular}">&#128737; Team</option>
+        <option value="PLAYER" th:selected="${selectedType == 'PLAYER'}" th:text="'&#129489; ' + #{players.singular}">&#129489; Player</option>
+        <option value="MATCH" th:selected="${selectedType == 'MATCH'}" th:text="'&#9917; ' + #{matches.singular}">&#9917; Match</option>
+        <option value="TEAM_SQUAD" th:selected="${selectedType == 'TEAM_SQUAD'}" th:text="'&#128101; ' + #{admin.cr.teamsquad}">&#128101; Team &amp; squad</option>
     </select>
 </form>
 
-<p th:if="${#lists.isEmpty(changeRequests)}">No proposals in this category yet.</p>
+<p th:if="${#lists.isEmpty(changeRequests)}" th:text="#{mycr.none}">No proposals in this category yet.</p>
 
 <div class="cr-list" th:unless="${#lists.isEmpty(changeRequests)}">
     <div class="cr-card" th:each="cr : ${changeRequests}">
         <div class="cr-card-header">
             <span class="badge badge-entity">
                 <span th:switch="${cr.entityType.name()}">
-                    <span th:case="'LEAGUE'">&#127942; League</span>
-                    <span th:case="'TEAM'">&#128737; Team</span>
-                    <span th:case="'PLAYER'">&#129489; Player</span>
-                    <span th:case="'MATCH'">&#9917; Match</span>
-                    <span th:case="'TEAM_SQUAD'">&#128101; Team &amp; squad</span>
+                    <span th:case="'LEAGUE'" th:text="'&#127942; ' + #{nav.leagues.singular}">&#127942; League</span>
+                    <span th:case="'TEAM'" th:text="'&#128737; ' + #{teams.singular}">&#128737; Team</span>
+                    <span th:case="'PLAYER'" th:text="'&#129489; ' + #{players.singular}">&#129489; Player</span>
+                    <span th:case="'MATCH'" th:text="'&#9917; ' + #{matches.singular}">&#9917; Match</span>
+                    <span th:case="'TEAM_SQUAD'" th:text="'&#128101; ' + #{admin.cr.teamsquad}">&#128101; Team &amp; squad</span>
                 </span>
             </span>
             <span class="badge"
@@ -66,7 +66,7 @@
                   th:classappend="${cr.status.name() == 'APPROVED'} ? 'badge-create' : (${cr.status.name() == 'PENDING'} ? 'badge-update' : 'badge-delete')"
                   th:text="${cr.status}"></span>
             <span class="cr-meta">
-                Submitted on <span th:text="${#temporals.format(cr.requestedAt, 'dd MMM yyyy, HH:mm')}"></span>
+                <span th:text="#{mycr.submittedon}">Submitted on</span> <span th:text="${#temporals.format(cr.requestedAt, 'dd MMM yyyy, HH:mm')}"></span>
             </span>
         </div>
 
@@ -82,45 +82,45 @@
 
         <p th:if="${cr.status.name() == 'REJECTED' and cr.rejectionReason != null and !cr.rejectionReason.isBlank()}"
            class="error-message">
-            Reason: <span th:text="${cr.rejectionReason}"></span>
+            <span th:text="#{mycr.reason}">Reason:</span> <span th:text="${cr.rejectionReason}"></span>
         </p>
 
         <div class="cr-actions" th:if="${cr.status.name() == 'PENDING'}">
             <span th:if="${cr.action.name() != 'DELETE'}">
                 <span th:if="${cr.action.name() == 'CREATE'}" th:switch="${cr.entityType.name()}">
-                    <a th:case="'LEAGUE'" th:href="@{/leagues/form(fromRequest=${cr.id})}" class="btn-edit">Edit</a>
-                    <a th:case="'TEAM'" th:href="@{/teams/form(fromRequest=${cr.id})}" class="btn-edit">Edit</a>
-                    <a th:case="'TEAM_SQUAD'" th:href="@{/teams/form(fromRequest=${cr.id})}" class="btn-edit">Edit</a>
-                    <a th:case="'PLAYER'" th:href="@{/players/form(fromRequest=${cr.id})}" class="btn-edit">Edit</a>
-                    <a th:case="'MATCH'" th:href="@{/matches/form(fromRequest=${cr.id})}" class="btn-edit">Edit</a>
-                    <a th:case="'LEAGUE_BUNDLE'" th:href="@{/leagues/wizard/edit(fromRequest=${cr.id})}" class="btn-edit">Edit</a>
+                    <a th:case="'LEAGUE'" th:href="@{/leagues/form(fromRequest=${cr.id})}" class="btn-edit" th:text="#{common.edit}">Edit</a>
+                    <a th:case="'TEAM'" th:href="@{/teams/form(fromRequest=${cr.id})}" class="btn-edit" th:text="#{common.edit}">Edit</a>
+                    <a th:case="'TEAM_SQUAD'" th:href="@{/teams/form(fromRequest=${cr.id})}" class="btn-edit" th:text="#{common.edit}">Edit</a>
+                    <a th:case="'PLAYER'" th:href="@{/players/form(fromRequest=${cr.id})}" class="btn-edit" th:text="#{common.edit}">Edit</a>
+                    <a th:case="'MATCH'" th:href="@{/matches/form(fromRequest=${cr.id})}" class="btn-edit" th:text="#{common.edit}">Edit</a>
+                    <a th:case="'LEAGUE_BUNDLE'" th:href="@{/leagues/wizard/edit(fromRequest=${cr.id})}" class="btn-edit" th:text="#{common.edit}">Edit</a>
                 </span>
                 <span th:if="${cr.action.name() == 'UPDATE'}" th:switch="${cr.entityType.name()}">
-                    <a th:case="'LEAGUE'" th:href="@{/leagues/{id}/form(id=${cr.targetId},fromRequest=${cr.id})}" class="btn-edit">Edit</a>
-                    <a th:case="'TEAM'" th:href="@{/teams/{id}/form(id=${cr.targetId},fromRequest=${cr.id})}" class="btn-edit">Edit</a>
-                    <a th:case="'PLAYER'" th:href="@{/players/{id}/form(id=${cr.targetId},fromRequest=${cr.id})}" class="btn-edit">Edit</a>
-                    <a th:case="'MATCH'" th:href="@{/matches/{id}/form(id=${cr.targetId},fromRequest=${cr.id})}" class="btn-edit">Edit</a>
+                    <a th:case="'LEAGUE'" th:href="@{/leagues/{id}/form(id=${cr.targetId},fromRequest=${cr.id})}" class="btn-edit" th:text="#{common.edit}">Edit</a>
+                    <a th:case="'TEAM'" th:href="@{/teams/{id}/form(id=${cr.targetId},fromRequest=${cr.id})}" class="btn-edit" th:text="#{common.edit}">Edit</a>
+                    <a th:case="'PLAYER'" th:href="@{/players/{id}/form(id=${cr.targetId},fromRequest=${cr.id})}" class="btn-edit" th:text="#{common.edit}">Edit</a>
+                    <a th:case="'MATCH'" th:href="@{/matches/{id}/form(id=${cr.targetId},fromRequest=${cr.id})}" class="btn-edit" th:text="#{common.edit}">Edit</a>
                 </span>
             </span>
             <form th:action="@{/my-change-requests/{id}(id=${cr.id})}" th:method="delete" style="display:inline">
-                <button type="submit" class="btn-del">Cancel request</button>
+                <button type="submit" class="btn-del" th:text="#{mycr.cancelrequest}">Cancel request</button>
             </form>
         </div>
 
         <div class="cr-actions" th:if="${cr.status.name() == 'REJECTED' and cr.action.name() != 'DELETE'}">
             <span th:if="${cr.action.name() == 'CREATE'}" th:switch="${cr.entityType.name()}">
-                <a th:case="'LEAGUE'" th:href="@{/leagues/form(fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
-                <a th:case="'TEAM'" th:href="@{/teams/form(fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
-                <a th:case="'TEAM_SQUAD'" th:href="@{/teams/form(fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
-                <a th:case="'PLAYER'" th:href="@{/players/form(fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
-                <a th:case="'MATCH'" th:href="@{/matches/form(fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
-                <a th:case="'LEAGUE_BUNDLE'" th:href="@{/leagues/wizard/edit(fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
+                <a th:case="'LEAGUE'" th:href="@{/leagues/form(fromRequest=${cr.id})}" class="btn-approve" th:text="#{mycr.resubmit}">Resubmit</a>
+                <a th:case="'TEAM'" th:href="@{/teams/form(fromRequest=${cr.id})}" class="btn-approve" th:text="#{mycr.resubmit}">Resubmit</a>
+                <a th:case="'TEAM_SQUAD'" th:href="@{/teams/form(fromRequest=${cr.id})}" class="btn-approve" th:text="#{mycr.resubmit}">Resubmit</a>
+                <a th:case="'PLAYER'" th:href="@{/players/form(fromRequest=${cr.id})}" class="btn-approve" th:text="#{mycr.resubmit}">Resubmit</a>
+                <a th:case="'MATCH'" th:href="@{/matches/form(fromRequest=${cr.id})}" class="btn-approve" th:text="#{mycr.resubmit}">Resubmit</a>
+                <a th:case="'LEAGUE_BUNDLE'" th:href="@{/leagues/wizard/edit(fromRequest=${cr.id})}" class="btn-approve" th:text="#{mycr.resubmit}">Resubmit</a>
             </span>
             <span th:if="${cr.action.name() == 'UPDATE'}" th:switch="${cr.entityType.name()}">
-                <a th:case="'LEAGUE'" th:href="@{/leagues/{id}/form(id=${cr.targetId},fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
-                <a th:case="'TEAM'" th:href="@{/teams/{id}/form(id=${cr.targetId},fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
-                <a th:case="'PLAYER'" th:href="@{/players/{id}/form(id=${cr.targetId},fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
-                <a th:case="'MATCH'" th:href="@{/matches/{id}/form(id=${cr.targetId},fromRequest=${cr.id})}" class="btn-approve">Resubmit</a>
+                <a th:case="'LEAGUE'" th:href="@{/leagues/{id}/form(id=${cr.targetId},fromRequest=${cr.id})}" class="btn-approve" th:text="#{mycr.resubmit}">Resubmit</a>
+                <a th:case="'TEAM'" th:href="@{/teams/{id}/form(id=${cr.targetId},fromRequest=${cr.id})}" class="btn-approve" th:text="#{mycr.resubmit}">Resubmit</a>
+                <a th:case="'PLAYER'" th:href="@{/players/{id}/form(id=${cr.targetId},fromRequest=${cr.id})}" class="btn-approve" th:text="#{mycr.resubmit}">Resubmit</a>
+                <a th:case="'MATCH'" th:href="@{/matches/{id}/form(id=${cr.targetId},fromRequest=${cr.id})}" class="btn-approve" th:text="#{mycr.resubmit}">Resubmit</a>
             </span>
         </div>
     </div>
@@ -129,7 +129,7 @@
 <div th:if="${totalPages > 1}" class="pagination-bar">
     <a th:if="${currentPage > 0}"
        th:href="@{/my-change-requests(status=${selectedStatus},type=${selectedType},page=${currentPage - 1})}"
-       class="page-btn">&lsaquo; Prev</a>
+       class="page-btn" th:text="'&lsaquo; ' + #{admin.users.prev}">&lsaquo; Prev</a>
     <span th:each="p : ${pageNumbers}">
         <span th:if="${p == -1}" class="page-ellipsis">&#8230;</span>
         <a th:if="${p != -1 and p != currentPage}"
@@ -140,8 +140,8 @@
     </span>
     <a th:if="${currentPage < totalPages - 1}"
        th:href="@{/my-change-requests(status=${selectedStatus},type=${selectedType},page=${currentPage + 1})}"
-       class="page-btn">Next &rsaquo;</a>
-    <span style="font-size:0.82rem;color:var(--muted);" th:text="'(' + ${filteredCount} + ' total)'"></span>
+       class="page-btn" th:text="#{admin.users.next} + ' &rsaquo;'">Next &rsaquo;</a>
+    <span style="font-size:0.82rem;color:var(--muted);" th:text="'(' + ${filteredCount} + ' ' + #{mycr.total} + ')'"></span>
 </div>
 
 </main>

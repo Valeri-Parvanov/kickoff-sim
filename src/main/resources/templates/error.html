@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Error</title>
+    <title th:text="#{error.title}">Error</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"/>
@@ -18,19 +18,19 @@
     <div class="error-code" th:if="${status != null}" th:text="${status}"></div>
 
     <h1 th:if="${errorTitle != null}" th:text="${errorTitle}"></h1>
-    <h1 th:if="${errorTitle == null and status == 404}">&#128269; Page not found</h1>
-    <h1 th:if="${errorTitle == null and status != 404}">Something went wrong</h1>
+    <h1 th:if="${errorTitle == null and status == 404}" th:text="'&#128269; ' + #{error.notfound}">&#128269; Page not found</h1>
+    <h1 th:if="${errorTitle == null and status != 404}" th:text="#{error.wentwrong}">Something went wrong</h1>
 
     <p class="error-desc" th:if="${errorMessage != null}" th:text="${errorMessage}"></p>
     <p class="error-desc" th:if="${errorMessage == null and status == 404}">
-        The page <strong th:text="${path}"></strong> does not exist.
+        <span th:text="#{error.pageprefix}">The page</span> <strong th:text="${path}"></strong> <span th:text="#{error.doesnotexist}">does not exist.</span>
     </p>
 
     <div class="error-nav">
-        <a href="/" class="btn-add">&#127968; Home</a>
-        <a th:href="@{/leagues}" class="btn-edit">Leagues</a>
-        <a th:href="@{/teams}" class="btn-edit">Teams</a>
-        <a th:href="@{/matches}" class="btn-edit">Matches</a>
+        <a href="/" class="btn-add" th:text="'&#127968; ' + #{error.home}">&#127968; Home</a>
+        <a th:href="@{/leagues}" class="btn-edit" th:text="#{nav.leagues}">Leagues</a>
+        <a th:href="@{/teams}" class="btn-edit" th:text="#{nav.teams}">Teams</a>
+        <a th:href="@{/matches}" class="btn-edit" th:text="#{nav.matches}">Matches</a>
     </div>
 </div>
 

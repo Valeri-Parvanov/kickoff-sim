@@ -1,6 +1,7 @@
 package com.kickoffsim.controller;
 
 import com.kickoffsim.service.ChangeRequestService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -12,6 +13,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -92,5 +94,13 @@ class GlobalModelAttributesTest {
         when(auth.isAuthenticated()).thenReturn(false);
 
         assertNull(globalModelAttributes.myPendingCount(auth));
+    }
+
+    @Test
+    void currentPath_returnsRequestUri() {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getRequestURI()).thenReturn("/leagues/123");
+
+        assertThat(globalModelAttributes.currentPath(request)).isEqualTo("/leagues/123");
     }
 }

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Edit Goal</title>
+    <title th:text="#{goals.edit.title}">Edit Goal</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"/>
@@ -13,7 +13,7 @@
 <div th:replace="~{fragments/topbar :: topbar}"></div>
 
 <main class="page">
-<h1>&#9917; Edit Goal</h1>
+<h1 th:text="'&#9917; ' + #{goals.edit.title}">&#9917; Edit Goal</h1>
 
 <div class="goal-match-banner">
     <span class="goal-team" th:text="${match.homeTeamName}"></span>
@@ -30,9 +30,9 @@
     <input type="hidden" th:field="*{ownGoal}"/>
 
     <div>
-        <label for="scorerId">Scorer</label>
+        <label for="scorerId" th:text="#{goals.scorer}">Scorer</label>
         <select id="scorerId" th:field="*{scorerId}">
-            <option value="">-- select scorer --</option>
+            <option value="" th:text="#{goals.selectscorer}">-- select scorer --</option>
             <optgroup th:label="${match.homeTeamName}" data-team="home">
                 <option th:each="p : ${homePlayers}"
                         th:value="${p.id}" data-team="home"
@@ -48,9 +48,9 @@
     </div>
 
     <div id="assistWrap">
-        <label for="assistantId">Assist <span class="field-hint" style="display:inline">(optional, same team as scorer)</span></label>
+        <label for="assistantId" th:text="#{goals.assist}">Assist</label> <span class="field-hint" style="display:inline" th:text="#{goals.assist.hint}">(optional, same team as scorer)</span>
         <select id="assistantId" th:field="*{assistantId}">
-            <option value="">-- no assist --</option>
+            <option value="" th:text="#{goals.noassist}">-- no assist --</option>
             <optgroup th:label="${match.homeTeamName}" data-team="home">
                 <option th:each="p : ${homePlayers}"
                         th:value="${p.id}" data-team="home"
@@ -67,14 +67,14 @@
     <div class="goal-flags">
         <label class="goal-flag-label">
             <input type="checkbox" th:field="*{penalty}"/>
-            Penalty (дузпа)
+            <span th:text="#{goals.penalty}">Penalty (дузпа)</span>
         </label>
     </div>
 
-    <button type="submit">Save Changes</button>
+    <button type="submit" th:text="#{goals.savechanges}">Save Changes</button>
 </form>
 
-<p><a th:href="@{/matches}" class="back-link">&#8592; Back to matches</a></p>
+<p><a th:href="@{/matches}" class="back-link" th:text="'&#8592; ' + #{matches.backtomatches}">&#8592; Back to matches</a></p>
 </main>
 <script th:src="@{/js/goal-assist.js}"></script>
 </body>

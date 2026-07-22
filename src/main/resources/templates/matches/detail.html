@@ -18,12 +18,12 @@
 <div class="match-detail-wrap">
 
     <div class="match-detail-nav">
-        <a th:href="@{/matches}" class="back-link">&#8592; All matches</a>
+        <a th:href="@{/matches}" class="back-link" th:text="'&#8592; ' + #{matches.allmatches}">&#8592; All matches</a>
         <div class="match-detail-tags">
                 <a class="match-league-tag" th:if="${match.leagueName}"
                th:href="@{/leagues/{id}(id=${match.leagueId})}"
                th:text="${match.leagueName}"></a>
-            <span class="match-round-tag" th:if="${match.roundNumber != null}" th:text="'Round ' + ${match.roundNumber}"></span>
+            <span class="match-round-tag" th:if="${match.roundNumber != null}" th:text="#{matches.round} + ' ' + ${match.roundNumber}"></span>
         </div>
     </div>
 
@@ -38,7 +38,7 @@
             <div class="score-block" th:if="${match.playedAt.isBefore(now) and match.playedAt.isAfter(liveThreshold)}"
                  th:attr="data-elapsed=${liveMatchForJs['elapsedMin']},data-match-id=${match.id}">
                 <div class="ls-score-main"><span class="ls-h">-</span>&thinsp;:&thinsp;<span class="ls-a">-</span></div>
-                <div class="live-badge">LIVE</div>
+                <div class="live-badge" th:text="#{matches.live}">LIVE</div>
                 <div class="live-minute"></div>
             </div>
             <div class="score-block" th:unless="${match.playedAt.isBefore(now) and match.playedAt.isAfter(liveThreshold)}">
@@ -46,7 +46,7 @@
                      th:text="${match.homeScore != null ? match.homeScore : '-'} + ' : ' + ${match.awayScore != null ? match.awayScore : '-'}"></div>
                 <div class="score-ht"
                      th:if="${match.homeHalfScore != null}"
-                     th:text="'HT ' + ${match.homeHalfScore} + ' – ' + ${match.awayHalfScore}"></div>
+                     th:text="#{matches.ht} + ' ' + ${match.homeHalfScore} + ' – ' + ${match.awayHalfScore}"></div>
             </div>
             <span class="team-name away" th:text="${match.awayTeamName}"></span>
         </div>
@@ -55,7 +55,7 @@
             <th:block th:each="g : ${match.goalTimeline}">
 
                 <div class="half-label" th:if="${g.firstInHalf}" th:attr="data-half=${g.half.name()}">
-                    <span th:text="${g.half.name() == 'FIRST' ? '1st Half' : '2nd Half'}"></span>
+                    <span th:text="${g.half.name() == 'FIRST'} ? #{matches.half1} : #{matches.half2}"></span>
                     <span class="half-score" th:if="${g.half.name() == 'FIRST'}"
                           th:text="${match.homeHalfScore} + ':' + ${match.awayHalfScore}"></span>
                     <span class="half-score" th:unless="${g.half.name() == 'FIRST'}"
@@ -69,8 +69,8 @@
                             <span class="goal-minute" th:if="${g.minute != null}"
                                   th:text="${(g.half.name() == 'FIRST' ? g.minute : g.minute + 20)} + '\'' + ' '"></span>
                             <span class="goal-scorer-name" th:text="${g.scorerName}"></span>
-                            <span class="goal-type-badge og" th:if="${g.ownGoal}">OG</span>
-                            <span class="goal-type-badge pen" th:if="${g.penalty}">pen.</span>
+                            <span class="goal-type-badge og" th:if="${g.ownGoal}" th:text="#{matches.og}">OG</span>
+                            <span class="goal-type-badge pen" th:if="${g.penalty}" th:text="#{matches.pen}">pen.</span>
                             <span class="goal-assist" th:if="${g.assistantName != null}"
                                   th:text="' (' + ${g.assistantName} + ')'"></span>
                             <span class="running-score"
@@ -84,8 +84,8 @@
                             <span class="goal-assist" th:if="${g.assistantName != null}"
                                   th:text="'(' + ${g.assistantName} + ') '"></span>
                             <span class="goal-scorer-name" th:text="${g.scorerName}"></span>
-                            <span class="goal-type-badge og" th:if="${g.ownGoal}">OG</span>
-                            <span class="goal-type-badge pen" th:if="${g.penalty}">pen.</span>
+                            <span class="goal-type-badge og" th:if="${g.ownGoal}" th:text="#{matches.og}">OG</span>
+                            <span class="goal-type-badge pen" th:if="${g.penalty}" th:text="#{matches.pen}">pen.</span>
                             <span class="goal-minute" th:if="${g.minute != null}"
                                   th:text="' ' + ${(g.half.name() == 'FIRST' ? g.minute : g.minute + 20)} + '\''"></span>
                             <span class="goal-icon">&#9917;</span>
@@ -97,7 +97,7 @@
         </div>
 
         <p th:if="${match.goalTimeline.isEmpty() and match.homeScore != null}"
-           class="no-matches" style="margin:0.75rem 0 0;font-size:0.85rem;">
+           class="no-matches" style="margin:0.75rem 0 0;font-size:0.85rem;" th:text="#{matches.nogoalsrecordedmatch}">
             No goals recorded for this match.
         </p>
 
@@ -106,11 +106,11 @@
 
     <div class="match-weather" th:if="${weatherForecast.isPresent()}">
         <span class="weather-icon">&#9925;</span>
-        <span class="weather-label" th:text="'Forecast for ' + ${match.homeTeamCity} + ':'"></span>
+        <span class="weather-label" th:text="#{matches.weather.forecastfor} + ' ' + ${match.homeTeamCity} + ':'"></span>
         <span class="weather-temp"
               th:text="${#numbers.formatDecimal(weatherForecast.get().minTempC,1,1)} + '&#176; / ' + ${#numbers.formatDecimal(weatherForecast.get().maxTempC,1,1)} + '&#176;C'"></span>
         <span class="weather-precip" th:if="${weatherForecast.get().precipitationProbability != null}"
-              th:text="'Rain chance: ' + ${weatherForecast.get().precipitationProbability} + '%'"></span>
+              th:text="#{matches.weather.rainchance} + ' ' + ${weatherForecast.get().precipitationProbability} + '%'"></span>
     </div>
 
 </div>

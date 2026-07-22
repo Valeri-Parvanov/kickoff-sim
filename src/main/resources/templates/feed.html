@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Feed</title>
+    <title th:text="#{nav.myfeed}">My Feed</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"/>
@@ -50,7 +50,11 @@
             display: flex; align-items: center; justify-content: center;
             font-size: 1.3rem; flex-shrink: 0;
         }
-        .feed-card-name { font-weight: 700; font-size: 1rem; color: var(--text); }
+        .feed-card-info { min-width: 0; flex: 1; padding-right: 5.5rem; }
+        .feed-card-name {
+            font-weight: 700; font-size: 1rem; color: var(--text);
+            overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+        }
         .feed-card-sub { font-size: 0.8rem; color: var(--muted); margin-top: 1px; }
         .feed-pills { display: flex; flex-wrap: wrap; gap: 0.4rem; }
         .feed-pill {
@@ -170,51 +174,51 @@
 <main class="page">
 <div th:replace="~{fragments/topbar :: messages}"></div>
 
-<h1 style="margin-bottom:1.2rem;">&#127942; My Feed</h1>
+<h1 style="margin-bottom:1.2rem;" th:text="'&#127942; ' + #{nav.myfeed}">&#127942; My Feed</h1>
 
 <nav class="team-tabs">
     <a class="team-tab" href="#teams">
         <span class="tab-icon">&#128737;</span>
-        <span class="tab-label">My Teams</span>
+        <span class="tab-label" th:text="#{feed.myteams}">My Teams</span>
     </a>
     <a class="team-tab" href="#leagues">
         <span class="tab-icon">&#127942;</span>
-        <span class="tab-label">My Leagues</span>
+        <span class="tab-label" th:text="#{feed.myleagues}">My Leagues</span>
     </a>
     <a class="team-tab" href="#matches">
         <span class="tab-icon">&#9917;</span>
-        <span class="tab-label">My Matches</span>
+        <span class="tab-label" th:text="#{feed.mymatches}">My Matches</span>
     </a>
 </nav>
 
 <!-- ── MY TEAMS ── -->
 <section id="teams" class="team-tab-section">
     <div th:if="${teamViews.isEmpty()}" class="no-feed">
-        Not following any teams yet. Visit a <a th:href="@{/teams}">team page</a> to follow.
+        <span th:text="#{feed.noteams1}">Not following any teams yet. Visit a</span> <a th:href="@{/teams}" th:text="#{feed.teampage}">team page</a> <span th:text="#{feed.tofollow}">to follow.</span>
     </div>
     <div class="feed-grid" th:unless="${teamViews.isEmpty()}">
         <div th:each="t : ${teamViews}" class="feed-card">
             <a th:href="@{/teams/{id}(id=${t.entityId()})}" class="feed-card-link">
                 <div class="feed-card-top">
                     <img th:src="@{/teams/{id}/logo(id=${t.entityId()})}" class="feed-card-logo" alt=""/>
-                    <div>
+                    <div class="feed-card-info">
                         <div class="feed-card-name" th:text="${t.entityName()}"></div>
                         <div class="feed-card-sub" th:if="${t.leagueName() != null}" th:text="${t.leagueName()}"></div>
-                        <div class="feed-card-sub" th:unless="${t.leagueName() != null}">No league</div>
+                        <div class="feed-card-sub" th:unless="${t.leagueName() != null}" th:text="#{feed.noleague}">No league</div>
                     </div>
                 </div>
                 <div class="feed-pills">
                     <span class="feed-pill pos" th:if="${t.standingPosition() != null}"
-                          th:text="'#' + ${t.standingPosition()} + ' in standings'"></span>
+                          th:text="'#' + ${t.standingPosition()} + ' ' + #{feed.instandings}"></span>
                     <span class="feed-pill rem"
-                          th:text="${t.remainingMatches()} + (${t.remainingMatches() == 1} ? ' match left' : ' matches left')"></span>
+                          th:text="${t.remainingMatches()} + (${t.remainingMatches() == 1} ? ' ' + #{feed.matchleft} : ' ' + #{feed.matchesleft})"></span>
                 </div>
             </a>
             <form th:action="@{/notifications/subscriptions/{sid}(sid=${t.subscriptionId()})}"
                   method="post" class="feed-card-unfollow">
                 <input type="hidden" name="_method" value="DELETE"/>
                 <input type="hidden" name="returnUrl" value="/feed#teams"/>
-                <button type="submit">&#10005; Unfollow</button>
+                <button type="submit" th:text="'&#10005; ' + #{feed.unfollow}">&#10005; Unfollow</button>
             </form>
         </div>
     </div>
@@ -223,29 +227,29 @@
 <!-- ── MY LEAGUES ── -->
 <section id="leagues" class="team-tab-section">
     <div th:if="${leagueViews.isEmpty()}" class="no-feed">
-        Not following any leagues yet. Visit a <a th:href="@{/leagues}">league page</a> to follow.
+        <span th:text="#{feed.noleagues1}">Not following any leagues yet. Visit a</span> <a th:href="@{/leagues}" th:text="#{feed.leaguepage}">league page</a> <span th:text="#{feed.tofollow}">to follow.</span>
     </div>
     <div class="feed-grid" th:unless="${leagueViews.isEmpty()}">
         <div th:each="l : ${leagueViews}" class="feed-card">
             <a th:href="@{/leagues/{id}(id=${l.entityId()})}" class="feed-card-link">
                 <div class="feed-card-top">
                     <div class="feed-card-trophy">&#127942;</div>
-                    <div>
+                    <div class="feed-card-info">
                         <div class="feed-card-name" th:text="${l.entityName()}"></div>
-                        <div class="feed-card-sub" th:text="${l.teamCount()} + ' teams'"></div>
+                        <div class="feed-card-sub" th:text="${l.teamCount()} + ' ' + #{feed.teamsword}"></div>
                     </div>
                 </div>
                 <div class="feed-pills">
-                    <span class="feed-pill teams" th:text="${l.teamCount()} + ' teams'"></span>
+                    <span class="feed-pill teams" th:text="${l.teamCount()} + ' ' + #{feed.teamsword}"></span>
                     <span class="feed-pill rem"
-                          th:text="${l.remainingMatches()} + (${l.remainingMatches() == 1} ? ' match left' : ' matches left')"></span>
+                          th:text="${l.remainingMatches()} + (${l.remainingMatches() == 1} ? ' ' + #{feed.matchleft} : ' ' + #{feed.matchesleft})"></span>
                 </div>
             </a>
             <form th:action="@{/notifications/subscriptions/{sid}(sid=${l.subscriptionId()})}"
                   method="post" class="feed-card-unfollow">
                 <input type="hidden" name="_method" value="DELETE"/>
                 <input type="hidden" name="returnUrl" value="/feed#leagues"/>
-                <button type="submit">&#10005; Unfollow</button>
+                <button type="submit" th:text="'&#10005; ' + #{feed.unfollow}">&#10005; Unfollow</button>
             </form>
         </div>
     </div>
@@ -254,7 +258,7 @@
 <!-- ── MY MATCHES ── -->
 <section id="matches" class="team-tab-section">
     <div th:if="${liveMatches.isEmpty() and upcomingMatches.isEmpty() and recentMatches.isEmpty()}" class="no-feed">
-        No matches found for followed teams or starred matches. <a th:href="@{/teams}">Follow a team</a> to see its matches here.
+        <span th:text="#{feed.nomatches1}">No matches found for followed teams or starred matches.</span> <a th:href="@{/teams}" th:text="#{feed.followteam}">Follow a team</a> <span th:text="#{feed.toseematches}">to see its matches here.</span>
     </div>
 
     <div th:unless="${liveMatches.isEmpty() and upcomingMatches.isEmpty() and recentMatches.isEmpty()}">
@@ -262,10 +266,10 @@
         <div class="feed-match-tabs">
             <button th:unless="${liveMatches.isEmpty()}"
                     class="feed-match-tab live-tab" data-sub="feed-live">
-                <span class="feed-live-dot"></span>LIVE
+                <span class="feed-live-dot"></span><span th:text="#{matches.live}">LIVE</span>
             </button>
-            <button class="feed-match-tab" data-sub="feed-results">Results</button>
-            <button class="feed-match-tab" data-sub="feed-upcoming">Upcoming</button>
+            <button class="feed-match-tab" data-sub="feed-results" th:text="#{matches.tab.results}">Results</button>
+            <button class="feed-match-tab" data-sub="feed-upcoming" th:text="#{matches.tab.upcoming}">Upcoming</button>
         </div>
 
         <!-- LIVE -->
@@ -280,7 +284,7 @@
                                 <a class="match-league-tag" th:if="${m.leagueId != null}"
                                    th:href="@{/leagues/{id}(id=${m.leagueId})}" th:text="${m.leagueName}"></a>
                                 <span class="match-round" th:if="${m.roundNumber != null}"
-                                      th:text="'Round ' + ${m.roundNumber}"></span>
+                                      th:text="#{matches.round} + ' ' + ${m.roundNumber}"></span>
                             </span>
                         </div>
                         <div class="match-scoreline">
@@ -293,7 +297,7 @@
                                  th:attr="data-elapsed=${elapsedByMatchId[m.id]},data-match-id=${m.id}">
                                 <div class="score-time" th:attr="data-utc=${m.playedAtUtcIso},data-fmt='datetime-compact'"></div>
                                 <div class="ls-score-main"><span class="ls-h">-</span>&thinsp;:&thinsp;<span class="ls-a">-</span></div>
-                                <div class="live-badge">LIVE</div>
+                                <div class="live-badge" th:text="#{matches.live}">LIVE</div>
                                 <div class="live-minute"></div>
                             </div>
                             <a class="team-name away" th:href="@{/teams/{id}(id=${m.awayTeamId})}">
@@ -305,7 +309,7 @@
                     </summary>
                     <div class="match-card-expand">
                         <p class="match-in-progress"
-                           style="font-size:0.82rem;color:var(--muted);margin:0.4rem 0 0;text-align:center;">Match in progress.</p>
+                           style="font-size:0.82rem;color:var(--muted);margin:0.4rem 0 0;text-align:center;" th:text="#{matches.inprogress}">Match in progress.</p>
                         <div class="goal-timeline" th:if="${!m.goalTimeline.isEmpty()}">
                             <th:block th:each="g : ${m.goalTimeline}">
                                 <div th:replace="~{fragments/topbar :: goalRow(${m}, ${g})}"></div>
@@ -318,7 +322,7 @@
 
         <!-- RESULTS -->
         <div class="feed-sub-section" id="feed-results">
-            <div th:if="${recentMatches.isEmpty()}" class="no-feed" style="padding:0.5rem 0;">No results in the last 14 days.</div>
+            <div th:if="${recentMatches.isEmpty()}" class="no-feed" style="padding:0.5rem 0;" th:text="#{feed.noresults14days}">No results in the last 14 days.</div>
             <div class="match-list" id="feed-results-list" th:unless="${recentMatches.isEmpty()}">
                 <details th:each="m : ${recentMatches}" class="match-card">
                     <summary class="match-card-summary">
@@ -327,7 +331,7 @@
                                 <a class="match-league-tag" th:if="${m.leagueId != null}"
                                    th:href="@{/leagues/{id}(id=${m.leagueId})}" th:text="${m.leagueName}"></a>
                                 <span class="match-round" th:if="${m.roundNumber != null}"
-                                      th:text="'Round ' + ${m.roundNumber}"></span>
+                                      th:text="#{matches.round} + ' ' + ${m.roundNumber}"></span>
                             </span>
                         </div>
                         <div class="match-scoreline">
@@ -355,7 +359,7 @@
                             </th:block>
                         </div>
                         <p th:if="${m.goalTimeline.isEmpty()}"
-                           style="font-size:0.82rem;color:var(--muted);margin:0.4rem 0 0;text-align:center;">No goals recorded.</p>
+                           style="font-size:0.82rem;color:var(--muted);margin:0.4rem 0 0;text-align:center;" th:text="#{matches.nogoalsrecorded}">No goals recorded.</p>
                     </div>
                 </details>
             </div>
@@ -364,7 +368,7 @@
 
         <!-- UPCOMING -->
         <div class="feed-sub-section" id="feed-upcoming">
-            <div th:if="${upcomingMatches.isEmpty()}" class="no-feed" style="padding:0.5rem 0;">No upcoming matches.</div>
+            <div th:if="${upcomingMatches.isEmpty()}" class="no-feed" style="padding:0.5rem 0;" th:text="#{matches.noupcoming}">No upcoming matches.</div>
             <div class="match-list" id="feed-upcoming-list" th:unless="${upcomingMatches.isEmpty()}">
                 <div th:each="m : ${upcomingMatches}" class="match-card upcoming">
                     <div class="match-meta">
@@ -373,7 +377,7 @@
                             <a class="match-league-tag" th:if="${m.leagueId != null}"
                                th:href="@{/leagues/{id}(id=${m.leagueId})}" th:text="${m.leagueName}"></a>
                             <span class="match-round" th:if="${m.roundNumber != null}"
-                                  th:text="'Round ' + ${m.roundNumber}"></span>
+                                  th:text="#{matches.round} + ' ' + ${m.roundNumber}"></span>
                         </span>
                     </div>
                     <div class="match-scoreline">

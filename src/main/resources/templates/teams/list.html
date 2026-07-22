@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Teams</title>
+    <title th:text="#{nav.teams}">Teams</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"/>
@@ -15,24 +15,24 @@
 
 <main class="page">
 <div th:replace="~{fragments/topbar :: messages}"></div>
-<h1>&#128737; Teams</h1>
+<h1 th:text="'&#128737; ' + #{nav.teams}">&#128737; Teams</h1>
 
 <div class="add-new-bar" sec:authorize="isAuthenticated()">
-    <a th:href="@{/teams/form}" class="btn-add">Add new team</a>
+    <a th:href="@{/teams/form}" class="btn-add" th:text="#{teams.addnew}">Add new team</a>
 </div>
 
 <div class="league-ready-banner" th:if="${leagueReadyCount != null}" sec:authorize="isAuthenticated()">
     <div class="league-ready-icon">&#127942;</div>
     <div class="league-ready-body">
-        <div class="league-ready-title">You have enough teams to start a league!</div>
+        <div class="league-ready-title" th:text="#{teams.readytitle}">You have enough teams to start a league!</div>
         <div class="league-ready-sub">
-            <strong th:text="${leagueReadyCount}"></strong> eligible teams available (6+ players each).
-            Valid league sizes: 6, 8, 10 or 16 teams.
+            <strong th:text="${leagueReadyCount}"></strong> <span th:text="#{teams.readysub}">eligible teams available (6+ players each).
+            Valid league sizes: 6, 8, 10 or 16 teams.</span>
         </div>
         <div class="league-ready-actions">
-            <a th:href="@{/leagues/form}" class="league-ready-primary">&#43; Create a League</a>
-            <span class="league-ready-divider">or</span>
-            <span class="league-ready-secondary">continue adding teams</span>
+            <a th:href="@{/leagues/form}" class="league-ready-primary" th:text="'&#43; ' + #{leagues.ready.create}">&#43; Create a League</a>
+            <span class="league-ready-divider" th:text="#{common.or}">or</span>
+            <span class="league-ready-secondary" th:text="#{teams.continueadding}">continue adding teams</span>
         </div>
     </div>
 </div>
@@ -41,11 +41,11 @@
 <table border="1" cellpadding="6">
     <thead>
     <tr>
-        <th th:replace="~{fragments/sortable :: sortTh('/teams', 'name', 'Name')}"></th>
-        <th th:replace="~{fragments/sortable :: sortTh('/teams', 'city', 'City')}"></th>
-        <th th:replace="~{fragments/sortable :: sortTh('/teams', 'league', 'League')}"></th>
-        <th>Players</th>
-        <th sec:authorize="isAuthenticated()">Actions</th>
+        <th th:replace="~{fragments/sortable :: sortTh('/teams', 'name', #{common.name})}"></th>
+        <th th:replace="~{fragments/sortable :: sortTh('/teams', 'city', #{teams.city})}"></th>
+        <th th:replace="~{fragments/sortable :: sortTh('/teams', 'league', #{teams.league})}"></th>
+        <th th:text="#{teams.players}">Players</th>
+        <th sec:authorize="isAuthenticated()" th:text="#{common.actions}">Actions</th>
     </tr>
     </thead>
     <tbody>
@@ -60,13 +60,13 @@
         </td>
         <td th:text="${team.playerCount}"></td>
         <td sec:authorize="isAuthenticated()">
-            <a th:if="${team.leagueId == null}" th:href="@{/teams/{id}/squad(id=${team.id})}">Edit squad</a>
-            <a th:if="${team.leagueId != null and team.playerCount < 12}" th:href="@{/teams/{id}/squad(id=${team.id})}">Add squad</a>
+            <a th:if="${team.leagueId == null}" th:href="@{/teams/{id}/squad(id=${team.id})}" th:text="#{teams.editsquad}">Edit squad</a>
+            <a th:if="${team.leagueId != null and team.playerCount < 12}" th:href="@{/teams/{id}/squad(id=${team.id})}" th:text="#{teams.addsquad}">Add squad</a>
             <span sec:authorize="hasRole('ADMIN')">
                 <span th:if="${team.leagueId == null or team.playerCount < 12}">|</span>
-                <a th:href="@{/teams/{id}/form(id=${team.id})}">Edit</a>
+                <a th:href="@{/teams/{id}/form(id=${team.id})}" th:text="#{common.edit}">Edit</a>
                 <form th:action="@{/teams/{id}(id=${team.id})}" th:method="delete" style="display:inline">
-                    <button type="submit">Delete</button>
+                    <button type="submit" th:text="#{common.delete}">Delete</button>
                 </form>
             </span>
         </td>

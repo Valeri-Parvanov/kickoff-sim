@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pending changes</title>
+    <title th:text="#{nav.pendingchanges}">Pending changes</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"/>
@@ -14,31 +14,31 @@
 <div th:replace="~{fragments/topbar :: topbar}"></div>
 
 <main class="page">
-<h1>&#128203; Pending changes</h1>
+<h1 th:text="'&#128203; ' + #{nav.pendingchanges}">&#128203; Pending changes</h1>
 
 <div th:replace="~{fragments/topbar :: messages}"></div>
 
-<p th:if="${#lists.isEmpty(changeRequests)}">No pending changes.</p>
+<p th:if="${#lists.isEmpty(changeRequests)}" th:text="#{admin.cr.none}">No pending changes.</p>
 
 <div class="cr-list" th:unless="${#lists.isEmpty(changeRequests)}">
     <div class="cr-card" th:each="cr : ${changeRequests}">
         <div class="cr-card-header">
             <span class="badge badge-entity">
                 <span th:switch="${cr.entityType.name()}">
-                    <span th:case="'LEAGUE'">&#127942; League</span>
-                    <span th:case="'TEAM'">&#128737; Team</span>
-                    <span th:case="'PLAYER'">&#129489; Player</span>
-                    <span th:case="'MATCH'">&#9917; Match</span>
-                    <span th:case="'TEAM_SQUAD'">&#128101; Team &amp; squad</span>
-                    <span th:case="'LEAGUE_BUNDLE'">&#127942; League bundle</span>
+                    <span th:case="'LEAGUE'" th:text="'&#127942; ' + #{nav.leagues.singular}">&#127942; League</span>
+                    <span th:case="'TEAM'" th:text="'&#128737; ' + #{teams.singular}">&#128737; Team</span>
+                    <span th:case="'PLAYER'" th:text="'&#129489; ' + #{players.singular}">&#129489; Player</span>
+                    <span th:case="'MATCH'" th:text="'&#9917; ' + #{matches.singular}">&#9917; Match</span>
+                    <span th:case="'TEAM_SQUAD'" th:text="'&#128101; ' + #{admin.cr.teamsquad}">&#128101; Team &amp; squad</span>
+                    <span th:case="'LEAGUE_BUNDLE'" th:text="'&#127942; ' + #{admin.cr.leaguebundle}">&#127942; League bundle</span>
                 </span>
             </span>
             <span class="badge"
                   th:classappend="${cr.action.name() == 'CREATE'} ? 'badge-create' : (${cr.action.name() == 'UPDATE'} ? 'badge-update' : 'badge-delete')"
                   th:text="${cr.action}"></span>
             <span class="cr-meta">
-                Requested by <strong th:text="${cr.requestedByUsername}"></strong>
-                on <span th:text="${#temporals.format(cr.requestedAt, 'dd MMM yyyy, HH:mm')}"></span>
+                <span th:text="#{admin.cr.requestedby}">Requested by</span> <strong th:text="${cr.requestedByUsername}"></strong>
+                <span th:text="#{admin.cr.on}">on</span> <span th:text="${#temporals.format(cr.requestedAt, 'dd MMM yyyy, HH:mm')}"></span>
             </span>
         </div>
 
@@ -54,38 +54,38 @@
 
         <div class="cr-actions">
             <form th:action="@{/admin/change-requests/{id}/approval(id=${cr.id})}" method="post" style="display:inline">
-                <button type="submit" class="btn-approve">Approve</button>
+                <button type="submit" class="btn-approve" th:text="#{admin.cr.approve}">Approve</button>
             </form>
             <form th:action="@{/admin/change-requests/{id}/rejection(id=${cr.id})}" method="post" class="cr-reject-form">
-                <input type="text" name="reason" placeholder="Reason (optional)" class="cr-reason-input"
+                <input type="text" name="reason" th:placeholder="#{admin.cr.reason}" placeholder="Reason (optional)" class="cr-reason-input"
                        th:value="${failedRequestId != null and failedRequestId == cr.id} ? ${suggestedReason} : null"
                        th:attr="list=${'reasons-' + cr.id}"/>
                 <datalist th:id="${'reasons-' + cr.id}" th:switch="${cr.entityType.name()}">
                     <th:block th:case="'LEAGUE'">
-                        <option value="League name already exists"></option>
+                        <option th:value="#{admin.cr.reason.leaguenameexists}" value="League name already exists"></option>
                     </th:block>
                     <th:block th:case="'TEAM'">
-                        <option value="Team name already exists in this league"></option>
-                        <option value="Team belongs to the wrong league"></option>
-                        <option value="City name is invalid or unverifiable"></option>
+                        <option th:value="#{admin.cr.reason.teamnameexists}" value="Team name already exists in this league"></option>
+                        <option th:value="#{admin.cr.reason.wrongleague}" value="Team belongs to the wrong league"></option>
+                        <option th:value="#{admin.cr.reason.invalidcity}" value="City name is invalid or unverifiable"></option>
                     </th:block>
                     <th:block th:case="'PLAYER'">
-                        <option value="Shirt number already taken in this team"></option>
-                        <option value="Squad already has 12 players"></option>
-                        <option value="Player name looks fake or invalid"></option>
+                        <option th:value="#{admin.cr.reason.shirttaken}" value="Shirt number already taken in this team"></option>
+                        <option th:value="#{admin.cr.reason.squadfull}" value="Squad already has 12 players"></option>
+                        <option th:value="#{admin.cr.reason.fakename}" value="Player name looks fake or invalid"></option>
                     </th:block>
                     <th:block th:case="'MATCH'">
-                        <option value="Home and away team must differ"></option>
-                        <option value="Teams must be in the same league"></option>
-                        <option value="Match date/time is invalid"></option>
+                        <option th:value="#{admin.cr.reason.sameteam}" value="Home and away team must differ"></option>
+                        <option th:value="#{admin.cr.reason.diffleague}" value="Teams must be in the same league"></option>
+                        <option th:value="#{admin.cr.reason.invaliddate}" value="Match date/time is invalid"></option>
                     </th:block>
                     <th:block th:case="'LEAGUE_BUNDLE'">
-                        <option value="Duplicate team name in bundle"></option>
-                        <option value="An existing team is no longer eligible"></option>
-                        <option value="League name already exists"></option>
+                        <option th:value="#{admin.cr.reason.dupteamname}" value="Duplicate team name in bundle"></option>
+                        <option th:value="#{admin.cr.reason.notInteligible}" value="An existing team is no longer eligible"></option>
+                        <option th:value="#{admin.cr.reason.leaguenameexists}" value="League name already exists"></option>
                     </th:block>
                 </datalist>
-                <button type="submit" class="btn-reject">Reject</button>
+                <button type="submit" class="btn-reject" th:text="#{admin.cr.reject}">Reject</button>
             </form>
         </div>
     </div>

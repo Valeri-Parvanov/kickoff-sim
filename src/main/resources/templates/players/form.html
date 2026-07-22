@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Player form</title>
+    <title th:text="#{players.form.title}">Player form</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"/>
@@ -14,45 +14,45 @@
 
 <main class="page">
 <div th:replace="~{fragments/topbar :: messages}"></div>
-<h1 th:text="${playerDto.id} ? 'Edit player' : 'Add player'"></h1>
+<h1 th:text="${playerDto.id} ? #{players.form.edit} : #{players.form.add}"></h1>
 
 <form th:action="${playerDto.id} ? @{/players/{id}(id=${playerDto.id},fromRequest=${fromRequest})} : @{/players(fromRequest=${fromRequest})}"
       th:object="${playerDto}" th:method="${playerDto.id} ? 'put' : 'post'" class="card-form">
 
     <div>
-        <label for="firstName">First name</label>
+        <label for="firstName" th:text="#{players.firstname}">First name</label>
         <div class="input-row">
             <input type="text" id="firstName" th:field="*{firstName}"/>
-            <button type="button" class="dice-btn" onclick="fillRandomPlayerName('firstName', 'lastName')" title="Generate random name">&#127922;</button>
+            <button type="button" class="dice-btn" onclick="fillRandomPlayerName('firstName', 'lastName')" th:title="#{leagues.form.randomname}" title="Generate random name">&#127922;</button>
         </div>
         <span style="color:red" th:if="${#fields.hasErrors('firstName')}" th:errors="*{firstName}"></span>
     </div>
 
     <div>
-        <label for="lastName">Last name</label>
+        <label for="lastName" th:text="#{players.lastname}">Last name</label>
         <input type="text" id="lastName" th:field="*{lastName}"/>
         <span style="color:red" th:if="${#fields.hasErrors('lastName')}" th:errors="*{lastName}"></span>
     </div>
 
     <div>
-        <label for="shirtNumber">Shirt number</label>
+        <label for="shirtNumber" th:text="#{players.shirtnumber}">Shirt number</label>
         <input type="number" id="shirtNumber" th:field="*{shirtNumber}"/>
         <span style="color:red" th:if="${#fields.hasErrors('shirtNumber')}" th:errors="*{shirtNumber}"></span>
     </div>
 
     <div>
-        <label for="teamId">Team</label>
+        <label for="teamId" th:text="#{teams.singular}">Team</label>
         <select id="teamId" th:field="*{teamId}">
-            <option value="">-- select team --</option>
+            <option value="" th:text="#{players.form.selectteam}">-- select team --</option>
             <option th:each="team : ${teams}" th:value="${team.id}" th:text="${team.name}"></option>
         </select>
         <span style="color:red" th:if="${#fields.hasErrors('teamId')}" th:errors="*{teamId}"></span>
     </div>
 
-    <button type="submit">Save</button>
+    <button type="submit" th:text="#{common.save}">Save</button>
 </form>
 
-<p><a th:href="${playerDto.teamId != null} ? @{/teams/{id}(id=${playerDto.teamId})} : @{/teams}" class="back-link">&#8592; Back to team</a></p>
+<p><a th:href="${playerDto.teamId != null} ? @{/teams/{id}(id=${playerDto.teamId})} : @{/teams}" class="back-link" th:text="'&#8592; ' + #{players.form.backtoteam}">&#8592; Back to team</a></p>
 </main>
 <script th:src="@{/js/random-names.js}"></script>
 </body>

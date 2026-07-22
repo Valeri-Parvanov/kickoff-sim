@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>League wizard</title>
+    <title th:text="#{leagues.wizard.title}">League wizard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"/>
@@ -14,35 +14,35 @@
 
 <main class="page">
 <div th:replace="~{fragments/topbar :: messages}"></div>
-<h1>&#127942; Create league (wizard)</h1>
+<h1 th:text="'&#127942; ' + #{leagues.wizard.title}">&#127942; Create league (wizard)</h1>
 
 <div class="wizard-steps">
-    <span class="wizard-step active">1<span class="wizard-step-label">Format</span></span>
+    <span class="wizard-step active">1<span class="wizard-step-label" th:text="#{leagues.wizard.step.format}">Format</span></span>
     <span class="wizard-step-sep"></span>
-    <span class="wizard-step">2<span class="wizard-step-label">Teams</span></span>
+    <span class="wizard-step">2<span class="wizard-step-label" th:text="#{leagues.wizard.step.teams}">Teams</span></span>
     <span class="wizard-step-sep"></span>
-    <span class="wizard-step">3<span class="wizard-step-label">Squads</span></span>
+    <span class="wizard-step">3<span class="wizard-step-label" th:text="#{leagues.wizard.step.squads}">Squads</span></span>
 </div>
 
-<p style="color:var(--muted);max-width:640px">
+<p style="color:var(--muted);max-width:640px" th:text="#{leagues.wizard.format.step1}">
     Step 1 of 3: pick how many teams the league should have.
 </p>
 
 <form th:action="@{/leagues/wizard/teams}" method="get" class="card-form" style="max-width:760px">
     <div>
-        <label>League format</label>
+        <label th:text="#{leagues.wizard.format.label}">League format</label>
         <div style="display:flex;gap:0.6rem;flex-wrap:wrap;margin:0.5rem 0 1.1rem">
             <label th:each="f : ${formats}" class="wizard-format-card">
                 <input type="radio" name="format" th:value="${f.teamCount}" required/>
                 <span class="wizard-format-count" th:text="${f.teamCount}"></span>
-                <span class="wizard-format-label">teams</span>
+                <span class="wizard-format-label" th:text="#{leagues.wizard.format.teamsword}">teams</span>
             </label>
         </div>
     </div>
 
     <div class="wizard-actions">
-        <button type="submit">Continue &#8594;</button>
-        <a th:href="@{/leagues}" class="btn-outline">&#8592; Back to leagues</a>
+        <button type="submit" th:text="#{common.continue} + ' &#8594;'">Continue &#8594;</button>
+        <a th:href="@{/leagues}" class="btn-outline" th:text="'&#8592; ' + #{leagues.backtoleagues}">&#8592; Back to leagues</a>
     </div>
 </form>
 </main>

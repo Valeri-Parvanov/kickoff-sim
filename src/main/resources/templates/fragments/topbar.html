@@ -12,45 +12,53 @@
     </div>
 
     <nav class="sidebar-nav">
-        <div class="sidebar-section-label">Browse</div>
-        <a th:href="@{/leagues}">&#127942; Leagues</a>
-        <a th:href="@{/teams}">&#128737; Teams</a>
-        <a th:href="@{/matches}">&#9917; Matches</a>
+        <div class="sidebar-section-label" th:text="#{nav.browse}">Browse</div>
+        <a th:href="@{/leagues}">&#127942; <span th:text="#{nav.leagues}">Leagues</span></a>
+        <a th:href="@{/teams}">&#128737; <span th:text="#{nav.teams}">Teams</span></a>
+        <a th:href="@{/matches}">&#9917; <span th:text="#{nav.matches}">Matches</span></a>
 
-        <div class="sidebar-section-label" sec:authorize="isAuthenticated()">My Account</div>
-        <a th:href="@{/feed}" sec:authorize="isAuthenticated()">&#127897; My Feed</a>
+        <div class="sidebar-section-label" sec:authorize="isAuthenticated()" th:text="#{nav.myaccount}">My Account</div>
+        <a th:href="@{/feed}" sec:authorize="isAuthenticated()">&#127897; <span th:text="#{nav.myfeed}">My Feed</span></a>
         <a th:href="@{/my-change-requests}" sec:authorize="isAuthenticated() and !hasRole('ADMIN')">
-            &#128221; My proposals
+            &#128221; <span th:text="#{nav.myproposals}">My proposals</span>
             <span th:if="${myPendingCount != null and myPendingCount > 0}"
                   class="nav-badge sidebar-badge" th:text="${myPendingCount}"></span>
         </a>
-        <a th:href="@{/profile}" sec:authorize="isAuthenticated()">&#128100; My profile</a>
+        <a th:href="@{/profile}" sec:authorize="isAuthenticated()">&#128100; <span th:text="#{nav.myprofile}">My profile</span></a>
 
-        <div class="sidebar-section-label sidebar-section-admin" sec:authorize="hasRole('ADMIN')">Administration</div>
+        <div class="sidebar-section-label sidebar-section-admin" sec:authorize="hasRole('ADMIN')" th:text="#{nav.admin}">Administration</div>
         <a th:href="@{/admin/change-requests}" sec:authorize="hasRole('ADMIN')">
-            &#128203; Pending changes
+            &#128203; <span th:text="#{nav.pendingchanges}">Pending changes</span>
             <span th:if="${pendingChangeCount != null and pendingChangeCount > 0}"
                   class="nav-badge sidebar-badge" th:text="${pendingChangeCount}"></span>
         </a>
-        <a th:href="@{/admin/users}" sec:authorize="hasRole('ADMIN')">&#9881; Users</a>
+        <a th:href="@{/admin/users}" sec:authorize="hasRole('ADMIN')">&#9881; <span th:text="#{nav.users}">Users</span></a>
+
+        <div class="sidebar-lang-switch">
+            <a th:href="@{${currentPath != null ? currentPath : '/'}(lang='en')}"
+               th:classappend="${#locale.language == 'en'} ? ' lang-active'">EN</a>
+            <span>&#183;</span>
+            <a th:href="@{${currentPath != null ? currentPath : '/'}(lang='bg')}"
+               th:classappend="${#locale.language == 'bg'} ? ' lang-active'">BG</a>
+        </div>
     </nav>
 
     <div class="sidebar-auth" sec:authorize="isAuthenticated()">
         <a th:href="@{/profile}" class="sidebar-welcome">
-            Welcome, <strong sec:authentication="name"></strong>!
+            <span th:text="#{nav.welcome}">Welcome,</span> <strong sec:authentication="name"></strong>!
         </a>
         <div style="display:flex;gap:0.4rem;align-items:center;margin-top:0.2rem;">
             <span sec:authorize="hasRole('ADMIN')" class="topbar-role-badge tbr-admin">ADMIN</span>
             <span sec:authorize="!hasRole('ADMIN')" class="topbar-role-badge tbr-user">USER</span>
         </div>
         <form th:action="@{/logout}" method="post" style="margin-top:0.5rem;">
-            <button type="submit" class="sidebar-logout">Logout</button>
+            <button type="submit" class="sidebar-logout" th:text="#{nav.logout}">Logout</button>
         </form>
     </div>
 
     <div class="sidebar-auth" sec:authorize="isAnonymous()">
-        <a th:href="@{/login}" class="sidebar-auth-link">Login</a>
-        <a th:href="@{/register}" class="sidebar-auth-link">Register</a>
+        <a th:href="@{/login}" class="sidebar-auth-link" th:text="#{nav.login}">Login</a>
+        <a th:href="@{/register}" class="sidebar-auth-link" th:text="#{nav.register}">Register</a>
     </div>
 </aside>
 

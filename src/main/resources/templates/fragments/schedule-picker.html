@@ -5,28 +5,28 @@
 <div th:fragment="picker(teamCount)">
     <fieldset id="scheduleFieldset" th:attr="data-team-count=${teamCount != null ? teamCount : 0}"
               style="margin-top:16px;padding:12px;border:1px solid #ccc;border-radius:6px;">
-        <legend style="font-weight:600;padding:0 6px;">Schedule start</legend>
-        <p style="font-size:0.85rem;color:#555;margin:0 0 10px;">
+        <legend style="font-weight:600;padding:0 6px;" th:text="#{schedule.start.title}">Schedule start</legend>
+        <p style="font-size:0.85rem;color:#555;margin:0 0 10px;" th:text="#{schedule.start.desc}">
             The schedule is generated automatically when the league is created.
             If you leave the date blank, Round 1 starts today.
         </p>
         <div style="display:flex;gap:16px;flex-wrap:wrap;">
             <div>
-                <label>Round 1 date</label>
+                <label th:text="#{schedule.round1date}">Round 1 date</label>
                 <input type="hidden" id="scheduleStartDate" th:field="*{scheduleStartDate}"/>
                 <div id="lcSelLabel" class="cal-sel-label" style="min-height:1.4em;margin:4px 0 2px;"></div>
                 <div id="leagueCalendar" class="match-calendar"></div>
             </div>
             <div>
-                <label for="scheduleStartTimeSelect">First kick-off (default 11:00)</label><br/>
+                <label for="scheduleStartTimeSelect" th:text="#{schedule.firstkickoff}">First kick-off (default 11:00)</label><br/>
                 <input type="hidden" th:field="*{scheduleStartTime}"/>
                 <select id="scheduleStartTimeSelect" style="height:2.2rem;font-size:1rem;border:1px solid #ccc;border-radius:6px;padding:0 0.5rem;"></select>
                 <div id="tzBanner" style="display:none;margin-top:10px;padding:10px 14px;border-radius:6px;background:#fffbeb;border-left:4px solid #d97706;border-top:1px solid #fcd34d;border-right:1px solid #fcd34d;border-bottom:1px solid #fcd34d;max-width:340px;">
                     <div style="display:flex;align-items:flex-start;gap:8px;">
                         <span style="font-size:1.15rem;line-height:1.2;color:#d97706;">&#9888;</span>
                         <div>
-                            <div style="font-size:0.82rem;font-weight:600;color:#92400e;">Times are entered in Sofia time (UTC+3).</div>
-                            <div id="tzLocalLine" style="display:none;font-size:0.82rem;color:#78350f;margin-top:3px;">First match will kick off at <strong><span id="tzBannerLocal"></span> your local time</strong>.</div>
+                            <div style="font-size:0.82rem;font-weight:600;color:#92400e;" th:text="#{schedule.sofiatime}">Times are entered in Sofia time (UTC+3).</div>
+                            <div id="tzLocalLine" style="display:none;font-size:0.82rem;color:#78350f;margin-top:3px;"><span th:text="#{schedule.firstmatchat}">First match will kick off at</span> <strong><span id="tzBannerLocal"></span> <span th:text="#{schedule.yourlocaltime}">your local time</span></strong>.</div>
                             <div id="lastMatchLine" style="display:none;font-size:0.82rem;color:#78350f;margin-top:3px;"></div>
                         </div>
                     </div>
@@ -38,10 +38,10 @@
 
     <div id="scheduleOverflowModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:950;align-items:center;justify-content:center;">
         <div style="background:#ffffff;border-radius:14px;padding:1.75rem 2rem;max-width:420px;width:92%;box-shadow:0 8px 40px rgba(0,0,0,0.3);color:#111;">
-            <h2 style="margin:0 0 0.75rem;font-size:1.1rem;font-weight:700;color:#b91c1c;">&#9888; This schedule won't fit</h2>
+            <h2 style="margin:0 0 0.75rem;font-size:1.1rem;font-weight:700;color:#b91c1c;" th:text="'&#9888; ' + #{schedule.overflow.title}">&#9888; This schedule won't fit</h2>
             <p id="scheduleOverflowText" style="margin:0 0 1.4rem;font-size:0.92rem;color:#333;line-height:1.5;"></p>
             <div style="display:flex;justify-content:flex-end;">
-                <button type="button" id="scheduleOverflowOk" style="margin:0;">Got it, I&#8217;ll pick an earlier time</button>
+                <button type="button" id="scheduleOverflowOk" style="margin:0;" th:text="#{schedule.overflow.gotit}">Got it, I&#8217;ll pick an earlier time</button>
             </div>
         </div>
     </div>

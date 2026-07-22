@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Match form</title>
+    <title th:text="#{matches.form.title}">Match form</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"/>
@@ -14,53 +14,53 @@
 
 <main class="page">
 <div th:replace="~{fragments/topbar :: messages}"></div>
-<h1 th:text="${matchDto.id} ? 'Edit match' : 'Add match'"></h1>
+<h1 th:text="${matchDto.id} ? #{matches.form.edit} : #{matches.form.add}"></h1>
 
 <form th:action="${matchDto.id} ? @{/matches/{id}(id=${matchDto.id},fromRequest=${fromRequest})} : @{/matches(fromRequest=${fromRequest})}"
       th:object="${matchDto}" th:method="${matchDto.id} ? 'put' : 'post'" class="card-form">
 
     <div>
-        <label for="homeTeamId">Home team</label>
+        <label for="homeTeamId" th:text="#{matches.form.hometeam}">Home team</label>
         <select id="homeTeamId" th:field="*{homeTeamId}">
-            <option value="">-- select home team --</option>
+            <option value="" th:text="#{matches.form.selecthome}">-- select home team --</option>
             <option th:each="team : ${teams}" th:value="${team.id}" th:text="${team.name}"></option>
         </select>
         <span style="color:red" th:if="${#fields.hasErrors('homeTeamId')}" th:errors="*{homeTeamId}"></span>
     </div>
 
     <div>
-        <label for="awayTeamId">Away team</label>
+        <label for="awayTeamId" th:text="#{matches.form.awayteam}">Away team</label>
         <select id="awayTeamId" th:field="*{awayTeamId}">
-            <option value="">-- select away team --</option>
+            <option value="" th:text="#{matches.form.selectaway}">-- select away team --</option>
             <option th:each="team : ${teams}" th:value="${team.id}" th:text="${team.name}"></option>
         </select>
         <span style="color:red" th:if="${#fields.hasErrors('awayTeamId')}" th:errors="*{awayTeamId}"></span>
     </div>
 
     <div>
-        <label for="homeScore">Home score</label>
+        <label for="homeScore" th:text="#{matches.form.homescore}">Home score</label>
         <input type="number" id="homeScore" th:field="*{homeScore}" min="0" placeholder="0"/>
         <span style="color:red" th:if="${#fields.hasErrors('homeScore')}" th:errors="*{homeScore}"></span>
     </div>
 
     <div>
-        <label for="awayScore">Away score</label>
+        <label for="awayScore" th:text="#{matches.form.awayscore}">Away score</label>
         <input type="number" id="awayScore" th:field="*{awayScore}" min="0" placeholder="0"/>
         <span style="color:red" th:if="${#fields.hasErrors('awayScore')}" th:errors="*{awayScore}"></span>
     </div>
 
     <div>
-        <label>Played at</label>
+        <label th:text="#{matches.form.playedat}">Played at</label>
         <div class="input-row">
             <input type="date" id="datePart"/>
             <select id="timePart"></select>
         </div>
-        <span class="field-hint">Matches scheduled 08:00 – 23:30, every 30 minutes</span>
+        <span class="field-hint" th:text="#{matches.form.scheduledhint}">Matches scheduled 08:00 – 23:30, every 30 minutes</span>
         <input type="hidden" th:field="*{playedAt}" id="playedAt"/>
         <span style="color:red" th:if="${#fields.hasErrors('playedAt')}" th:errors="*{playedAt}"></span>
     </div>
 
-    <button type="submit">Save</button>
+    <button type="submit" th:text="#{common.save}">Save</button>
 </form>
 
 <script>
@@ -98,7 +98,7 @@
 })();
 </script>
 
-<p><a th:href="@{/matches}" class="back-link">&#8592; Back to matches</a></p>
+<p><a th:href="@{/matches}" class="back-link" th:text="'&#8592; ' + #{matches.backtomatches}">&#8592; Back to matches</a></p>
 </main>
 </body>
 </html>

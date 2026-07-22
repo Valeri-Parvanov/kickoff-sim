@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leagues</title>
+    <title th:text="#{nav.leagues}">Leagues</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"/>
@@ -15,22 +15,22 @@
 
 <main class="page">
 <div th:replace="~{fragments/topbar :: messages}"></div>
-<h1>&#127942; Leagues</h1>
+<h1 th:text="'&#127942; ' + #{nav.leagues}">&#127942; Leagues</h1>
 
 <div class="league-ready-banner" sec:authorize="isAuthenticated()">
     <div class="league-ready-icon">&#127942;</div>
     <div class="league-ready-body">
-        <div class="league-ready-title">Ready to create a league!</div>
+        <div class="league-ready-title" th:text="#{leagues.ready.title}">Ready to create a league!</div>
         <div class="league-ready-sub" th:if="${leagueEligibleCount >= 6}">
-            <strong th:text="${leagueEligibleCount}"></strong> of your existing teams are eligible (6+ players each) —
-            the wizard lets you pick from them and creates the rest for you. Valid league sizes: 6, 8, 10 or 16 teams.
+            <strong th:text="${leagueEligibleCount}"></strong> <span th:text="#{leagues.ready.eligible}">of your existing teams are eligible (6+ players each) —
+            the wizard lets you pick from them and creates the rest for you. Valid league sizes: 6, 8, 10 or 16 teams.</span>
         </div>
-        <div class="league-ready-sub" th:unless="${leagueEligibleCount >= 6}">
+        <div class="league-ready-sub" th:unless="${leagueEligibleCount >= 6}" th:text="#{leagues.ready.noeligible}">
             No existing teams needed — the wizard walks you through creating every team as you go.
             Valid league sizes: 6, 8, 10 or 16 teams.
         </div>
         <div class="league-ready-actions">
-            <a th:href="@{/leagues/wizard}" class="league-ready-primary">&#43; Create a League</a>
+            <a th:href="@{/leagues/wizard}" class="league-ready-primary" th:text="'&#43; ' + #{leagues.ready.create}">&#43; Create a League</a>
         </div>
     </div>
 </div>
@@ -39,10 +39,10 @@
 <table border="1" cellpadding="6">
     <thead>
     <tr>
-        <th th:replace="~{fragments/sortable :: sortTh('/leagues', 'name', 'Name')}"></th>
-        <th>Teams</th>
-        <th>Progress</th>
-        <th sec:authorize="hasRole('ADMIN')">Actions</th>
+        <th th:replace="~{fragments/sortable :: sortTh('/leagues', 'name', #{common.name})}"></th>
+        <th th:text="#{nav.teams}">Teams</th>
+        <th th:text="#{leagues.progress}">Progress</th>
+        <th sec:authorize="hasRole('ADMIN')" th:text="#{common.actions}">Actions</th>
     </tr>
     </thead>
     <tbody>
@@ -53,18 +53,18 @@
             <th:block th:if="${league.totalMatches > 0}">
                 <div class="league-progress-wrap">
                     <span class="league-progress-label"
-                          th:text="'League progress: ' + ${league.playedMatches} + '/' + ${league.totalMatches} + ' matches · ' + ${league.playedMatches * 100 / league.totalMatches} + '%'"></span>
+                          th:text="#{leagues.progresslabel} + ' ' + ${league.playedMatches} + '/' + ${league.totalMatches} + ' ' + #{standings.matchesplayed} + ' · ' + ${league.playedMatches * 100 / league.totalMatches} + '%'"></span>
                     <div class="league-progress-bar">
                         <div class="league-progress-fill"
                              th:style="'width:' + ${league.playedMatches * 100 / league.totalMatches} + '%'"></div>
                     </div>
                 </div>
             </th:block>
-            <span th:if="${league.totalMatches == 0}" class="league-no-schedule">No schedule</span>
+            <span th:if="${league.totalMatches == 0}" class="league-no-schedule" th:text="#{leagues.noschedule}">No schedule</span>
         </td>
         <td sec:authorize="hasRole('ADMIN')">
             <form th:action="@{/leagues/{id}(id=${league.id})}" th:method="delete" style="display:inline">
-                <button type="submit">Delete</button>
+                <button type="submit" th:text="#{common.delete}">Delete</button>
             </form>
         </td>
     </tr>

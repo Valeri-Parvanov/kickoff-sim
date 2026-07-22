@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Kickoff Sim</title>
+    <title th:text="#{nav.login} + ' - Kickoff Sim'">Login - Kickoff Sim</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"/>
@@ -13,25 +13,25 @@
 <div th:replace="~{fragments/topbar :: topbar}"></div>
 
 <main class="page">
-<h1>Login</h1>
+<h1 th:text="#{nav.login}">Login</h1>
 
 <p th:if="${statusMessage}" th:text="${statusMessage}" class="status-message"></p>
-<p th:if="${param.expired}" class="error-message">Your session has expired. Please log in again.</p>
-<p style="color:red" th:if="${param.error}">Invalid username or password</p>
+<p th:if="${param.expired}" class="error-message" th:text="#{login.expired}">Your session has expired. Please log in again.</p>
+<p style="color:red" th:if="${param.error}" th:text="#{login.invalid}">Invalid username or password</p>
 
 <form th:action="@{/login}" method="post" class="card-form">
     <div>
-        <label for="username">Username</label>
+        <label for="username" th:text="#{login.username}">Username</label>
         <input type="text" id="username" name="username" required>
     </div>
     <div>
-        <label for="password">Password</label>
+        <label for="password" th:text="#{login.password}">Password</label>
         <input type="password" id="password" name="password" required>
     </div>
-    <button type="submit">Login</button>
+    <button type="submit" th:text="#{nav.login}">Login</button>
 </form>
 
-<p>Don't have an account? <a th:href="@{/register}">Register</a></p>
+<p><span th:text="#{login.noaccount}">Don't have an account?</span> <a th:href="@{/register}" th:text="#{nav.register}">Register</a></p>
 </main>
 </body>
 </html>

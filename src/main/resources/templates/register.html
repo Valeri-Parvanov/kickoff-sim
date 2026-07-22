@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register - Kickoff Sim</title>
+    <title th:text="#{nav.register} + ' - Kickoff Sim'">Register - Kickoff Sim</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"/>
@@ -13,28 +13,28 @@
 <div th:replace="~{fragments/topbar :: topbar}"></div>
 
 <main class="page">
-<h1>Register</h1>
+<h1 th:text="#{nav.register}">Register</h1>
 
 <form th:action="@{/register}" th:object="${registerDto}" method="post" class="card-form">
     <div>
-        <label for="username">Username</label>
+        <label for="username" th:text="#{login.username}">Username</label>
         <input type="text" id="username" th:field="*{username}">
         <span style="color: red" th:if="${#fields.hasErrors('username')}" th:errors="*{username}"></span>
     </div>
     <div>
-        <label for="password">Password</label>
+        <label for="password" th:text="#{login.password}">Password</label>
         <input type="password" id="password" th:field="*{password}">
         <span style="color: red" th:if="${#fields.hasErrors('password')}" th:errors="*{password}"></span>
     </div>
     <div>
-        <label for="confirmPassword">Confirm Password</label>
+        <label for="confirmPassword" th:text="#{register.confirmpassword}">Confirm Password</label>
         <input type="password" id="confirmPassword" th:field="*{confirmPassword}">
         <span style="color: red" th:if="${#fields.hasErrors('confirmPassword')}" th:errors="*{confirmPassword}"></span>
     </div>
-    <button type="submit">Register</button>
+    <button type="submit" th:text="#{nav.register}">Register</button>
 </form>
 
-<p>Already have an account? <a th:href="@{/login}">Login</a></p>
+<p><span th:text="#{register.hasaccount}">Already have an account?</span> <a th:href="@{/login}" th:text="#{nav.login}">Login</a></p>
 </main>
 </body>
 </html>

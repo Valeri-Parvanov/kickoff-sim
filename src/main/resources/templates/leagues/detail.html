@@ -24,34 +24,34 @@
             <div class="team-hero-meta" th:if="${league.format != null}">
                 <span th:text="${league.format.cycleName}"></span>
                 &nbsp;&middot;&nbsp;
-                <span th:text="${league.format.totalRounds}"></span> rounds
+                <span th:text="${league.format.totalRounds}"></span> <span th:text="#{leagues.detail.rounds}">rounds</span>
                 &nbsp;&middot;&nbsp;
-                <span th:text="${league.format.totalMatches}"></span> matches
+                <span th:text="${league.format.totalMatches}"></span> <span th:text="#{leagues.detail.matches}">matches</span>
             </div>
             <div class="team-hero-meta" th:if="${league.format == null}" style="color:var(--warn,#e67e22);">
-                &#9888; Invalid team count (<span th:text="${league.teams.size()}"></span>) &mdash; need 6, 8, 10, or 16
+                &#9888; <span th:text="#{leagues.detail.invalidcount}">Invalid team count (</span><span th:text="${league.teams.size()}"></span><span th:text="#{leagues.detail.invalidcount.suffix}">) &mdash; need 6, 8, 10, or 16</span>
             </div>
             <div th:replace="~{fragments/standings :: leagueProgress(${totalMatchCount}, ${playedMatchCount})}"></div>
         </div>
     </div>
     <div class="team-detail-actions">
-        <a th:href="@{/leagues}" class="btn-back">&#8592; All Leagues</a>
+        <a th:href="@{/leagues}" class="btn-back" th:text="'&#8592; ' + #{leagues.detail.allleagues}">&#8592; All Leagues</a>
         <form th:action="@{/leagues/{id}(id=${league.id})}" th:method="delete" style="display:inline" sec:authorize="hasRole('ADMIN')">
-            <button type="submit" class="btn-del">Delete</button>
+            <button type="submit" class="btn-del" th:text="#{common.delete}">Delete</button>
         </form>
         <th:block sec:authorize="isAuthenticated()">
             <form th:if="${followedSubscriptionId != null}"
                   th:action="@{/notifications/subscriptions/{sid}(sid=${followedSubscriptionId})}" method="post" style="display:inline">
                 <input type="hidden" name="_method" value="DELETE"/>
                 <input type="hidden" name="returnUrl" th:value="'/leagues/' + ${league.id}"/>
-                <button type="submit" class="btn-following">&#10003; Following</button>
+                <button type="submit" class="btn-following" th:text="'&#10003; ' + #{leagues.detail.following}">&#10003; Following</button>
             </form>
             <form th:if="${followedSubscriptionId == null}"
                   th:action="@{/notifications/subscribe}" method="post" style="display:inline">
                 <input type="hidden" name="entityId" th:value="${league.id}"/>
                 <input type="hidden" name="entityType" value="LEAGUE"/>
                 <input type="hidden" name="returnUrl" th:value="'/leagues/' + ${league.id}"/>
-                <button type="submit" class="btn-goal">&#128276; Follow league</button>
+                <button type="submit" class="btn-goal" th:text="'&#128276; ' + #{leagues.detail.followleague}">&#128276; Follow league</button>
             </form>
         </th:block>
     </div>
@@ -60,26 +60,30 @@
 <nav class="team-tabs">
     <a class="team-tab" href="#standings">
         <span class="tab-icon">&#127942;</span>
-        <span class="tab-label">Standings</span>
+        <span class="tab-label" th:text="#{leagues.detail.tab.standings}">Standings</span>
     </a>
     <a class="team-tab" href="#stats">
         <span class="tab-icon">&#9917;</span>
-        <span class="tab-label">Top Scorers &amp; Assists</span>
+        <span class="tab-label" th:text="#{leagues.detail.tab.stats}">Top Scorers &amp; Assists</span>
     </a>
     <a class="team-tab" href="#schedule">
         <span class="tab-icon">&#128197;</span>
-        <span class="tab-label">Schedule</span>
+        <span class="tab-label" th:text="#{leagues.detail.tab.schedule}">Schedule</span>
     </a>
     <a class="team-tab" href="#rules">
         <span class="tab-icon">&#128220;</span>
-        <span class="tab-label">Rules</span>
+        <span class="tab-label" th:text="#{leagues.detail.tab.rules}">Rules</span>
     </a>
 </nav>
 
 <!-- ── STANDINGS ── -->
 <section id="standings" class="team-tab-section">
-    <div th:if="${#lists.isEmpty(league.standings)}" class="no-matches">No teams in this league yet.</div>
+    <div th:if="${#lists.isEmpty(league.standings)}" class="no-matches" th:text="#{leagues.detail.noteams}">No teams in this league yet.</div>
     <th:block th:unless="${#lists.isEmpty(league.standings)}">
+        <div class="standings-export-links">
+            <a th:href="@{/leagues/{id}/standings/export.xlsx(id=${league.id})}" class="btn-view" th:text="'&#8681; ' + #{leagues.detail.excel}">&#8681; Excel</a>
+            <a th:href="@{/leagues/{id}/standings/export.pdf(id=${league.id})}" class="btn-view" th:text="'&#8681; ' + #{leagues.detail.pdf}">&#8681; PDF</a>
+        </div>
         <div th:replace="~{fragments/standings :: standingsTable(${league.standings}, null)}"></div>
     </th:block>
 </section>
@@ -88,12 +92,12 @@
 <section id="stats" class="team-tab-section">
     <div style="display:flex;gap:24px;flex-wrap:wrap;">
         <div style="flex:1;min-width:260px;">
-            <h3 style="margin:0 0 8px;">&#9917; Top Scorers</h3>
-            <div th:replace="~{fragments/standings :: playerStatTable(${league.topScorers}, 'Goals')}"></div>
+            <h3 style="margin:0 0 8px;" th:text="'&#9917; ' + #{leagues.detail.topscorers}">&#9917; Top Scorers</h3>
+            <div th:replace="~{fragments/standings :: playerStatTable(${league.topScorers}, #{leagues.detail.goals})}"></div>
         </div>
         <div style="flex:1;min-width:260px;">
-            <h3 style="margin:0 0 8px;">&#127919; Top Assists</h3>
-            <div th:replace="~{fragments/standings :: playerStatTable(${league.topAssists}, 'Assists')}"></div>
+            <h3 style="margin:0 0 8px;" th:text="'&#127919; ' + #{leagues.detail.topassists}">&#127919; Top Assists</h3>
+            <div th:replace="~{fragments/standings :: playerStatTable(${league.topAssists}, #{leagues.detail.assists})}"></div>
         </div>
     </div>
 </section>
@@ -102,57 +106,57 @@
 <section id="schedule" class="team-tab-section">
 
     <div sec:authorize="hasRole('ADMIN')" th:if="${league.format != null and league.matches.isEmpty()}">
-        <h3>Generate Schedule</h3>
+        <h3 th:text="#{leagues.detail.generateschedule}">Generate Schedule</h3>
         <p th:if="${scheduleError}" th:text="${scheduleError}" class="error-msg"></p>
         <form th:action="@{/leagues/{id}/schedule(id=${league.id})}" method="post"
               th:object="${scheduleForm}" style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;">
             <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
             <div>
-                <label>Round 1 date</label><br/>
+                <label th:text="#{schedule.round1date}">Round 1 date</label><br/>
                 <input type="hidden" id="detailStartDate" th:field="*{startDate}"/>
                 <div id="detailCalLabel" class="cal-sel-label" style="min-height:1.4em;margin:4px 0 2px;"></div>
                 <div id="detailCal" class="match-calendar"></div>
                 <p th:if="${#fields.hasErrors('startDate')}" th:errors="*{startDate}" class="error-msg"></p>
             </div>
             <div>
-                <label for="startTime">First match kick-off</label><br/>
+                <label for="startTime" th:text="#{leagues.detail.firstmatchkickoff}">First match kick-off</label><br/>
                 <input type="hidden" th:field="*{startTime}"/>
                 <select id="startTimeSelect" style="height:2.2rem;font-size:1rem;border:1px solid #ccc;border-radius:6px;padding:0 0.5rem;" required></select>
                 <div id="detailTzBanner" style="display:none;margin-top:10px;padding:10px 14px;border-radius:6px;background:#fffbeb;border-left:4px solid #d97706;border-top:1px solid #fcd34d;border-right:1px solid #fcd34d;border-bottom:1px solid #fcd34d;max-width:340px;">
                     <div style="display:flex;align-items:flex-start;gap:8px;">
                         <span style="font-size:1.15rem;line-height:1.2;color:#d97706;">&#9888;</span>
                         <div>
-                            <div style="font-size:0.82rem;font-weight:600;color:#92400e;">Times are entered in Sofia time (UTC+3).</div>
-                            <div style="font-size:0.82rem;color:#78350f;margin-top:3px;">First match will kick off at <strong><span id="detailTzBannerLocal"></span> your local time</strong>.</div>
+                            <div style="font-size:0.82rem;font-weight:600;color:#92400e;" th:text="#{schedule.sofiatime}">Times are entered in Sofia time (UTC+3).</div>
+                            <div style="font-size:0.82rem;color:#78350f;margin-top:3px;"><span th:text="#{schedule.firstmatchat}">First match will kick off at</span> <strong><span id="detailTzBannerLocal"></span> <span th:text="#{schedule.yourlocaltime}">your local time</span></strong>.</div>
                         </div>
                     </div>
                 </div>
                 <p th:if="${#fields.hasErrors('startTime')}" th:errors="*{startTime}" class="error-msg"></p>
             </div>
-            <button type="submit" class="btn-add">Generate</button>
+            <button type="submit" class="btn-add" th:text="#{leagues.detail.generate}">Generate</button>
         </form>
         <p style="margin-top:6px;font-size:0.85rem;color:#666;">
-            Each round is played on a separate day. Matches in the same round kick off 1 hour apart.
-            All <span th:text="${league.format.totalRounds}"></span> rounds will be created
-            (<span th:text="${league.format.matchesPerRound}"></span> matches per round).
+            <span th:text="#{leagues.detail.scheduleinfo}">Each round is played on a separate day. Matches in the same round kick off 1 hour apart.</span>
+            <span th:text="#{leagues.detail.allroundscreated1}">All</span> <span th:text="${league.format.totalRounds}"></span> <span th:text="#{leagues.detail.allroundscreated2}">rounds will be created</span>
+            (<span th:text="${league.format.matchesPerRound}"></span> <span th:text="#{leagues.detail.matchesperround}">matches per round</span>).
         </p>
     </div>
 
     <div sec:authorize="hasRole('ADMIN')" th:if="${league.format != null and !league.matches.isEmpty()}">
-        <p class="status-message">Schedule is active (<span th:text="${league.matches.size()}"></span> matches generated).</p>
+        <p class="status-message"><span th:text="#{leagues.detail.scheduleactive}">Schedule is active (</span><span th:text="${league.matches.size()}"></span> <span th:text="#{leagues.detail.matchesgenerated}">matches generated).</span></p>
     </div>
 
-    <div th:if="${availableRounds == null or availableRounds.isEmpty()}" class="no-matches">No matches recorded yet.</div>
+    <div th:if="${availableRounds == null or availableRounds.isEmpty()}" class="no-matches" th:text="#{leagues.detail.nomatchesyet}">No matches recorded yet.</div>
 
     <div th:if="${availableRounds != null and !availableRounds.isEmpty()}">
 
         <div class="ls-filter-bar" style="margin-bottom:1rem;padding-bottom:0.75rem;">
-            <span class="ls-filter-label">Round</span>
+            <span class="ls-filter-label" th:text="#{matches.round}">Round</span>
             <form method="get" th:action="@{/leagues/{id}(id=${league.id})}" style="display:flex;align-items:center;gap:0.5rem;">
                 <select name="round" class="ls-filter-select" onchange="this.form.submit()">
                     <option th:each="r : ${availableRounds}"
                             th:value="${r}"
-                            th:text="'Round ' + ${r}"
+                            th:text="#{matches.round} + ' ' + ${r}"
                             th:selected="${r == selectedRound}"></option>
                 </select>
             </form>
@@ -164,7 +168,7 @@
                 <div class="match-card upcoming" th:if="${match.playedAt.isAfter(now)}" th:attr="data-match-id=${match.id}">
                     <div class="match-meta">
                         <div th:replace="~{fragments/topbar :: matchStar(${match.id})}"></div>
-                        <span class="match-round" th:if="${match.roundNumber != null}" th:text="'Round ' + ${match.roundNumber}"></span>
+                        <span class="match-round" th:if="${match.roundNumber != null}" th:text="#{matches.round} + ' ' + ${match.roundNumber}"></span>
                     </div>
                     <div class="match-scoreline">
                         <a class="team-name home" th:href="@{/teams/{id}(id=${match.homeTeamId})}">
@@ -191,7 +195,7 @@
                             <th:block th:if="${match.playedAt.isAfter(liveThreshold)}">
                                 <div th:replace="~{fragments/topbar :: matchStar(${match.id})}"></div>
                             </th:block>
-                            <span class="match-round" th:if="${match.roundNumber != null}" th:text="'Round ' + ${match.roundNumber}"></span>
+                            <span class="match-round" th:if="${match.roundNumber != null}" th:text="#{matches.round} + ' ' + ${match.roundNumber}"></span>
                         </div>
 
                         <div class="match-scoreline">
@@ -210,7 +214,7 @@
                                  th:attr="data-elapsed=${elapsedByMatchId[match.id]},data-match-id=${match.id}">
                                 <div class="score-time" th:attr="data-utc=${match.playedAtUtcIso},data-fmt='datetime-compact'"></div>
                                 <div class="ls-score-main"><span class="ls-h">-</span>&thinsp;:&thinsp;<span class="ls-a">-</span></div>
-                                <div class="live-badge">LIVE</div>
+                                <div class="live-badge" th:text="#{matches.live}">LIVE</div>
                                 <div class="live-minute"></div>
                             </div>
                             <a class="team-name away" th:href="@{/teams/{id}(id=${match.awayTeamId})}">
@@ -224,12 +228,12 @@
 
                     <div class="match-card-expand">
                         <p th:if="${match.playedAt.isBefore(now) and !match.playedAt.isBefore(liveThreshold) and match.goalTimeline.isEmpty()}"
-                           style="font-size:0.82rem;color:var(--muted);margin:0.4rem 0 0;text-align:center;">Match in progress.</p>
+                           style="font-size:0.82rem;color:var(--muted);margin:0.4rem 0 0;text-align:center;" th:text="#{matches.inprogress}">Match in progress.</p>
                         <div class="goal-timeline" th:if="${!match.goalTimeline.isEmpty()}">
                             <th:block th:each="g : ${match.goalTimeline}">
 
                                 <div class="half-label" th:if="${g.firstInHalf}" th:attr="data-half=${g.half.name()}">
-                                    <span th:text="${g.half.name() == 'FIRST' ? '1st Half' : '2nd Half'}"></span>
+                                    <span th:text="${g.half.name() == 'FIRST'} ? #{matches.half1} : #{matches.half2}"></span>
                                     <span class="half-score" th:if="${g.half.name() == 'FIRST'}"
                                           th:text="${match.homeHalfScore} + ':' + ${match.awayHalfScore}"></span>
                                     <span class="half-score" th:unless="${g.half.name() == 'FIRST'}"
@@ -243,8 +247,8 @@
                                             <span class="goal-minute" th:if="${g.minute != null}"
                                                   th:text="${(g.half.name() == 'FIRST' ? g.minute : g.minute + 20)} + '\'' + ' '"></span>
                                             <span class="goal-scorer-name" th:text="${g.scorerName}"></span>
-                                            <span class="goal-type-badge og" th:if="${g.ownGoal}">OG</span>
-                                            <span class="goal-type-badge pen" th:if="${g.penalty}">pen.</span>
+                                            <span class="goal-type-badge og" th:if="${g.ownGoal}" th:text="#{matches.og}">OG</span>
+                                            <span class="goal-type-badge pen" th:if="${g.penalty}" th:text="#{matches.pen}">pen.</span>
                                             <span class="goal-assist" th:if="${g.assistantName != null}"
                                                   th:text="' (' + ${g.assistantName} + ')'"></span>
                                             <span class="running-score"
@@ -258,8 +262,8 @@
                                             <span class="goal-assist" th:if="${g.assistantName != null}"
                                                   th:text="'(' + ${g.assistantName} + ') '"></span>
                                             <span class="goal-scorer-name" th:text="${g.scorerName}"></span>
-                                            <span class="goal-type-badge og" th:if="${g.ownGoal}">OG</span>
-                                            <span class="goal-type-badge pen" th:if="${g.penalty}">pen.</span>
+                                            <span class="goal-type-badge og" th:if="${g.ownGoal}" th:text="#{matches.og}">OG</span>
+                                            <span class="goal-type-badge pen" th:if="${g.penalty}" th:text="#{matches.pen}">pen.</span>
                                             <span class="goal-minute" th:if="${g.minute != null}"
                                                   th:text="' ' + ${(g.half.name() == 'FIRST' ? g.minute : g.minute + 20)} + '\''"></span>
                                             <span class="goal-icon">&#9917;</span>
@@ -270,7 +274,7 @@
                             </th:block>
                         </div>
                         <p th:if="${match.goalTimeline.isEmpty() and match.playedAt.isBefore(liveThreshold)}"
-                           style="font-size:0.82rem;color:var(--muted);margin:0.4rem 0 0;text-align:center;">
+                           style="font-size:0.82rem;color:var(--muted);margin:0.4rem 0 0;text-align:center;" th:text="#{matches.nogoalsrecorded}">
                             No goals recorded.
                         </p>
                     </div>
@@ -287,36 +291,36 @@
 <section id="rules" class="team-tab-section">
     <div class="rules-section">
         <div class="rules-block">
-            <h3 class="rules-title">&#127942; Standings tiebreakers</h3>
-            <p class="rules-sub">When two or more teams are level on points, the following criteria apply in order:</p>
+            <h3 class="rules-title" th:text="'&#127942; ' + #{leagues.rules.tiebreakers.title}">&#127942; Standings tiebreakers</h3>
+            <p class="rules-sub" th:text="#{leagues.rules.tiebreakers.intro}">When two or more teams are level on points, the following criteria apply in order:</p>
             <ol class="rules-list">
-                <li>Points</li>
-                <li>Goal difference (all league matches)</li>
-                <li>Goals scored (all league matches)</li>
-                <li>Head-to-head points (only between tied teams)</li>
-                <li>Head-to-head goal difference</li>
-                <li>Head-to-head goals scored</li>
-                <li>Alphabetical order</li>
+                <li th:text="#{leagues.rules.points}">Points</li>
+                <li th:text="#{leagues.rules.goaldiff}">Goal difference (all league matches)</li>
+                <li th:text="#{leagues.rules.goalsscored}">Goals scored (all league matches)</li>
+                <li th:text="#{leagues.rules.h2hpoints}">Head-to-head points (only between tied teams)</li>
+                <li th:text="#{leagues.rules.h2hgoaldiff}">Head-to-head goal difference</li>
+                <li th:text="#{leagues.rules.h2hgoalsscored}">Head-to-head goals scored</li>
+                <li th:text="#{leagues.rules.alphabetical}">Alphabetical order</li>
             </ol>
         </div>
         <div class="rules-block">
-            <h3 class="rules-title">&#9917; Points system</h3>
+            <h3 class="rules-title" th:text="'&#9917; ' + #{leagues.rules.pointssystem}">&#9917; Points system</h3>
             <div class="rules-points">
-                <div class="rules-point-row"><span class="rp-result rp-win">Win</span><span class="rp-pts">3 points</span></div>
-                <div class="rules-point-row"><span class="rp-result rp-draw">Draw</span><span class="rp-pts">1 point</span></div>
-                <div class="rules-point-row"><span class="rp-result rp-loss">Loss</span><span class="rp-pts">0 points</span></div>
+                <div class="rules-point-row"><span class="rp-result rp-win" th:text="#{leagues.rules.win}">Win</span><span class="rp-pts" th:text="#{leagues.rules.points3}">3 points</span></div>
+                <div class="rules-point-row"><span class="rp-result rp-draw" th:text="#{leagues.rules.draw}">Draw</span><span class="rp-pts" th:text="#{leagues.rules.point1}">1 point</span></div>
+                <div class="rules-point-row"><span class="rp-result rp-loss" th:text="#{leagues.rules.loss}">Loss</span><span class="rp-pts" th:text="#{leagues.rules.points0}">0 points</span></div>
             </div>
         </div>
         <div class="rules-block">
-            <h3 class="rules-title">&#128197; Format</h3>
+            <h3 class="rules-title" th:text="'&#128197; ' + #{leagues.rules.format}">&#128197; Format</h3>
             <p class="rules-sub" th:if="${league.format != null}">
                 <strong th:text="${league.format.cycleName}"></strong> —
-                each team plays <strong th:text="${league.format.cycles}"></strong>
-                time(s) against every opponent.
+                <span th:text="#{leagues.rules.eachteamplays}">each team plays</span> <strong th:text="${league.format.cycles}"></strong>
+                <span th:text="#{leagues.rules.timesagainst}">time(s) against every opponent.</span>
                 <br/>
-                <strong th:text="${league.format.totalRounds}"></strong> rounds &nbsp;&middot;&nbsp;
-                <strong th:text="${league.format.matchesPerRound}"></strong> matches per round &nbsp;&middot;&nbsp;
-                <strong th:text="${league.format.totalMatches}"></strong> total matches.
+                <strong th:text="${league.format.totalRounds}"></strong> <span th:text="#{leagues.detail.rounds}">rounds</span> &nbsp;&middot;&nbsp;
+                <strong th:text="${league.format.matchesPerRound}"></strong> <span th:text="#{leagues.detail.matchesperround}">matches per round</span> &nbsp;&middot;&nbsp;
+                <strong th:text="${league.format.totalMatches}"></strong> <span th:text="#{leagues.rules.totalmatches}">total matches.</span>
             </p>
         </div>
     </div>

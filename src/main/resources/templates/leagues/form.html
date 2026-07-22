@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>League form</title>
+    <title th:text="#{leagues.form.title}">League form</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"/>
@@ -14,7 +14,7 @@
 
 <main class="page">
 <div th:replace="~{fragments/topbar :: messages}"></div>
-<h1>Add league</h1>
+<h1 th:text="#{leagues.addleague}">Add league</h1>
 
 <form th:action="@{/leagues(fromRequest=${fromRequest})}"
       th:object="${leagueDto}" method="post"
@@ -27,31 +27,31 @@
     <div th:if="${eligibleCount >= 6}" class="league-ready-banner" style="margin-bottom:20px;">
         <div class="league-ready-icon">&#127942;</div>
         <div class="league-ready-body">
-            <div class="league-ready-title">Ready to create a league!</div>
+            <div class="league-ready-title" th:text="#{leagues.ready.title}">Ready to create a league!</div>
             <div class="league-ready-sub">
-                <strong th:text="${eligibleCount}"></strong> eligible teams available (6+ players each).
-                Select exactly <strong>6, 8, 10 or 16</strong> teams below to form the league.
+                <strong th:text="${eligibleCount}"></strong> <span th:text="#{leagues.form.eligibleavailable}">eligible teams available (6+ players each).
+                Select exactly <strong>6, 8, 10 or 16</strong> teams below to form the league.</span>
             </div>
         </div>
     </div>
     <div th:if="${eligibleCount < 6}" class="league-warn-banner" style="margin-bottom:20px;">
         <div class="league-ready-icon">&#9888;</div>
         <div class="league-ready-body">
-            <div class="league-warn-title">Not enough eligible teams yet</div>
+            <div class="league-warn-title" th:text="#{leagues.form.notenough.title}">Not enough eligible teams yet</div>
             <div class="league-warn-sub">
-                You have <strong th:text="${eligibleCount}"></strong> eligible team(s). You need at least 6 with 6+ players each.
+                <span th:text="#{leagues.form.youhave}">You have</span> <strong th:text="${eligibleCount}"></strong> <span th:text="#{leagues.form.eligibleteams}">eligible team(s). You need at least 6 with 6+ players each.</span>
             </div>
             <div class="league-ready-actions">
-                <a th:href="@{/teams/form}" class="league-warn-primary">&#43; Add a Team</a>
+                <a th:href="@{/teams/form}" class="league-warn-primary" th:text="'&#43; ' + #{leagues.form.addteam}">&#43; Add a Team</a>
             </div>
         </div>
     </div>
 
     <div>
-        <label for="name">Name</label>
+        <label for="name" th:text="#{common.name}">Name</label>
         <div class="input-row">
             <input type="text" id="name" th:field="*{name}"/>
-            <button type="button" class="dice-btn" onclick="fillRandomLeagueName('name')" title="Generate random name">&#127922;</button>
+            <button type="button" class="dice-btn" onclick="fillRandomLeagueName('name')" th:title="#{leagues.form.randomname}" title="Generate random name">&#127922;</button>
         </div>
         <span style="color:red" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></span>
     </div>
@@ -59,9 +59,9 @@
     <div th:replace="~{fragments/schedule-picker :: picker(${leagueDto.teamIds != null ? leagueDto.teamIds.size() : 0})}"></div>
 
     <div style="margin-top:20px;">
-        <label>Teams <span style="font-weight:400;font-size:0.82rem;text-transform:none;letter-spacing:0;">(select exactly 6, 8, 10, or 16 — each must have at least 6 players)</span></label>
+        <label th:text="#{nav.teams}">Teams</label> <span style="font-weight:400;font-size:0.82rem;text-transform:none;letter-spacing:0;" th:text="#{leagues.form.selecthint}">(select exactly 6, 8, 10, or 16 — each must have at least 6 players)</span>
 
-        <div th:if="${#lists.isEmpty(availableTeams)}" class="team-picker-empty">
+        <div th:if="${#lists.isEmpty(availableTeams)}" class="team-picker-empty" th:text="#{leagues.form.noteams}">
             No teams available. Create teams with at least 6 players first, then come back to create a league.
         </div>
 
@@ -76,19 +76,19 @@
                 <span class="team-pick-name" th:text="${team.name} + ' (' + ${team.city} + ')'"></span>
                 <span class="team-pick-count team-pick-ok"
                       th:if="${team.playerCount >= 6}"
-                      th:text="${team.playerCount} + ' players'"></span>
+                      th:text="${team.playerCount} + ' ' + #{leagues.form.players}"></span>
                 <span class="team-pick-count team-pick-no"
                       th:if="${team.playerCount < 6}"
-                      th:text="${team.playerCount} + '/6 — not eligible'"></span>
+                      th:text="${team.playerCount} + #{leagues.form.noteligible}"></span>
             </label>
         </div>
 
     </div>
 
-    <button type="submit">Save</button>
+    <button type="submit" th:text="#{common.save}">Save</button>
 </form>
 
-<p><a th:href="@{/leagues}" class="back-link">&#8592; Back to leagues</a></p>
+<p><a th:href="@{/leagues}" class="back-link" th:text="'&#8592; ' + #{leagues.backtoleagues}">&#8592; Back to leagues</a></p>
 </main>
 <script th:src="@{/js/random-names.js}"></script>
 <script>
@@ -103,16 +103,16 @@
 </script>
 <div id="lcModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:900;align-items:center;justify-content:center;">
     <div style="background:#ffffff;border-radius:14px;padding:1.75rem 2rem;max-width:420px;width:92%;box-shadow:0 8px 40px rgba(0,0,0,0.3);color:#111;">
-        <h2 style="margin:0 0 1.1rem;font-size:1.15rem;font-weight:700;color:#111;">Confirm league creation</h2>
+        <h2 style="margin:0 0 1.1rem;font-size:1.15rem;font-weight:700;color:#111;" th:text="#{leagues.form.confirmtitle}">Confirm league creation</h2>
         <table style="width:100%;border-collapse:collapse;font-size:0.93rem;margin-bottom:1.4rem;">
-            <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;">Name</td><td id="lcmName" style="font-weight:600;color:#111;"></td></tr>
-            <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;">Round 1 date</td><td id="lcmDate" style="font-weight:600;color:#111;"></td></tr>
-            <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;">First kick-off</td><td id="lcmTime" style="font-weight:600;color:#111;"></td></tr>
-            <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;">Last kick-off (every round)</td><td id="lcmLast" style="font-weight:600;color:#111;"></td></tr>
+            <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;" th:text="#{common.name}">Name</td><td id="lcmName" style="font-weight:600;color:#111;"></td></tr>
+            <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;" th:text="#{schedule.round1date}">Round 1 date</td><td id="lcmDate" style="font-weight:600;color:#111;"></td></tr>
+            <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;" th:text="#{leagues.form.firstkickoff}">First kick-off</td><td id="lcmTime" style="font-weight:600;color:#111;"></td></tr>
+            <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;" th:text="#{leagues.form.lastkickoff}">Last kick-off (every round)</td><td id="lcmLast" style="font-weight:600;color:#111;"></td></tr>
         </table>
         <div style="display:flex;gap:0.75rem;justify-content:flex-end;">
-            <button type="button" id="lcmCancel" style="margin:0;background:transparent;border:2px solid #ccc;color:#333;border-radius:999px;padding:0.55rem 1.2rem;font-weight:600;cursor:pointer;">Cancel</button>
-            <button type="button" id="lcmConfirm" style="margin:0;">Create league</button>
+            <button type="button" id="lcmCancel" style="margin:0;background:transparent;border:2px solid #ccc;color:#333;border-radius:999px;padding:0.55rem 1.2rem;font-weight:600;cursor:pointer;" th:text="#{common.cancel}">Cancel</button>
+            <button type="button" id="lcmConfirm" style="margin:0;" th:text="#{leagues.form.createleague}">Create league</button>
         </div>
     </div>
 </div>

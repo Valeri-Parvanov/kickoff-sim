@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Profile - Kickoff Sim</title>
+    <title th:text="#{nav.myprofile} + ' - Kickoff Sim'">My Profile - Kickoff Sim</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"/>
@@ -28,16 +28,16 @@
 
     <form th:action="@{/profile}" th:object="${profileDto}" method="post" class="card-form profile-form">
         <div>
-            <label>Username</label>
+            <label th:text="#{profile.username}">Username</label>
             <input type="text" th:value="${profileUsername}" disabled class="input-disabled">
-            <span class="field-hint">Username cannot be changed.</span>
+            <span class="field-hint" th:text="#{profile.username.hint}">Username cannot be changed.</span>
         </div>
         <div>
-            <label for="email">Email <span class="field-optional">(optional)</span></label>
+            <label for="email" th:text="#{profile.email}">Email</label> <span class="field-optional" th:text="#{profile.optional}">(optional)</span>
             <input type="email" id="email" th:field="*{email}" autocomplete="email" placeholder="your@email.com">
             <span class="field-error" th:if="${#fields.hasErrors('email')}" th:errors="*{email}"></span>
         </div>
-        <button type="submit" class="btn-save-profile">Save changes</button>
+        <button type="submit" class="btn-save-profile" th:text="#{profile.savechanges}">Save changes</button>
     </form>
 </div>
 

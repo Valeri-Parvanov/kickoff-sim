@@ -1,6 +1,7 @@
 package com.kickoffsim.controller;
 
 import com.kickoffsim.service.ChangeRequestService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
@@ -13,6 +14,11 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 public class GlobalModelAttributes {
 
     private final ChangeRequestService changeRequestService;
+
+    @ModelAttribute("currentPath")
+    public String currentPath(HttpServletRequest request) {
+        return request.getRequestURI();
+    }
 
     @ModelAttribute("pendingChangeCount")
     public Long pendingChangeCount(Authentication authentication) {

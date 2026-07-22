@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>League wizard</title>
+    <title th:text="#{leagues.wizard.title}">League wizard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"/>
@@ -14,31 +14,31 @@
 
 <main class="page">
 <div th:replace="~{fragments/topbar :: messages}"></div>
-<h1>&#127942; Create league (wizard)</h1>
+<h1 th:text="'&#127942; ' + #{leagues.wizard.title}">&#127942; Create league (wizard)</h1>
 
 <div class="wizard-steps">
-    <span class="wizard-step done">1<span class="wizard-step-label">Format</span></span>
+    <span class="wizard-step done">1<span class="wizard-step-label" th:text="#{leagues.wizard.step.format}">Format</span></span>
     <span class="wizard-step-sep"></span>
-    <span class="wizard-step active">2<span class="wizard-step-label">Teams</span></span>
+    <span class="wizard-step active">2<span class="wizard-step-label" th:text="#{leagues.wizard.step.teams}">Teams</span></span>
     <span class="wizard-step-sep"></span>
-    <span class="wizard-step">3<span class="wizard-step-label">Squads</span></span>
+    <span class="wizard-step">3<span class="wizard-step-label" th:text="#{leagues.wizard.step.squads}">Squads</span></span>
 </div>
 
 <p style="color:var(--muted);max-width:640px">
-    Step 2 of 3: <strong th:text="${format}"></strong>-team league — tick any existing free teams to include.
-    Everything else will be created for you on the next screen, so you never have to add teams one by one.
+    <span th:text="#{leagues.wizard.teams.step2a}">Step 2 of 3:</span> <strong th:text="${format}"></strong><span th:text="#{leagues.wizard.teams.step2b}">-team league — tick any existing free teams to include.
+    Everything else will be created for you on the next screen, so you never have to add teams one by one.</span>
 </p>
 
 <div class="wizard-skip-note" style="max-width:760px">
-    <span>Prefer to build every team from scratch instead? You don't have to pick any existing teams.</span>
-    <a th:href="@{/leagues/wizard/new-teams(format=${format})}" class="btn-outline">Create all new teams instead &#8594;</a>
+    <span th:text="#{leagues.wizard.teams.skipnote}">Prefer to build every team from scratch instead? You don't have to pick any existing teams.</span>
+    <a th:href="@{/leagues/wizard/new-teams(format=${format})}" class="btn-outline" th:text="#{leagues.wizard.teams.createnew} + ' &#8594;'">Create all new teams instead &#8594;</a>
 </div>
 
 <form th:action="@{/leagues/wizard/new-teams}" method="get" id="wizardTeamsForm" class="card-form" style="max-width:760px">
     <input type="hidden" name="format" th:value="${format}"/>
 
     <div>
-        <label>Existing teams to include <span class="field-hint" style="display:inline">(optional — only teams with 6+ players and no league)</span></label>
+        <label th:text="#{leagues.wizard.teams.label}">Existing teams to include</label> <span class="field-hint" style="display:inline" th:text="#{leagues.wizard.teams.hint}">(optional — only teams with 6+ players and no league)</span>
 
         <div id="wizardSelectionBanner" class="wizard-selection-banner">
             <span id="wizardSelectionText"></span>
@@ -54,17 +54,17 @@
                 <span class="team-pick-name" th:text="${team.name} + ' (' + ${team.city} + ')'"></span>
                 <span class="team-pick-count team-pick-ok"
                       th:if="${team.playerCount >= 6}"
-                      th:text="${team.playerCount} + ' players'"></span>
+                      th:text="${team.playerCount} + ' ' + #{leagues.form.players}"></span>
                 <span class="team-pick-count team-pick-no"
                       th:if="${team.playerCount < 6}"
-                      th:text="${team.playerCount} + '/6 — not eligible'"></span>
+                      th:text="${team.playerCount} + #{leagues.form.noteligible}"></span>
             </label>
         </div>
     </div>
 
     <div class="wizard-actions">
-        <button type="submit">Continue &#8594;</button>
-        <a th:href="@{/leagues/wizard}" class="btn-outline">&#8592; Back to format selection</a>
+        <button type="submit" th:text="#{common.continue} + ' &#8594;'">Continue &#8594;</button>
+        <a th:href="@{/leagues/wizard}" class="btn-outline" th:text="'&#8592; ' + #{leagues.wizard.backtoformat}">&#8592; Back to format selection</a>
     </div>
 </form>
 </main>
