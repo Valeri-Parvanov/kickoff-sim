@@ -19,11 +19,15 @@ import com.kickoffsim.web.MatchFollowSupport;
 import com.kickoffsim.web.ResubmitSupport;
 import com.kickoffsim.web.ScheduleWindowSupport;
 import com.kickoffsim.web.SortSupport;
+import com.kickoffsim.web.StandingsExportSupport;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
@@ -32,6 +36,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -160,6 +165,28 @@ public class LeagueController {
                         "goalDiff", row.getGoalDiff(),
                         "points", row.getPoints()))
                 .toList();
+    }
+
+    @GetMapping("/{id}/standings/export.xlsx")
+    public ResponseEntity<byte[]> exportStandingsExcel(@PathVariable UUID id) throws IOException {
+        var league = leagueService.findDetail(id);
+        byte[] data = StandingsExportSupport.toExcel(league.getName(), league.getStandings());
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\""
+                        + StandingsExportSupport.sanitizeFilename(league.getName()) + "-standings.xlsx\"")
+                .body(data);
+    }
+
+    @GetMapping("/{id}/standings/export.pdf")
+    public ResponseEntity<byte[]> exportStandingsPdf(@PathVariable UUID id) {
+        var league = leagueService.findDetail(id);
+        byte[] data = StandingsExportSupport.toPdf(league.getName(), league.getStandings());
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\""
+                        + StandingsExportSupport.sanitizeFilename(league.getName()) + "-standings.pdf\"")
+                .body(data);
     }
 
     @GetMapping("/{id}/live-summary")

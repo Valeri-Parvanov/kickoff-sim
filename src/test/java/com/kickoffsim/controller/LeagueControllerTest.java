@@ -927,6 +927,42 @@ class LeagueControllerTest {
     }
 
     @Test
+    void exportStandingsExcel_returnsXlsxAttachment() throws java.io.IOException {
+        UUID id = UUID.randomUUID();
+        com.kickoffsim.dto.StandingRow row = new com.kickoffsim.dto.StandingRow();
+        row.setTeamName("Sample FC");
+        row.setTeamCity("Sofia");
+        LeagueDetailView league = mock(LeagueDetailView.class);
+        when(league.getName()).thenReturn("Test League");
+        when(league.getStandings()).thenReturn(List.of(row));
+        when(leagueService.findDetail(id)).thenReturn(league);
+
+        var response = controller.exportStandingsExcel(id);
+
+        assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(response.getBody()).isNotEmpty();
+        assertThat(response.getHeaders().getContentDisposition().getFilename()).isEqualTo("Test_League-standings.xlsx");
+    }
+
+    @Test
+    void exportStandingsPdf_returnsPdfAttachment() {
+        UUID id = UUID.randomUUID();
+        com.kickoffsim.dto.StandingRow row = new com.kickoffsim.dto.StandingRow();
+        row.setTeamName("Sample FC");
+        row.setTeamCity("Sofia");
+        LeagueDetailView league = mock(LeagueDetailView.class);
+        when(league.getName()).thenReturn("Test League");
+        when(league.getStandings()).thenReturn(List.of(row));
+        when(leagueService.findDetail(id)).thenReturn(league);
+
+        var response = controller.exportStandingsPdf(id);
+
+        assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(response.getBody()).isNotEmpty();
+        assertThat(response.getHeaders().getContentDisposition().getFilename()).isEqualTo("Test_League-standings.pdf");
+    }
+
+    @Test
     void liveSummary_noRoundFilter_includesAllLiveMatchesRegardlessOfRound() {
         UUID id = UUID.randomUUID();
         MatchDto roundOne = new MatchDto();
