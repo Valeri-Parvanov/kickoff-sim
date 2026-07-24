@@ -191,6 +191,12 @@
                         <span th:text="${match.awayTeamName + (match.awayTeamCity != null ? ' (' + match.awayTeamCity + ')' : '')}"></span>
                     </a>
                 </div>
+                <div class="match-weather-chip" th:if="${weatherByMatchId.containsKey(match.id)}">
+                    <span class="weather-icon">&#9925;</span>
+                    <span th:text="${#numbers.formatDecimal(weatherByMatchId.get(match.id).minTempC,1,1)} + '&#176; / ' + ${#numbers.formatDecimal(weatherByMatchId.get(match.id).maxTempC,1,1)} + '&#176;C'"></span>
+                    <span th:if="${weatherByMatchId.get(match.id).precipitationProbability != null}"
+                          th:text="'· ' + ${weatherByMatchId.get(match.id).precipitationProbability} + '%'"></span>
+                </div>
             </div>
 
         </th:block>
@@ -332,6 +338,12 @@
                             <span th:text="${match.awayTeamName + (match.awayTeamCity != null ? ' (' + match.awayTeamCity + ')' : '')}"></span>
                         </a>
                     </div>
+                    <div class="match-weather-chip" th:if="${weatherByMatchId.containsKey(match.id)}">
+                        <span class="weather-icon">&#9925;</span>
+                        <span th:text="${#numbers.formatDecimal(weatherByMatchId.get(match.id).minTempC,1,1)} + '&#176; / ' + ${#numbers.formatDecimal(weatherByMatchId.get(match.id).maxTempC,1,1)} + '&#176;C'"></span>
+                        <span th:if="${weatherByMatchId.get(match.id).precipitationProbability != null}"
+                              th:text="'· ' + ${weatherByMatchId.get(match.id).precipitationProbability} + '%'"></span>
+                    </div>
                 </div>
             </th:block>
         </div>
@@ -442,9 +454,13 @@ var CAL_LEAGUE   = /*[[${selectedLeague != null ? selectedLeague.toString() : ''
 var CAL_TEAM     = /*[[${selectedTeam != null ? selectedTeam.toString() : ''}]]*/'';
 var LIVE_MATCHES = /*[[${liveMatchesForJs}]]*/[];
 var HAS_TODAY_RESULTS = /*[[${hasTodayResults}]]*/false;
+var CAL_LOCALE = /*[[${#locale.language}]]*/'en';
 </script>
 <script th:src="@{/js/livescore.js}"></script>
 <script>
+
+var CAL_LOCALE_TAGS = {bg: 'bg-BG', de: 'de-DE', en: 'en-US'};
+var CAL_LOCALE_TAG = CAL_LOCALE_TAGS[CAL_LOCALE] || 'en-US';
 
 (function() {
     document.querySelectorAll('[data-utc]').forEach(function(el) {
@@ -453,16 +469,16 @@ var HAS_TODAY_RESULTS = /*[[${hasTodayResults}]]*/false;
             if (isNaN(d.getTime())) return;
             var fmt = el.dataset.fmt;
             if (fmt === 'time') {
-                el.textContent = d.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+                el.textContent = d.toLocaleTimeString(CAL_LOCALE_TAG, {hour:'2-digit',minute:'2-digit'});
             } else if (fmt === 'date') {
-                el.textContent = d.toLocaleDateString(undefined, {day:'2-digit',month:'short',year:'numeric'});
+                el.textContent = d.toLocaleDateString(CAL_LOCALE_TAG, {day:'2-digit',month:'short',year:'numeric'});
             } else if (fmt === 'date-iso') {
                 el.textContent = String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + d.getFullYear();
             } else if (fmt === 'datetime-compact') {
-                el.textContent = String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + d.getFullYear() + ' · ' + d.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+                el.textContent = String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + d.getFullYear() + ' · ' + d.toLocaleTimeString(CAL_LOCALE_TAG, {hour:'2-digit',minute:'2-digit'});
             } else {
-                el.textContent = d.toLocaleDateString(undefined, {day:'2-digit',month:'short',year:'numeric'})
-                    + ', ' + d.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+                el.textContent = d.toLocaleDateString(CAL_LOCALE_TAG, {day:'2-digit',month:'short',year:'numeric'})
+                    + ', ' + d.toLocaleTimeString(CAL_LOCALE_TAG, {hour:'2-digit',minute:'2-digit'});
             }
         } catch(e) {}
     });
@@ -474,7 +490,7 @@ var HAS_TODAY_RESULTS = /*[[${hasTodayResults}]]*/false;
         try {
             var d = new Date(dateHeader.dataset.utcDate);
             if (!isNaN(d.getTime())) {
-                dateHeader.textContent = d.toLocaleDateString(undefined, {day:'2-digit', month:'long', year:'numeric'});
+                dateHeader.textContent = d.toLocaleDateString(CAL_LOCALE_TAG, {day:'2-digit', month:'long', year:'numeric'});
             }
         } catch(e) {}
     }
@@ -638,7 +654,7 @@ var HAS_TODAY_RESULTS = /*[[${hasTodayResults}]]*/false;
             try {
                 var d = new Date(timeEl.dataset.utc);
                 if (!isNaN(d.getTime())) {
-                    timeEl.textContent = String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + d.getFullYear() + ' · ' + d.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+                    timeEl.textContent = String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + d.getFullYear() + ' · ' + d.toLocaleTimeString(CAL_LOCALE_TAG, {hour:'2-digit',minute:'2-digit'});
                 }
             } catch(e) {}
         }
@@ -685,6 +701,16 @@ var HAS_TODAY_RESULTS = /*[[${hasTodayResults}]]*/false;
     var BG_MONTHS = ['Януари','Февруари','Март','Април','Май','Юни',
                      'Юли','Август','Септември','Октомври','Ноември','Декември'];
     var BG_DAYS   = ['Пн','Вт','Ср','Чт','Пт','Сб','Нд'];
+    var EN_MONTHS = ['January','February','March','April','May','June',
+                     'July','August','September','October','November','December'];
+    var EN_DAYS   = ['Mo','Tu','We','Th','Fr','Sa','Su'];
+    var DE_MONTHS = ['Januar','Februar','März','April','Mai','Juni',
+                     'Juli','August','September','Oktober','November','Dezember'];
+    var DE_DAYS   = ['Mo','Di','Mi','Do','Fr','Sa','So'];
+    var CAL_MONTHS_BY_LOCALE = {bg: BG_MONTHS, de: DE_MONTHS, en: EN_MONTHS};
+    var CAL_DAYS_BY_LOCALE   = {bg: BG_DAYS, de: DE_DAYS, en: EN_DAYS};
+    var CAL_MONTHS = CAL_MONTHS_BY_LOCALE[CAL_LOCALE] || EN_MONTHS;
+    var CAL_DAYS   = CAL_DAYS_BY_LOCALE[CAL_LOCALE] || EN_DAYS;
 
     var localToday = new Date().toLocaleDateString('sv');
 
@@ -741,10 +767,10 @@ var HAS_TODAY_RESULTS = /*[[${hasTodayResults}]]*/false;
 
         var h = '<div class="cal-nav">';
         h += '<button class="cal-btn cal-prev"' + (idx > 0 ? '' : ' disabled') + '>&#8249;</button>';
-        h += '<span class="cal-month-title">' + BG_MONTHS[month-1] + ' ' + year + '</span>';
+        h += '<span class="cal-month-title">' + CAL_MONTHS[month-1] + ' ' + year + '</span>';
         h += '<button class="cal-btn cal-next"' + (idx < months.length-1 ? '' : ' disabled') + '>&#8250;</button>';
         h += '</div><div class="cal-grid">';
-        BG_DAYS.forEach(function(d) { h += '<div class="cal-dh">' + d + '</div>'; });
+        CAL_DAYS.forEach(function(d) { h += '<div class="cal-dh">' + d + '</div>'; });
         for (var i = 0; i < dow; i++) h += '<div class="cal-cell cal-empty"></div>';
         for (var day = 1; day <= days; day++) {
             var iso = year + '-' + String(month).padStart(2,'0') + '-' + String(day).padStart(2,'0');

@@ -12,6 +12,7 @@ import com.kickoffsim.dto.StandingRow;
 import com.kickoffsim.dto.TeamDto;
 import com.kickoffsim.model.Half;
 import com.kickoffsim.model.User;
+import com.kickoffsim.security.SecurityConfig;
 import com.kickoffsim.service.LeagueService;
 import com.kickoffsim.service.MatchService;
 import com.kickoffsim.service.TeamService;
@@ -27,6 +28,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.core.Authentication;
 import org.springframework.ui.ExtendedModelMap;
 import org.springframework.ui.Model;
@@ -364,10 +366,26 @@ class NotificationControllerTest {
                 recentNotification("MATCH_KICKOFF", "KICK OFF!"),
                 recentNotification("MATCH_UPDATE", "LIVE: Home 1:0 Away")));
 
-        List<Map<String, Object>> toasts = controller.liveToasts(auth);
+        List<Map<String, Object>> toasts = controller.liveToasts(auth, new MockHttpSession());
 
         assertThat(toasts).extracting(t -> t.get("type"))
                 .containsExactlyInAnyOrder("GOAL", "MATCH_HALFTIME", "MATCH_FULLTIME", "MATCH_KICKOFF");
+    }
+
+    @Test
+    void liveToasts_usesLoginAtSessionAttribute_whenPresent() {
+        UUID userId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+        MockHttpSession session = new MockHttpSession();
+        session.setAttribute(SecurityConfig.LOGIN_AT_SESSION_ATTR, LocalDateTime.now().minusHours(1));
+
+        NotificationDto notification = recentNotification("GOAL", "GOAL for Home!");
+        notification.setCreatedAt(LocalDateTime.now().minusMinutes(30));
+        when(notificationClient.getNotifications(userId)).thenReturn(List.of(notification));
+
+        List<Map<String, Object>> toasts = controller.liveToasts(auth, session);
+
+        assertThat(toasts).hasSize(1);
     }
 
     private NotificationDto recentNotification(String type, String message) {
@@ -892,7 +910,7 @@ class NotificationControllerTest {
 
     @Test
     void liveToasts_nullAuth_returnsEmpty() {
-        assertThat(controller.liveToasts(null)).isEmpty();
+        assertThat(controller.liveToasts(null, new MockHttpSession())).isEmpty();
     }
 
     @Test
@@ -901,7 +919,7 @@ class NotificationControllerTest {
         Authentication auth = authFor("alice", userId);
         when(notificationClient.getNotifications(userId)).thenThrow(new RuntimeException("down"));
 
-        assertThat(controller.liveToasts(auth)).isEmpty();
+        assertThat(controller.liveToasts(auth, new MockHttpSession())).isEmpty();
     }
 
     @Test
@@ -914,7 +932,7 @@ class NotificationControllerTest {
         stale.setCreatedAt(LocalDateTime.now().minusMinutes(10));
         when(notificationClient.getNotifications(userId)).thenReturn(List.of(nullCreated, stale));
 
-        assertThat(controller.liveToasts(auth)).isEmpty();
+        assertThat(controller.liveToasts(auth, new MockHttpSession())).isEmpty();
     }
 
     @Test

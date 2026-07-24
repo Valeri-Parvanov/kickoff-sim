@@ -5,6 +5,7 @@ import com.kickoffsim.dto.GoalEventDto;
 import com.kickoffsim.dto.LeagueDetailView;
 import com.kickoffsim.dto.MatchDto;
 import com.kickoffsim.dto.TeamDto;
+import com.kickoffsim.dto.WeatherForecastDto;
 import com.kickoffsim.exception.InvalidGoalException;
 import com.kickoffsim.model.Half;
 import com.kickoffsim.service.ChangeRequestService;
@@ -39,11 +40,13 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -372,6 +375,32 @@ class MatchControllerTest {
 
         assertThat(controller.list(null, LocalDate.now(), null, auth, request, model)).isEqualTo("matches/list");
         assertThat((List<?>) model.getAttribute("dateMatches")).hasSize(3);
+    }
+
+    @Test
+    void list_withDateFilter_upcomingMatchWithForecast_populatesWeatherByMatchId() {
+        when(viewerZone.resolve(any())).thenReturn(ZoneId.of("Europe/Sofia"));
+        when(viewerZone.today(any())).thenReturn(LocalDate.now());
+        when(viewerZone.dateOf(any(), any())).thenReturn(LocalDate.now());
+        MatchDto upcoming = matchWithTeams();
+        upcoming.setHomeTeamCity("Sofia");
+        upcoming.setPlayedAt(LocalDateTime.now().plusHours(1));
+        WeatherForecastDto forecast = new WeatherForecastDto(LocalDate.now(), 20.0, 10.0, 30);
+        when(weatherService.forecastFor(eq("Sofia"), any())).thenReturn(Optional.of(forecast));
+        when(matchService.findAll(any(Sort.class))).thenReturn(List.of(upcoming));
+        when(matchService.findAllMatchUtcIsos()).thenReturn(List.of());
+        when(leagueService.findAll()).thenReturn(List.of());
+        when(matchFollowSupport.subscribedMatchIds(any())).thenReturn(Set.of());
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getQueryString()).thenReturn(null);
+        when(request.getRequestURI()).thenReturn("/matches");
+        Model model = new ExtendedModelMap();
+
+        assertThat(controller.list(null, LocalDate.now(), null, auth, request, model)).isEqualTo("matches/list");
+        @SuppressWarnings("unchecked")
+        Map<UUID, WeatherForecastDto> weatherByMatchId =
+                (Map<UUID, WeatherForecastDto>) model.getAttribute("weatherByMatchId");
+        assertThat(weatherByMatchId).containsEntry(upcoming.getId(), forecast);
     }
 
     @Test

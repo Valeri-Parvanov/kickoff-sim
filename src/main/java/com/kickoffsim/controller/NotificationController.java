@@ -10,12 +10,14 @@ import com.kickoffsim.dto.TeamDto;
 import com.kickoffsim.service.LeagueService;
 import com.kickoffsim.service.MatchService;
 import com.kickoffsim.service.TeamService;
+import com.kickoffsim.security.SecurityConfig;
 import com.kickoffsim.service.UserService;
 import com.kickoffsim.web.LiveMatchJsSupport;
 import com.kickoffsim.web.MatchFollowSupport;
 import com.kickoffsim.web.MatchStatusSupport;
 import com.kickoffsim.web.SseEmitterRegistry;
 import com.kickoffsim.web.StandingsSupport;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -28,7 +30,9 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -245,11 +249,16 @@ public class NotificationController {
 
     @GetMapping("/notifications/toasts")
     @ResponseBody
-    public List<Map<String, Object>> liveToasts(Authentication authentication) {
+    public List<Map<String, Object>> liveToasts(Authentication authentication, HttpSession session) {
         if (authentication == null) return List.of();
         try {
             UUID userId = userService.findByUsername(authentication.getName()).getId();
-            LocalDateTime cutoff = LocalDateTime.now().minusMinutes(3);
+            Object loginAt = session.getAttribute(SecurityConfig.LOGIN_AT_SESSION_ATTR);
+            LocalDateTime cutoff = loginAt instanceof LocalDateTime loginAtTime
+                    ? loginAtTime
+                    : Instant.ofEpochMilli(session.getCreationTime())
+                            .atZone(ZoneId.systemDefault())
+                            .toLocalDateTime();
             return notificationClient.getNotifications(userId).stream()
                     .filter(n -> TOASTABLE_TYPES.contains(n.getType()))
                     .filter(n -> n.getCreatedAt() != null && n.getCreatedAt().isAfter(cutoff))

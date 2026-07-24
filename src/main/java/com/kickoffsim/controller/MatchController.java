@@ -121,9 +121,19 @@ public class MatchController {
 
         List<String> matchDateStrings = matchDates.stream().map(LocalDate::toString).toList();
 
+        Map<UUID, WeatherForecastDto> weatherByMatchId = new LinkedHashMap<>();
+        if (dateMatches != null) {
+            for (MatchDto m : dateMatches) {
+                if (!m.getPlayedAt().isAfter(now)) continue;
+                weatherService.forecastFor(m.getHomeTeamCity(), m.getPlayedAt().toLocalDate())
+                        .ifPresent(w -> weatherByMatchId.put(m.getId(), w));
+            }
+        }
+
         model.addAttribute("upcomingMatches", upcomingMatches);
         model.addAttribute("recentMatches", recentMatches);
         model.addAttribute("dateMatches", dateMatches);
+        model.addAttribute("weatherByMatchId", weatherByMatchId);
         model.addAttribute("leagues", leagueService.findAll());
         model.addAttribute("matchDates", matchDates);
         model.addAttribute("matchDateStrings", matchDateStrings);

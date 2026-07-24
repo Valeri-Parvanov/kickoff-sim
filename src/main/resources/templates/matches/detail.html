@@ -112,6 +112,11 @@
         <span class="weather-precip" th:if="${weatherForecast.get().precipitationProbability != null}"
               th:text="#{matches.weather.rainchance} + ' ' + ${weatherForecast.get().precipitationProbability} + '%'"></span>
     </div>
+    <div class="match-weather match-weather-unavailable"
+         th:if="${weatherForecast.isEmpty() and match.playedAt.isAfter(now)}">
+        <span class="weather-icon">&#9925;</span>
+        <span class="weather-label" th:text="#{matches.weather.unavailable}"></span>
+    </div>
 
 </div>
 </main>
