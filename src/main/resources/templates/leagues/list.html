@@ -63,14 +63,17 @@
             <span th:if="${league.totalMatches == 0}" class="league-no-schedule" th:text="#{leagues.noschedule}">No schedule</span>
         </td>
         <td sec:authorize="hasRole('ADMIN')">
-            <form th:action="@{/leagues/{id}(id=${league.id})}" th:method="delete" style="display:inline">
-                <button type="submit" th:text="#{common.delete}">Delete</button>
-            </form>
+            <form th:id="'deleteLeagueForm-' + ${league.id}"
+                  th:action="@{/leagues/{id}(id=${league.id})}" th:method="delete" style="display:inline"></form>
+            <button type="button" class="btn-del"
+                    th:attr="onclick=|openConfirmDialog('deleteLeagueForm-${league.id}', '${#strings.escapeJavaScript(#messages.msg('leagues.delete.title'))}', '${#strings.escapeJavaScript(league.name)}', '${#strings.escapeJavaScript(#messages.msg('leagues.delete.body1'))}', '${#strings.escapeJavaScript(#messages.msg('leagues.delete.body2'))}')|"
+                    th:text="#{common.delete}">Delete</button>
         </td>
     </tr>
     </tbody>
 </table>
 </div>
+
 </main>
 </body>
 </html>

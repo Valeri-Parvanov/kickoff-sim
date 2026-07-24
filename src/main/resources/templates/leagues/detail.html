@@ -36,9 +36,10 @@
     </div>
     <div class="team-detail-actions">
         <a th:href="@{/leagues}" class="btn-back" th:text="'&#8592; ' + #{leagues.detail.allleagues}">&#8592; All Leagues</a>
-        <form th:action="@{/leagues/{id}(id=${league.id})}" th:method="delete" style="display:inline" sec:authorize="hasRole('ADMIN')">
-            <button type="submit" class="btn-del" th:text="#{common.delete}">Delete</button>
-        </form>
+        <form id="deleteLeagueForm" th:action="@{/leagues/{id}(id=${league.id})}" th:method="delete" style="display:inline" sec:authorize="hasRole('ADMIN')"></form>
+        <button type="button" class="btn-del" sec:authorize="hasRole('ADMIN')"
+                th:attr="onclick=|openConfirmDialog('deleteLeagueForm', '${#strings.escapeJavaScript(#messages.msg('leagues.delete.title'))}', '${#strings.escapeJavaScript(league.name)}', '${#strings.escapeJavaScript(#messages.msg('leagues.delete.body1'))}', '${#strings.escapeJavaScript(#messages.msg('leagues.delete.body2'))}')|"
+                th:text="#{common.delete}">Delete</button>
         <th:block sec:authorize="isAuthenticated()">
             <form th:if="${followedSubscriptionId != null}"
                   th:action="@{/notifications/subscriptions/{sid}(sid=${followedSubscriptionId})}" method="post" style="display:inline">

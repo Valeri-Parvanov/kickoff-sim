@@ -44,6 +44,7 @@
         <th th:replace="~{fragments/sortable :: sortTh('/teams', 'name', #{common.name})}"></th>
         <th th:replace="~{fragments/sortable :: sortTh('/teams', 'city', #{teams.city})}"></th>
         <th th:replace="~{fragments/sortable :: sortTh('/teams', 'league', #{teams.league})}"></th>
+        <th th:text="#{teams.position}">Position</th>
         <th th:text="#{teams.players}">Players</th>
         <th sec:authorize="isAuthenticated()" th:text="#{common.actions}">Actions</th>
     </tr>
@@ -58,22 +59,46 @@
                th:text="${team.leagueName}" class="entity-link"></a>
             <span th:if="${team.leagueId == null}">—</span>
         </td>
+        <td th:attr="data-team-id=${team.id}" class="team-position-cell">
+            <span th:if="${standingsByTeamId.containsKey(team.id)}"
+                  th:text="${standingsByTeamId.get(team.id)[0]} + '/' + ${standingsByTeamId.get(team.id)[1]}"></span>
+            <span th:unless="${standingsByTeamId.containsKey(team.id)}">—</span>
+        </td>
         <td th:text="${team.playerCount}"></td>
         <td sec:authorize="isAuthenticated()">
-            <a th:if="${team.leagueId == null}" th:href="@{/teams/{id}/squad(id=${team.id})}" th:text="#{teams.editsquad}">Edit squad</a>
-            <a th:if="${team.leagueId != null and team.playerCount < 12}" th:href="@{/teams/{id}/squad(id=${team.id})}" th:text="#{teams.addsquad}">Add squad</a>
-            <span sec:authorize="hasRole('ADMIN')">
-                <span th:if="${team.leagueId == null or team.playerCount < 12}">|</span>
-                <a th:href="@{/teams/{id}/form(id=${team.id})}" th:text="#{common.edit}">Edit</a>
-                <form th:action="@{/teams/{id}(id=${team.id})}" th:method="delete" style="display:inline">
-                    <button type="submit" th:text="#{common.delete}">Delete</button>
-                </form>
-            </span>
+            <div class="table-actions">
+                <a th:if="${team.leagueId == null}" th:href="@{/teams/{id}/squad(id=${team.id})}" class="btn-edit" th:text="#{teams.editsquad}">Edit squad</a>
+                <a th:if="${team.leagueId != null and team.playerCount < 12}" th:href="@{/teams/{id}/squad(id=${team.id})}" class="btn-edit" th:text="#{teams.addsquad}">Add squad</a>
+                <th:block sec:authorize="hasRole('ADMIN')">
+                    <a th:href="@{/teams/{id}/form(id=${team.id})}" class="btn-edit" th:text="#{common.edit}">Edit</a>
+                    <form th:id="'deleteTeamForm-' + ${team.id}"
+                          th:action="@{/teams/{id}(id=${team.id})}" th:method="delete" style="display:inline"></form>
+                    <button type="button" class="btn-del"
+                            th:attr="onclick=|openConfirmDialog('deleteTeamForm-${team.id}', '${#strings.escapeJavaScript(#messages.msg('teams.delete.title'))}', '${#strings.escapeJavaScript(team.name)}', '${#strings.escapeJavaScript(#messages.msg('teams.delete.body1'))}', '${#strings.escapeJavaScript(#messages.msg('teams.delete.body2'))}')|"
+                            th:text="#{common.delete}">Delete</button>
+                </th:block>
+            </div>
         </td>
     </tr>
     </tbody>
 </table>
 </div>
 </main>
+<script>
+(function() {
+    function refreshPositions() {
+        fetch('/teams/standings-summary', {headers: {'Accept': 'application/json'}})
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                document.querySelectorAll('.team-position-cell[data-team-id]').forEach(function(cell) {
+                    var info = data[cell.dataset.teamId];
+                    cell.textContent = info ? (info.position + '/' + info.total) : '—';
+                });
+            })
+            .catch(function() {});
+    }
+    setInterval(refreshPositions, 15000);
+})();
+</script>
 </body>
 </html>

@@ -36,10 +36,40 @@
 
         <div class="sidebar-lang-switch">
             <a th:href="@{${currentPath != null ? currentPath : '/'}(lang='en')}"
-               th:classappend="${#locale.language == 'en'} ? ' lang-active'">EN</a>
-            <span>&#183;</span>
+               th:classappend="${#locale.language == 'en'} ? ' lang-active'">
+                <span class="lang-flag">
+                    <svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="UK flag">
+                        <rect width="20" height="20" fill="#00247d"/>
+                        <path d="M0 0 L20 20 M20 0 L0 20" stroke="#fff" stroke-width="4"/>
+                        <path d="M0 0 L20 20 M20 0 L0 20" stroke="#cf142b" stroke-width="1.6"/>
+                        <path d="M10 0 V20 M0 10 H20" stroke="#fff" stroke-width="6"/>
+                        <path d="M10 0 V20 M0 10 H20" stroke="#cf142b" stroke-width="3.2"/>
+                    </svg>
+                </span>
+                <span class="lang-code">EN</span>
+            </a>
             <a th:href="@{${currentPath != null ? currentPath : '/'}(lang='bg')}"
-               th:classappend="${#locale.language == 'bg'} ? ' lang-active'">BG</a>
+               th:classappend="${#locale.language == 'bg'} ? ' lang-active'">
+                <span class="lang-flag">
+                    <svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bulgarian flag">
+                        <rect width="20" height="6.67" y="0" fill="#fff"/>
+                        <rect width="20" height="6.67" y="6.67" fill="#00966e"/>
+                        <rect width="20" height="6.67" y="13.33" fill="#d62612"/>
+                    </svg>
+                </span>
+                <span class="lang-code">BG</span>
+            </a>
+            <a th:href="@{${currentPath != null ? currentPath : '/'}(lang='de')}"
+               th:classappend="${#locale.language == 'de'} ? ' lang-active'">
+                <span class="lang-flag">
+                    <svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="German flag">
+                        <rect width="20" height="6.67" y="0" fill="#000"/>
+                        <rect width="20" height="6.67" y="6.67" fill="#dd0000"/>
+                        <rect width="20" height="6.67" y="13.33" fill="#ffce00"/>
+                    </svg>
+                </span>
+                <span class="lang-code">DE</span>
+            </a>
         </div>
     </nav>
 
@@ -63,6 +93,51 @@
 </aside>
 
 <div id="goal-toasts" class="goal-toast-wrap" sec:authorize="isAuthenticated()"></div>
+
+<dialog id="confirmDialog" class="confirm-dialog" sec:authorize="hasRole('ADMIN')">
+    <div class="confirm-dialog-icon">&#9888;</div>
+    <h2 class="confirm-dialog-title" id="confirmDialogTitle"></h2>
+    <p class="confirm-dialog-body">
+        <span id="confirmDialogBody1"></span>
+        <strong id="confirmDialogName"></strong>.
+        <span id="confirmDialogBody2"></span>
+    </p>
+    <div class="confirm-dialog-actions">
+        <button type="button" class="btn-cancel" onclick="document.getElementById('confirmDialog').close()" th:text="#{common.cancel}">Cancel</button>
+        <button type="button" class="btn-del" id="confirmDialogConfirm" th:text="#{common.delete}">Delete</button>
+    </div>
+</dialog>
+<script sec:authorize="hasRole('ADMIN')">
+(function() {
+    var dialog = document.getElementById('confirmDialog');
+    if (!dialog) return;
+    var titleEl = document.getElementById('confirmDialogTitle');
+    var body1El = document.getElementById('confirmDialogBody1');
+    var nameEl = document.getElementById('confirmDialogName');
+    var body2El = document.getElementById('confirmDialogBody2');
+    var confirmBtn = document.getElementById('confirmDialogConfirm');
+    var pendingFormId = null;
+
+    window.openConfirmDialog = function(formId, title, name, body1, body2) {
+        pendingFormId = formId;
+        titleEl.textContent = title;
+        nameEl.textContent = name;
+        body1El.textContent = body1;
+        body2El.textContent = body2;
+        dialog.showModal();
+    };
+
+    confirmBtn.addEventListener('click', function() {
+        if (pendingFormId) {
+            document.getElementById(pendingFormId).submit();
+        }
+    });
+
+    dialog.addEventListener('click', function(e) {
+        if (e.target === dialog) dialog.close();
+    });
+})();
+</script>
 <script>
 (function() {
     var tz;
