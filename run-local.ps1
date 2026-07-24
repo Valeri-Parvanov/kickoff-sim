@@ -13,13 +13,7 @@ docker compose stop app
 Write-Host "==> Starting MySQL container..." -ForegroundColor Cyan
 docker compose up -d mysql
 
-$busy = Get-NetTCPConnection -LocalPort 8080 -State Listen -ErrorAction SilentlyContinue
-if ($busy) {
-    $pid8080 = $busy[0].OwningProcess
-    $proc = (Get-Process -Id $pid8080 -ErrorAction SilentlyContinue).ProcessName
-    Write-Host "Port 8080 is still in use by PID $pid8080 ($proc). Stop it and retry." -ForegroundColor Red
-    exit 1
-}
+& "$PSScriptRoot\free-port-8080.ps1"
 
 Write-Host "==> Starting the application on http://localhost:8080 ..." -ForegroundColor Green
 & .\mvnw.cmd spring-boot:run

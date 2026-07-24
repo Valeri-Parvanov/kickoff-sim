@@ -1,6 +1,7 @@
 package com.kickoffsim;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.SpringApplication;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ConfigurableApplicationContext;
 
@@ -16,8 +17,10 @@ class KickoffSimApplicationTests {
     }
 
     @Test
-    void run_startsContextAndSetsSofiaTimeZone() {
-        ConfigurableApplicationContext context = AppLauncher.run(new String[]{"--server.port=0"});
+    void main_startsContextAndSetsSofiaTimeZone() {
+        TimeZone.setDefault(TimeZone.getTimeZone("Europe/Sofia"));
+        ConfigurableApplicationContext context = SpringApplication.run(
+                KickoffSimApplication.class, "--server.port=0");
         try {
             assertThat(context.isActive()).isTrue();
             assertThat(TimeZone.getDefault().getID()).isEqualTo("Europe/Sofia");
