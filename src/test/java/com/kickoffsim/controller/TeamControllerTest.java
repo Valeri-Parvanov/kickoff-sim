@@ -6,9 +6,11 @@ import com.kickoffsim.dto.LeagueDetailView;
 import com.kickoffsim.dto.MatchDto;
 import com.kickoffsim.dto.PlayerDto;
 import com.kickoffsim.dto.PlayerRowDto;
+import com.kickoffsim.dto.StandingRow;
 import com.kickoffsim.dto.TeamCreateForm;
 import com.kickoffsim.dto.TeamDto;
 import com.kickoffsim.dto.TeamSquadPayload;
+import com.kickoffsim.exception.InvalidLeagueOperationException;
 import com.kickoffsim.model.Half;
 import org.springframework.dao.DataIntegrityViolationException;
 import com.kickoffsim.service.ChangeRequestService;
@@ -92,6 +94,58 @@ class TeamControllerTest {
 
         assertThat(controller.list(null, null, model)).isEqualTo("teams/list");
         assertThat(model.getAttribute("currentDir")).isEqualTo("asc");
+    }
+
+    @Test
+    void list_withTeamsInLeagues_populatesStandingsByTeamId() {
+        UUID teamInLeagueId = UUID.randomUUID();
+        UUID leagueId = UUID.randomUUID();
+        UUID teamNoLeagueId = UUID.randomUUID();
+
+        TeamDto inLeague = team(teamInLeagueId);
+        inLeague.setLeagueId(leagueId);
+        TeamDto noLeague = team(teamNoLeagueId);
+
+        when(teamService.findAll(any(Sort.class))).thenReturn(List.of(inLeague, noLeague));
+        when(teamService.findAllFree()).thenReturn(List.of());
+
+        StandingRow row1 = new StandingRow();
+        row1.setTeamId(teamInLeagueId);
+        StandingRow row2 = new StandingRow();
+        row2.setTeamId(UUID.randomUUID());
+        LeagueDetailView leagueDetail = mock(LeagueDetailView.class);
+        when(leagueDetail.getStandings()).thenReturn(List.of(row1, row2));
+        when(leagueService.findDetail(leagueId)).thenReturn(leagueDetail);
+
+        Model model = new ExtendedModelMap();
+
+        controller.list(null, null, model);
+
+        @SuppressWarnings("unchecked")
+        Map<UUID, int[]> standingsByTeamId = (Map<UUID, int[]>) model.getAttribute("standingsByTeamId");
+        assertThat(standingsByTeamId).containsKey(teamInLeagueId);
+        assertThat(standingsByTeamId.get(teamInLeagueId)).containsExactly(1, 2);
+        assertThat(standingsByTeamId).doesNotContainKey(teamNoLeagueId);
+    }
+
+    @Test
+    void standingsSummary_returnsPositionAndTotalPerTeam() {
+        UUID teamId = UUID.randomUUID();
+        UUID leagueId = UUID.randomUUID();
+        TeamDto t = team(teamId);
+        t.setLeagueId(leagueId);
+        when(teamService.findAll(any(Sort.class))).thenReturn(List.of(t));
+
+        StandingRow row = new StandingRow();
+        row.setTeamId(teamId);
+        LeagueDetailView leagueDetail = mock(LeagueDetailView.class);
+        when(leagueDetail.getStandings()).thenReturn(List.of(row));
+        when(leagueService.findDetail(leagueId)).thenReturn(leagueDetail);
+
+        Map<String, Map<String, Object>> result = controller.standingsSummary();
+
+        assertThat(result).containsKey(teamId.toString());
+        assertThat(result.get(teamId.toString())).containsEntry("position", 1).containsEntry("total", 1);
     }
 
     @Test
@@ -411,6 +465,19 @@ class TeamControllerTest {
 
         assertThat(controller.delete(id, auth, ra)).isEqualTo("redirect:/teams");
         assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("Team deleted.");
+    }
+
+    @Test
+    void delete_blockedByGuard_redirectsWithErrorMessage() {
+        UUID id = UUID.randomUUID();
+        when(changeRequestService.submitOrExecute(any(), any(), any(), any(), any()))
+                .thenThrow(new InvalidLeagueOperationException("Cannot delete 'Test FC' — it belongs to league 'First League'."));
+        RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
+
+        assertThat(controller.delete(id, auth, ra)).isEqualTo("redirect:/teams");
+        assertThat(ra.getFlashAttributes().get("errorMessage"))
+                .isEqualTo("Cannot delete 'Test FC' — it belongs to league 'First League'.");
+        assertThat(ra.getFlashAttributes()).doesNotContainKey("statusMessage");
     }
 
     private Authentication authWithSubs(String username, UUID userId) {

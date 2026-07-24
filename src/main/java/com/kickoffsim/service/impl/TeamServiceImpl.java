@@ -2,6 +2,7 @@ package com.kickoffsim.service.impl;
 
 import com.kickoffsim.dto.TeamDto;
 import com.kickoffsim.exception.EntityNotFoundException;
+import com.kickoffsim.exception.InvalidLeagueOperationException;
 import com.kickoffsim.model.League;
 import com.kickoffsim.model.Match;
 import com.kickoffsim.model.Team;
@@ -116,6 +117,11 @@ public class TeamServiceImpl implements TeamService {
     @Transactional
     public void delete(UUID id) {
         Team team = getTeamOrThrow(id);
+        if (team.getLeague() != null && matchRepository.existsByLeagueId(team.getLeague().getId())) {
+            throw new InvalidLeagueOperationException(
+                    "Cannot delete '%s' — it belongs to league '%s', which already has a generated schedule. Delete the league instead if you need to remove it."
+                            .formatted(team.getName(), team.getLeague().getName()));
+        }
         List<Match> matches = matchRepository.findAllByHomeTeamOrAwayTeam(team, team);
         matchRepository.deleteAll(matches);
         teamRepository.delete(team);

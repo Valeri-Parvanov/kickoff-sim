@@ -3,6 +3,7 @@ package com.kickoffsim.controller;
 import com.kickoffsim.client.NotificationClient;
 import com.kickoffsim.client.SubscriptionDto;
 import com.kickoffsim.dto.*;
+import com.kickoffsim.exception.InvalidLeagueOperationException;
 import com.kickoffsim.model.ChangeAction;
 import com.kickoffsim.model.EntityType;
 import com.kickoffsim.service.*;
@@ -171,9 +172,11 @@ public class TeamController {
                         @RequestParam(required = false) String dir,
                         Model model) {
         Sort resolvedSort = SortSupport.resolve(sort, dir, SORTABLE_FIELDS, DEFAULT_SORT);
-        model.addAttribute("teams", teamService.findAll(resolvedSort));
+        List<TeamDto> teams = teamService.findAll(resolvedSort);
+        model.addAttribute("teams", teams);
         model.addAttribute("currentSort", sort);
         model.addAttribute("currentDir", dir == null ? "asc" : dir);
+        model.addAttribute("standingsByTeamId", standingsByTeamId(teams));
         long eligibleFreeCount = teamService.findAllFree().stream()
                 .filter(t -> t.getPlayerCount() >= 6)
                 .count();
@@ -181,6 +184,34 @@ public class TeamController {
             model.addAttribute("leagueReadyCount", eligibleFreeCount);
         }
         return "teams/list";
+    }
+
+    @GetMapping("/standings-summary")
+    @ResponseBody
+    public Map<String, Map<String, Object>> standingsSummary() {
+        List<TeamDto> teams = teamService.findAll(Sort.unsorted());
+        Map<UUID, int[]> standings = standingsByTeamId(teams);
+        Map<String, Map<String, Object>> result = new LinkedHashMap<>();
+        standings.forEach((teamId, positionAndTotal) ->
+                result.put(teamId.toString(), Map.of(
+                        "position", positionAndTotal[0],
+                        "total", positionAndTotal[1])));
+        return result;
+    }
+
+    private Map<UUID, int[]> standingsByTeamId(List<TeamDto> teams) {
+        Set<UUID> leagueIds = teams.stream()
+                .map(TeamDto::getLeagueId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<UUID, int[]> result = new HashMap<>();
+        for (UUID leagueId : leagueIds) {
+            List<StandingRow> standings = leagueService.findDetail(leagueId).getStandings();
+            for (int i = 0; i < standings.size(); i++) {
+                result.put(standings.get(i).getTeamId(), new int[]{i + 1, standings.size()});
+            }
+        }
+        return result;
     }
 
     @GetMapping("/form")
@@ -344,10 +375,14 @@ public class TeamController {
     @DeleteMapping("/{id}")
     public String delete(@PathVariable UUID id, Authentication authentication,
                           RedirectAttributes redirectAttributes) {
-        boolean executed = changeRequestService.submitOrExecute(
-                EntityType.TEAM, ChangeAction.DELETE, null, id, authentication);
-        redirectAttributes.addFlashAttribute("statusMessage",
-                executed ? "Team deleted." : "Submitted for admin approval.");
+        try {
+            boolean executed = changeRequestService.submitOrExecute(
+                    EntityType.TEAM, ChangeAction.DELETE, null, id, authentication);
+            redirectAttributes.addFlashAttribute("statusMessage",
+                    executed ? "Team deleted." : "Submitted for admin approval.");
+        } catch (InvalidLeagueOperationException ex) {
+            redirectAttributes.addFlashAttribute("errorMessage", ex.getMessage());
+        }
         return "redirect:/teams";
     }
 }

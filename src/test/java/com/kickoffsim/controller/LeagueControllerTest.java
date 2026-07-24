@@ -159,6 +159,19 @@ class LeagueControllerTest {
     }
 
     @Test
+    void delete_blockedByGuard_redirectsWithErrorMessage() {
+        UUID id = UUID.randomUUID();
+        when(changeRequestService.submitOrExecute(any(), any(), any(), any(), any()))
+                .thenThrow(new InvalidLeagueOperationException("Cannot delete 'First League' — it already has played or live matches."));
+        RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
+
+        assertThat(controller.delete(id, auth, ra)).isEqualTo("redirect:/leagues");
+        assertThat(ra.getFlashAttributes().get("errorMessage"))
+                .isEqualTo("Cannot delete 'First League' — it already has played or live matches.");
+        assertThat(ra.getFlashAttributes()).doesNotContainKey("statusMessage");
+    }
+
+    @Test
     void generateSchedule_bindingError_redirectsToLeague() {
         UUID id = UUID.randomUUID();
         ScheduleForm form = new ScheduleForm();

@@ -2,6 +2,7 @@ package com.kickoffsim.service.impl;
 
 import com.kickoffsim.dto.TeamDto;
 import com.kickoffsim.exception.EntityNotFoundException;
+import com.kickoffsim.exception.InvalidLeagueOperationException;
 import com.kickoffsim.model.League;
 import com.kickoffsim.model.Match;
 import com.kickoffsim.model.Team;
@@ -253,6 +254,44 @@ class TeamServiceImplTest {
         List<Match> matches = List.of(new Match(), new Match());
 
         when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        when(matchRepository.findAllByHomeTeamOrAwayTeam(team, team)).thenReturn(matches);
+
+        teamService.delete(teamId);
+
+        verify(matchRepository).deleteAll(matches);
+        verify(teamRepository).delete(team);
+    }
+
+    @Test
+    void delete_teamInScheduledLeague_throwsInvalidLeagueOperationException() {
+        UUID teamId = UUID.randomUUID();
+        Team team = new Team();
+        team.setId(teamId);
+        team.setName("Test FC");
+        team.setLeague(league);
+
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        when(matchRepository.existsByLeagueId(leagueId)).thenReturn(true);
+
+        assertThatThrownBy(() -> teamService.delete(teamId))
+                .isInstanceOf(InvalidLeagueOperationException.class);
+
+        verify(matchRepository, never()).deleteAll(anyList());
+        verify(teamRepository, never()).delete(any());
+    }
+
+    @Test
+    void delete_teamInLeagueWithoutSchedule_deletesNormally() {
+        UUID teamId = UUID.randomUUID();
+        Team team = new Team();
+        team.setId(teamId);
+        team.setName("Test FC");
+        team.setLeague(league);
+
+        List<Match> matches = List.of(new Match());
+
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        when(matchRepository.existsByLeagueId(leagueId)).thenReturn(false);
         when(matchRepository.findAllByHomeTeamOrAwayTeam(team, team)).thenReturn(matches);
 
         teamService.delete(teamId);

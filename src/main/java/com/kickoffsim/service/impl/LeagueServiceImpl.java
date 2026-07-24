@@ -121,15 +121,11 @@ public class LeagueServiceImpl implements LeagueService {
     @CacheEvict(value = "leagues", allEntries = true)
     public void delete(UUID id) {
         League league = getLeagueOrThrow(id);
-        List<Team> teams = new ArrayList<>(league.getTeams());
-        for (Team team : teams) {
-            List<Match> matches = matchRepository.findAllByHomeTeamOrAwayTeam(team, team);
-            matchRepository.deleteAll(matches);
-            team.setLeague(null);
-            teamRepository.save(team);
+        if (hasLeagueStarted(id)) {
+            throw new InvalidLeagueOperationException(
+                    "Cannot delete '%s' — it already has played or live matches.".formatted(league.getName()));
         }
-        leagueRepository.delete(league);
-        log.info("Deleted league {} — {} team(s) detached", id, teams.size());
+        deleteInternal(league);
     }
 
     @Override
@@ -139,12 +135,24 @@ public class LeagueServiceImpl implements LeagueService {
         LocalDateTime cutoff = LocalDateTime.now().minusDays(days);
         List<League> finished = leagueRepository.findFinishedBefore(cutoff);
         for (League league : finished) {
-            delete(league.getId());
+            deleteInternal(league);
         }
         if (!finished.isEmpty()) {
             log.info("Auto-deleted {} finished league(s) with no match in the last {} days", finished.size(), days);
         }
         return finished.size();
+    }
+
+    private void deleteInternal(League league) {
+        List<Team> teams = new ArrayList<>(league.getTeams());
+        for (Team team : teams) {
+            List<Match> matches = matchRepository.findAllByHomeTeamOrAwayTeam(team, team);
+            matchRepository.deleteAll(matches);
+            team.setLeague(null);
+            teamRepository.save(team);
+        }
+        leagueRepository.delete(league);
+        log.info("Deleted league {} — {} team(s) detached", league.getId(), teams.size());
     }
 
     @Override

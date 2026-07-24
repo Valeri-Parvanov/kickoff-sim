@@ -356,10 +356,14 @@ public class LeagueController {
     @DeleteMapping("/{id}")
     public String delete(@PathVariable UUID id, Authentication authentication,
                           RedirectAttributes redirectAttributes) {
-        boolean executed = changeRequestService.submitOrExecute(
-                EntityType.LEAGUE, ChangeAction.DELETE, null, id, authentication);
-        redirectAttributes.addFlashAttribute("statusMessage",
-                executed ? "League deleted." : "Submitted for admin approval.");
+        try {
+            boolean executed = changeRequestService.submitOrExecute(
+                    EntityType.LEAGUE, ChangeAction.DELETE, null, id, authentication);
+            redirectAttributes.addFlashAttribute("statusMessage",
+                    executed ? "League deleted." : "Submitted for admin approval.");
+        } catch (InvalidLeagueOperationException ex) {
+            redirectAttributes.addFlashAttribute("errorMessage", ex.getMessage());
+        }
         return "redirect:/leagues";
     }
 }

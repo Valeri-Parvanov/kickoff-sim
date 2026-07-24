@@ -192,6 +192,38 @@ class LeagueServiceImplTest {
     }
 
     @Test
+    void delete_leagueAlreadyStarted_throwsInvalidLeagueOperationException() {
+        UUID leagueId = UUID.randomUUID();
+        League league = new League();
+        league.setId(leagueId);
+        league.setName("First League");
+
+        when(leagueRepository.findById(leagueId)).thenReturn(Optional.of(league));
+        when(matchRepository.hasPlayedMatchesForLeague(eq(leagueId), any(LocalDateTime.class))).thenReturn(true);
+
+        assertThatThrownBy(() -> leagueService.delete(leagueId))
+                .isInstanceOf(InvalidLeagueOperationException.class);
+
+        verify(leagueRepository, org.mockito.Mockito.never()).delete(any());
+    }
+
+    @Test
+    void deleteFinishedOlderThan_bypassesGuard_deletesLeaguesWithPlayedMatches() {
+        UUID leagueId = UUID.randomUUID();
+        League league = new League();
+        league.setId(leagueId);
+        league.setName("Finished League");
+
+        when(leagueRepository.findFinishedBefore(any(LocalDateTime.class))).thenReturn(List.of(league));
+
+        int deleted = leagueService.deleteFinishedOlderThan(30);
+
+        assertThat(deleted).isEqualTo(1);
+        verify(leagueRepository).delete(league);
+        verify(matchRepository, org.mockito.Mockito.never()).hasPlayedMatchesForLeague(any(), any());
+    }
+
+    @Test
     void update_notFound_throwsEntityNotFoundException() {
         UUID id = UUID.randomUUID();
         when(leagueRepository.findById(id)).thenReturn(Optional.empty());
