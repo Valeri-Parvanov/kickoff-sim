@@ -44,8 +44,8 @@
         <th th:replace="~{fragments/sortable :: sortTh('/teams', 'name', #{common.name})}"></th>
         <th th:replace="~{fragments/sortable :: sortTh('/teams', 'city', #{teams.city})}"></th>
         <th th:replace="~{fragments/sortable :: sortTh('/teams', 'league', #{teams.league})}"></th>
-        <th th:text="#{teams.position}">Position</th>
-        <th th:text="#{teams.players}">Players</th>
+        <th th:replace="~{fragments/sortable :: sortTh('/teams', 'position', #{teams.position})}"></th>
+        <th th:replace="~{fragments/sortable :: sortTh('/teams', 'players', #{teams.players})}"></th>
         <th sec:authorize="isAuthenticated()" th:text="#{common.actions}">Actions</th>
     </tr>
     </thead>

@@ -171,12 +171,21 @@ public class TeamController {
     public String list(@RequestParam(required = false) String sort,
                         @RequestParam(required = false) String dir,
                         Model model) {
-        Sort resolvedSort = SortSupport.resolve(sort, dir, SORTABLE_FIELDS, DEFAULT_SORT);
-        List<TeamDto> teams = teamService.findAll(resolvedSort);
+        List<TeamDto> teams;
+        Map<UUID, int[]> standings;
+        if ("players".equals(sort) || "position".equals(sort)) {
+            teams = teamService.findAll(DEFAULT_SORT);
+            standings = standingsByTeamId(teams);
+            teams.sort(computedFieldComparator(sort, "desc".equalsIgnoreCase(dir), standings));
+        } else {
+            Sort resolvedSort = SortSupport.resolve(sort, dir, SORTABLE_FIELDS, DEFAULT_SORT);
+            teams = teamService.findAll(resolvedSort);
+            standings = standingsByTeamId(teams);
+        }
         model.addAttribute("teams", teams);
         model.addAttribute("currentSort", sort);
         model.addAttribute("currentDir", dir == null ? "asc" : dir);
-        model.addAttribute("standingsByTeamId", standingsByTeamId(teams));
+        model.addAttribute("standingsByTeamId", standings);
         long eligibleFreeCount = teamService.findAllFree().stream()
                 .filter(t -> t.getPlayerCount() >= 6)
                 .count();
@@ -197,6 +206,18 @@ public class TeamController {
                         "position", positionAndTotal[0],
                         "total", positionAndTotal[1])));
         return result;
+    }
+
+    private Comparator<TeamDto> computedFieldComparator(String sort, boolean desc, Map<UUID, int[]> standings) {
+        if ("players".equals(sort)) {
+            Comparator<TeamDto> comparator = Comparator.comparingLong(TeamDto::getPlayerCount);
+            return desc ? comparator.reversed() : comparator;
+        }
+        return Comparator.comparingInt(t -> {
+            int[] row = standings.get(t.getId());
+            if (row == null) return Integer.MAX_VALUE;
+            return desc ? -row[0] : row[0];
+        });
     }
 
     private Map<UUID, int[]> standingsByTeamId(List<TeamDto> teams) {

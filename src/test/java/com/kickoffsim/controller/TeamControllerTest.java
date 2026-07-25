@@ -40,6 +40,7 @@ import com.kickoffsim.client.SubscriptionDto;
 import com.kickoffsim.model.User;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -126,6 +127,99 @@ class TeamControllerTest {
         assertThat(standingsByTeamId).containsKey(teamInLeagueId);
         assertThat(standingsByTeamId.get(teamInLeagueId)).containsExactly(1, 2);
         assertThat(standingsByTeamId).doesNotContainKey(teamNoLeagueId);
+    }
+
+    @Test
+    void list_sortByPlayers_ordersTeamsByPlayerCountAscending() {
+        TeamDto low = team(UUID.randomUUID());
+        low.setPlayerCount(6);
+        TeamDto high = team(UUID.randomUUID());
+        high.setPlayerCount(12);
+
+        when(teamService.findAll(any(Sort.class))).thenReturn(new ArrayList<>(List.of(high, low)));
+        when(teamService.findAllFree()).thenReturn(List.of());
+        Model model = new ExtendedModelMap();
+
+        controller.list("players", null, model);
+
+        @SuppressWarnings("unchecked")
+        List<TeamDto> teams = (List<TeamDto>) model.getAttribute("teams");
+        assertThat(teams).containsExactly(low, high);
+    }
+
+    @Test
+    void list_sortByPlayersDesc_ordersTeamsByPlayerCountDescending() {
+        TeamDto low = team(UUID.randomUUID());
+        low.setPlayerCount(6);
+        TeamDto high = team(UUID.randomUUID());
+        high.setPlayerCount(12);
+
+        when(teamService.findAll(any(Sort.class))).thenReturn(new ArrayList<>(List.of(low, high)));
+        when(teamService.findAllFree()).thenReturn(List.of());
+        Model model = new ExtendedModelMap();
+
+        controller.list("players", "desc", model);
+
+        @SuppressWarnings("unchecked")
+        List<TeamDto> teams = (List<TeamDto>) model.getAttribute("teams");
+        assertThat(teams).containsExactly(high, low);
+    }
+
+    @Test
+    void list_sortByPosition_ordersByStandingsAndPutsTeamsWithoutPositionLast() {
+        UUID leagueId = UUID.randomUUID();
+        TeamDto secondPlace = team(UUID.randomUUID());
+        secondPlace.setLeagueId(leagueId);
+        TeamDto firstPlace = team(UUID.randomUUID());
+        firstPlace.setLeagueId(leagueId);
+        TeamDto noLeague = team(UUID.randomUUID());
+
+        when(teamService.findAll(any(Sort.class))).thenReturn(new ArrayList<>(List.of(noLeague, secondPlace, firstPlace)));
+        when(teamService.findAllFree()).thenReturn(List.of());
+
+        StandingRow row1 = new StandingRow();
+        row1.setTeamId(firstPlace.getId());
+        StandingRow row2 = new StandingRow();
+        row2.setTeamId(secondPlace.getId());
+        LeagueDetailView leagueDetail = mock(LeagueDetailView.class);
+        when(leagueDetail.getStandings()).thenReturn(List.of(row1, row2));
+        when(leagueService.findDetail(leagueId)).thenReturn(leagueDetail);
+
+        Model model = new ExtendedModelMap();
+
+        controller.list("position", null, model);
+
+        @SuppressWarnings("unchecked")
+        List<TeamDto> teams = (List<TeamDto>) model.getAttribute("teams");
+        assertThat(teams).containsExactly(firstPlace, secondPlace, noLeague);
+    }
+
+    @Test
+    void list_sortByPositionDesc_ordersByStandingsDescending() {
+        UUID leagueId = UUID.randomUUID();
+        TeamDto firstPlace = team(UUID.randomUUID());
+        firstPlace.setLeagueId(leagueId);
+        TeamDto secondPlace = team(UUID.randomUUID());
+        secondPlace.setLeagueId(leagueId);
+
+        when(teamService.findAll(any(Sort.class))).thenReturn(new ArrayList<>(List.of(firstPlace, secondPlace)));
+        when(teamService.findAllFree()).thenReturn(List.of());
+
+        StandingRow row1 = new StandingRow();
+        row1.setTeamId(firstPlace.getId());
+        StandingRow row2 = new StandingRow();
+        row2.setTeamId(secondPlace.getId());
+        LeagueDetailView leagueDetail = mock(LeagueDetailView.class);
+        when(leagueDetail.getStandings()).thenReturn(List.of(row1, row2));
+        when(leagueService.findDetail(leagueId)).thenReturn(leagueDetail);
+
+        Model model = new ExtendedModelMap();
+
+        controller.list("position", "desc", model);
+
+        @SuppressWarnings("unchecked")
+        List<TeamDto> teams = (List<TeamDto>) model.getAttribute("teams");
+        assertThat(teams).containsExactly(secondPlace, firstPlace);
     }
 
     @Test
