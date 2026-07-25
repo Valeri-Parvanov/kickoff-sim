@@ -265,6 +265,140 @@ class UserServiceImplTest {
         assertThat(captor.getValue().getRole()).isEqualTo(Role.ADMIN);
     }
 
+    @Test
+    void deactivateSelf_correctPassword_deactivatesAndSaves() {
+        User user = new User();
+        user.setUsername("alice");
+        user.setPassword("encodedPass");
+        user.setRole(Role.USER);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("correct", "encodedPass")).thenReturn(true);
+
+        userService.deactivateSelf("alice", "correct");
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(captor.capture());
+        assertThat(captor.getValue().isEnabled()).isFalse();
+    }
+
+    @Test
+    void deactivateSelf_wrongPassword_throwsIllegalArgumentException() {
+        User user = new User();
+        user.setUsername("alice");
+        user.setPassword("encodedPass");
+        user.setRole(Role.USER);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("wrong", "encodedPass")).thenReturn(false);
+
+        assertThatThrownBy(() -> userService.deactivateSelf("alice", "wrong"))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void deactivateSelf_lastAdmin_throwsIllegalStateException() {
+        User user = new User();
+        user.setUsername("admin");
+        user.setPassword("encodedPass");
+        user.setRole(Role.ADMIN);
+        when(userRepository.findByUsername("admin")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("correct", "encodedPass")).thenReturn(true);
+        when(userRepository.countByRole(Role.ADMIN)).thenReturn(1L);
+
+        assertThatThrownBy(() -> userService.deactivateSelf("admin", "correct"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("last administrator");
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void setEnabled_notFound_throwsEntityNotFoundException() {
+        UUID id = UUID.randomUUID();
+        when(userRepository.findById(id)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.setEnabled(id, false, "admin"))
+                .isInstanceOf(EntityNotFoundException.class);
+    }
+
+    @Test
+    void setEnabled_alreadyInRequestedState_doesNotSave() {
+        UUID id = UUID.randomUUID();
+        User user = new User();
+        user.setId(id);
+        user.setRole(Role.USER);
+        user.setEnabled(true);
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+
+        userService.setEnabled(id, true, "admin");
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void setEnabled_disableRegularUser_succeeds() {
+        UUID id = UUID.randomUUID();
+        User user = new User();
+        user.setId(id);
+        user.setRole(Role.USER);
+        user.setEnabled(true);
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+
+        userService.setEnabled(id, false, "admin");
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(captor.capture());
+        assertThat(captor.getValue().isEnabled()).isFalse();
+    }
+
+    @Test
+    void setEnabled_reactivateUser_succeeds() {
+        UUID id = UUID.randomUUID();
+        User user = new User();
+        user.setId(id);
+        user.setRole(Role.USER);
+        user.setEnabled(false);
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+
+        userService.setEnabled(id, true, "admin");
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(captor.capture());
+        assertThat(captor.getValue().isEnabled()).isTrue();
+    }
+
+    @Test
+    void setEnabled_disableAdmin_notLastAdmin_succeeds() {
+        UUID id = UUID.randomUUID();
+        User user = new User();
+        user.setId(id);
+        user.setRole(Role.ADMIN);
+        user.setEnabled(true);
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+        when(userRepository.countByRole(Role.ADMIN)).thenReturn(2L);
+
+        userService.setEnabled(id, false, "admin");
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(captor.capture());
+        assertThat(captor.getValue().isEnabled()).isFalse();
+    }
+
+    @Test
+    void setEnabled_disableLastAdmin_throwsIllegalStateException() {
+        UUID id = UUID.randomUUID();
+        User user = new User();
+        user.setId(id);
+        user.setRole(Role.ADMIN);
+        user.setEnabled(true);
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+        when(userRepository.countByRole(Role.ADMIN)).thenReturn(1L);
+
+        assertThatThrownBy(() -> userService.setEnabled(id, false, "admin"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("last administrator");
+        verify(userRepository, never()).save(any());
+    }
+
     private RegisterDto registerDto(String username, String password) {
         RegisterDto dto = new RegisterDto();
         dto.setUsername(username);

@@ -17,6 +17,7 @@
 
 <p th:if="${statusMessage}" th:text="${statusMessage}" class="status-message"></p>
 <p th:if="${param.expired}" class="error-message" th:text="#{login.expired}">Your session has expired. Please log in again.</p>
+<p th:if="${param.deactivated}" class="status-message" th:text="#{login.deactivated}">Your account has been deactivated.</p>
 <p style="color:red" th:if="${param.error}" th:text="#{login.invalid}">Invalid username or password</p>
 
 <form th:action="@{/login}" method="post" class="card-form">

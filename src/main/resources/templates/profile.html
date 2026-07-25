@@ -39,6 +39,20 @@
         </div>
         <button type="submit" class="btn-save-profile" th:text="#{profile.savechanges}">Save changes</button>
     </form>
+
+    <form id="deactivateSelfForm" th:action="@{/profile/deactivate}" th:object="${deactivateAccountDto}"
+          method="post" class="card-form danger-zone">
+        <h2 class="danger-zone-title" th:text="#{profile.dangerzone}">Danger zone</h2>
+        <p class="field-hint" th:text="#{profile.deactivate.hint}">Deactivating your account will log you out and block further logins until an administrator reactivates it.</p>
+        <div>
+            <label for="deactivatePassword" th:text="#{profile.deactivate.password}">Confirm your password</label>
+            <input type="password" id="deactivatePassword" th:field="*{password}" autocomplete="current-password">
+            <span class="field-error" th:if="${#fields.hasErrors('password')}" th:errors="*{password}"></span>
+        </div>
+        <button type="button" class="btn-del"
+                th:attr="onclick=|openConfirmDialog('deactivateSelfForm', '${#strings.escapeJavaScript(#messages.msg('profile.deactivate.title'))}', '${#strings.escapeJavaScript(profileUsername)}', '${#strings.escapeJavaScript(#messages.msg('profile.deactivate.body1'))}', '${#strings.escapeJavaScript(#messages.msg('profile.deactivate.body2'))}')|"
+                th:text="#{profile.deactivate.button}">Deactivate my account</button>
+    </form>
 </div>
 
 </main>

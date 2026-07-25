@@ -25,6 +25,7 @@
             <th th:text="#{admin.users.username}">Username</th>
             <th th:text="#{admin.users.email}">Email</th>
             <th th:text="#{admin.users.role}">Role</th>
+            <th th:text="#{admin.users.status}">Status</th>
             <th th:text="#{common.actions}">Actions</th>
         </tr>
     </thead>
@@ -40,6 +41,11 @@
                       th:classappend="${u.role.name() == 'ADMIN'} ? ' rb-admin' : ' rb-user'"
                       th:text="${u.role}"></span>
             </td>
+            <td>
+                <span class="status-badge"
+                      th:classappend="${u.enabled} ? ' sb-active' : ' sb-inactive'"
+                      th:text="${u.enabled} ? #{admin.users.active} : #{admin.users.inactive}"></span>
+            </td>
             <td class="user-role-actions">
                 <form th:if="${u.role.name() == 'USER'}"
                       th:action="@{/admin/users/{id}/role(id=${u.id})}" method="post" style="display:inline">
@@ -54,6 +60,22 @@
                     <button type="submit" class="btn-del"
                             th:disabled="${adminCount <= 1}"
                             th:title="${adminCount <= 1} ? #{admin.users.lastadmin} : ''" th:text="#{admin.users.demote}">Demote to User</button>
+                </form>
+                <form th:id="'deactivateUserForm-' + ${u.id}" th:if="${u.enabled}"
+                      th:action="@{/admin/users/{id}/status(id=${u.id})}" method="post" style="display:inline">
+                    <input type="hidden" name="enabled" value="false"/>
+                    <input type="hidden" name="targetUsername" th:value="${u.username}"/>
+                </form>
+                <button th:if="${u.enabled}" type="button" class="btn-del"
+                        th:disabled="${u.role.name() == 'ADMIN' and adminCount <= 1}"
+                        th:title="${u.role.name() == 'ADMIN' and adminCount <= 1} ? #{admin.users.lastadmin} : ''"
+                        th:attr="onclick=|openConfirmDialog('deactivateUserForm-${u.id}', '${#strings.escapeJavaScript(#messages.msg('admin.users.deactivate.title'))}', '${#strings.escapeJavaScript(u.username)}', '${#strings.escapeJavaScript(#messages.msg('admin.users.deactivate.body1'))}', '${#strings.escapeJavaScript(#messages.msg('admin.users.deactivate.body2'))}')|"
+                        th:text="#{admin.users.deactivate}">Deactivate</button>
+                <form th:if="${!u.enabled}"
+                      th:action="@{/admin/users/{id}/status(id=${u.id})}" method="post" style="display:inline">
+                    <input type="hidden" name="enabled" value="true"/>
+                    <input type="hidden" name="targetUsername" th:value="${u.username}"/>
+                    <button type="submit" class="btn-approve" th:text="#{admin.users.reactivate}">Reactivate</button>
                 </form>
             </td>
         </tr>

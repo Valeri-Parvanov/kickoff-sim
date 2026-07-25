@@ -157,4 +157,75 @@ class UserAdminControllerTest {
         assertThat(view).isEqualTo("redirect:/admin/users");
         assertThat(ra.getFlashAttributes()).containsKey("errorMessage");
     }
+
+    @Test
+    void setStatus_deactivateOther_setsStatusMessage() {
+        UUID id = UUID.randomUUID();
+        when(auth.getName()).thenReturn("admin");
+        HttpServletRequest req = mock(HttpServletRequest.class);
+        HttpServletResponse resp = mock(HttpServletResponse.class);
+        RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
+
+        String view = controller.setStatus(id, false, "bob", auth, req, resp, ra);
+
+        assertThat(view).isEqualTo("redirect:/admin/users");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("User deactivated successfully.");
+    }
+
+    @Test
+    void setStatus_reactivateOther_setsStatusMessage() {
+        UUID id = UUID.randomUUID();
+        when(auth.getName()).thenReturn("admin");
+        HttpServletRequest req = mock(HttpServletRequest.class);
+        HttpServletResponse resp = mock(HttpServletResponse.class);
+        RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
+
+        String view = controller.setStatus(id, true, "bob", auth, req, resp, ra);
+
+        assertThat(view).isEqualTo("redirect:/admin/users");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("User reactivated successfully.");
+    }
+
+    @Test
+    void setStatus_selfButReactivate_doesNotLogout() {
+        UUID id = UUID.randomUUID();
+        when(auth.getName()).thenReturn("admin");
+        HttpServletRequest req = mock(HttpServletRequest.class);
+        HttpServletResponse resp = mock(HttpServletResponse.class);
+        RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
+
+        String view = controller.setStatus(id, true, "admin", auth, req, resp, ra);
+
+        assertThat(view).isEqualTo("redirect:/admin/users");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("User reactivated successfully.");
+    }
+
+    @Test
+    void setStatus_selfDeactivate_logsOutAndRedirectsToLogin() {
+        UUID id = UUID.randomUUID();
+        when(auth.getName()).thenReturn("admin");
+        HttpServletRequest req = mock(HttpServletRequest.class);
+        HttpServletResponse resp = mock(HttpServletResponse.class);
+        RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
+
+        String view = controller.setStatus(id, false, "admin", auth, req, resp, ra);
+
+        assertThat(view).isEqualTo("redirect:/login");
+    }
+
+    @Test
+    void setStatus_exception_setsError() {
+        UUID id = UUID.randomUUID();
+        when(auth.getName()).thenReturn("admin");
+        doThrow(new IllegalStateException("last admin"))
+                .when(userService).setEnabled(eq(id), eq(false), eq("admin"));
+        HttpServletRequest req = mock(HttpServletRequest.class);
+        HttpServletResponse resp = mock(HttpServletResponse.class);
+        RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
+
+        String view = controller.setStatus(id, false, "bob", auth, req, resp, ra);
+
+        assertThat(view).isEqualTo("redirect:/admin/users");
+        assertThat(ra.getFlashAttributes()).containsKey("errorMessage");
+    }
 }

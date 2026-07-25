@@ -1,11 +1,15 @@
 package com.kickoffsim.controller;
 
+import com.kickoffsim.dto.DeactivateAccountDto;
 import com.kickoffsim.dto.ProfileDto;
 import com.kickoffsim.model.User;
 import com.kickoffsim.service.UserService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -28,6 +32,7 @@ public class ProfileController {
         ProfileDto dto = new ProfileDto();
         dto.setEmail(user.getEmail());
         model.addAttribute("profileDto", dto);
+        model.addAttribute("deactivateAccountDto", new DeactivateAccountDto());
         model.addAttribute("profileUsername", user.getUsername());
         model.addAttribute("userRole", user.getRole().name());
         return "profile";
@@ -41,6 +46,7 @@ public class ProfileController {
                                 Model model) {
         User user = userService.findByUsername(authentication.getName());
         if (bindingResult.hasErrors()) {
+            model.addAttribute("deactivateAccountDto", new DeactivateAccountDto());
             model.addAttribute("profileUsername", user.getUsername());
             model.addAttribute("userRole", user.getRole().name());
             return "profile";
@@ -49,6 +55,7 @@ public class ProfileController {
         try {
             userService.updateProfile(authentication.getName(), dto);
         } catch (IllegalArgumentException e) {
+            model.addAttribute("deactivateAccountDto", new DeactivateAccountDto());
             model.addAttribute("profileUsername", user.getUsername());
             model.addAttribute("userRole", user.getRole().name());
             model.addAttribute("errorMessage", e.getMessage());
@@ -57,5 +64,41 @@ public class ProfileController {
 
         redirectAttributes.addFlashAttribute("statusMessage", "Profile updated successfully.");
         return "redirect:/profile";
+    }
+
+    @PostMapping("/deactivate")
+    public String deactivateSelf(@Valid @ModelAttribute("deactivateAccountDto") DeactivateAccountDto dto,
+                                 BindingResult bindingResult,
+                                 Authentication authentication,
+                                 HttpServletRequest request,
+                                 HttpServletResponse response,
+                                 Model model) {
+        User user = userService.findByUsername(authentication.getName());
+        if (bindingResult.hasErrors()) {
+            model.addAttribute("profileDto", toProfileDto(user));
+            model.addAttribute("profileUsername", user.getUsername());
+            model.addAttribute("userRole", user.getRole().name());
+            return "profile";
+        }
+
+        try {
+            userService.deactivateSelf(authentication.getName(), dto.getPassword());
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            model.addAttribute("profileDto", toProfileDto(user));
+            model.addAttribute("deactivateAccountDto", new DeactivateAccountDto());
+            model.addAttribute("profileUsername", user.getUsername());
+            model.addAttribute("userRole", user.getRole().name());
+            model.addAttribute("errorMessage", e.getMessage());
+            return "profile";
+        }
+
+        new SecurityContextLogoutHandler().logout(request, response, authentication);
+        return "redirect:/login?deactivated";
+    }
+
+    private static ProfileDto toProfileDto(User user) {
+        ProfileDto dto = new ProfileDto();
+        dto.setEmail(user.getEmail());
+        return dto;
     }
 }

@@ -1,9 +1,12 @@
 package com.kickoffsim.controller;
 
+import com.kickoffsim.dto.DeactivateAccountDto;
 import com.kickoffsim.dto.ProfileDto;
 import com.kickoffsim.model.Role;
 import com.kickoffsim.model.User;
 import com.kickoffsim.service.UserService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -95,5 +98,73 @@ class ProfileControllerTest {
 
         assertThat(controller.updateProfile(dto, br, auth, ra, model)).isEqualTo("profile");
         assertThat(model.getAttribute("errorMessage")).isEqualTo("bad email");
+    }
+
+    @Test
+    void deactivateSelf_bindingErrors_returnsView() {
+        when(auth.getName()).thenReturn("alice");
+        when(userService.findByUsername("alice")).thenReturn(user());
+        DeactivateAccountDto dto = new DeactivateAccountDto();
+        BindingResult br = new BeanPropertyBindingResult(dto, "deactivateAccountDto");
+        br.reject("err", "bad");
+        HttpServletRequest req = mock(HttpServletRequest.class);
+        HttpServletResponse resp = mock(HttpServletResponse.class);
+        Model model = new ExtendedModelMap();
+
+        assertThat(controller.deactivateSelf(dto, br, auth, req, resp, model)).isEqualTo("profile");
+    }
+
+    @Test
+    void deactivateSelf_success_logsOutAndRedirects() {
+        when(auth.getName()).thenReturn("alice");
+        when(userService.findByUsername("alice")).thenReturn(user());
+        DeactivateAccountDto dto = new DeactivateAccountDto();
+        dto.setPassword("correct");
+        BindingResult br = new BeanPropertyBindingResult(dto, "deactivateAccountDto");
+        HttpServletRequest req = mock(HttpServletRequest.class);
+        HttpServletResponse resp = mock(HttpServletResponse.class);
+        Model model = new ExtendedModelMap();
+
+        String view = controller.deactivateSelf(dto, br, auth, req, resp, model);
+
+        assertThat(view).isEqualTo("redirect:/login?deactivated");
+    }
+
+    @Test
+    void deactivateSelf_wrongPassword_returnsViewWithError() {
+        when(auth.getName()).thenReturn("alice");
+        when(userService.findByUsername("alice")).thenReturn(user());
+        doThrow(new IllegalArgumentException("Incorrect password."))
+                .when(userService).deactivateSelf(eq("alice"), any());
+        DeactivateAccountDto dto = new DeactivateAccountDto();
+        dto.setPassword("wrong");
+        BindingResult br = new BeanPropertyBindingResult(dto, "deactivateAccountDto");
+        HttpServletRequest req = mock(HttpServletRequest.class);
+        HttpServletResponse resp = mock(HttpServletResponse.class);
+        Model model = new ExtendedModelMap();
+
+        String view = controller.deactivateSelf(dto, br, auth, req, resp, model);
+
+        assertThat(view).isEqualTo("profile");
+        assertThat(model.getAttribute("errorMessage")).isEqualTo("Incorrect password.");
+    }
+
+    @Test
+    void deactivateSelf_lastAdmin_returnsViewWithError() {
+        when(auth.getName()).thenReturn("alice");
+        when(userService.findByUsername("alice")).thenReturn(user());
+        doThrow(new IllegalStateException("Cannot deactivate the last administrator."))
+                .when(userService).deactivateSelf(eq("alice"), any());
+        DeactivateAccountDto dto = new DeactivateAccountDto();
+        dto.setPassword("correct");
+        BindingResult br = new BeanPropertyBindingResult(dto, "deactivateAccountDto");
+        HttpServletRequest req = mock(HttpServletRequest.class);
+        HttpServletResponse resp = mock(HttpServletResponse.class);
+        Model model = new ExtendedModelMap();
+
+        String view = controller.deactivateSelf(dto, br, auth, req, resp, model);
+
+        assertThat(view).isEqualTo("profile");
+        assertThat(model.getAttribute("errorMessage")).isEqualTo("Cannot deactivate the last administrator.");
     }
 }

@@ -21,4 +21,8 @@ public interface UserService {
     long countByRole(Role role);
 
     void changeRole(UUID userId, Role newRole, String adminUsername);
+
+    void deactivateSelf(String username, String rawPassword);
+
+    void setEnabled(UUID userId, boolean enabled, String actingUsername);
 }

@@ -64,6 +64,28 @@ public class UserAdminController {
         return "redirect:/admin/users";
     }
 
+    @PostMapping("/{id}/status")
+    public String setStatus(@PathVariable UUID id,
+                            @RequestParam boolean enabled,
+                            @RequestParam String targetUsername,
+                            Authentication authentication,
+                            HttpServletRequest request,
+                            HttpServletResponse response,
+                            RedirectAttributes redirectAttributes) {
+        try {
+            userService.setEnabled(id, enabled, authentication.getName());
+            if (!enabled && authentication.getName().equals(targetUsername)) {
+                new SecurityContextLogoutHandler().logout(request, response, authentication);
+                return "redirect:/login";
+            }
+            redirectAttributes.addFlashAttribute("statusMessage",
+                    enabled ? "User reactivated successfully." : "User deactivated successfully.");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return "redirect:/admin/users";
+    }
+
     static List<Integer> buildPageNumbers(int current, int total) {
         if (total <= 9) {
             List<Integer> pages = new ArrayList<>();

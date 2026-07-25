@@ -64,4 +64,34 @@ class CustomUserDetailsServiceTest {
 
         assertThat(details.getAuthorities()).extracting("authority").containsExactly("ROLE_USER");
     }
+
+    @Test
+    void loadUserByUsername_enabledUser_returnsEnabledUserDetails() {
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setUsername("alice");
+        user.setPassword("pass");
+        user.setRole(Role.USER);
+        user.setEnabled(true);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+
+        UserDetails details = service.loadUserByUsername("alice");
+
+        assertThat(details.isEnabled()).isTrue();
+    }
+
+    @Test
+    void loadUserByUsername_disabledUser_returnsDisabledUserDetails() {
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setUsername("bob");
+        user.setPassword("pass");
+        user.setRole(Role.USER);
+        user.setEnabled(false);
+        when(userRepository.findByUsername("bob")).thenReturn(Optional.of(user));
+
+        UserDetails details = service.loadUserByUsername("bob");
+
+        assertThat(details.isEnabled()).isFalse();
+    }
 }

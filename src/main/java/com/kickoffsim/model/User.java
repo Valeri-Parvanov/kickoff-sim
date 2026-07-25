@@ -33,4 +33,8 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role;
+
+    @org.hibernate.annotations.ColumnDefault("true")
+    @Column(nullable = false)
+    private boolean enabled = true;
 }

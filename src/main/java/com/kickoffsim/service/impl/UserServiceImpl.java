@@ -99,4 +99,44 @@ public class UserServiceImpl implements UserService {
         userRepository.save(user);
         log.info("User '{}' role changed to {} by '{}'", user.getUsername(), newRole, adminUsername);
     }
+
+    @Override
+    @Transactional
+    public void deactivateSelf(String username, String rawPassword) {
+        User user = findByUsername(username);
+        if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
+            throw new IllegalArgumentException("Incorrect password.");
+        }
+        deactivate(user);
+        log.info("User '{}' deactivated their own account", username);
+    }
+
+    @Override
+    @Transactional
+    public void setEnabled(UUID userId, boolean enabled, String actingUsername) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
+
+        if (user.isEnabled() == enabled) return;
+
+        if (enabled) {
+            user.setEnabled(true);
+            userRepository.save(user);
+        } else {
+            deactivate(user);
+        }
+        log.info("User '{}' enabled set to {} by '{}'", user.getUsername(), enabled, actingUsername);
+    }
+
+    private void deactivate(User user) {
+        if (user.getRole() == Role.ADMIN) {
+            long adminCount = userRepository.countByRole(Role.ADMIN);
+            if (adminCount <= 1) {
+                throw new IllegalStateException(
+                        "Cannot deactivate the last administrator. Promote another user to admin first.");
+            }
+        }
+        user.setEnabled(false);
+        userRepository.save(user);
+    }
 }
