@@ -358,6 +358,8 @@ class NotificationControllerTest {
     void liveToasts_includesGoalKickoffHalftimeAndFulltimeButNotOtherTypes() {
         UUID userId = UUID.randomUUID();
         Authentication auth = authFor("alice", userId);
+        MockHttpSession session = new MockHttpSession();
+        session.setAttribute(SecurityConfig.LOGIN_AT_SESSION_ATTR, LocalDateTime.now().minusHours(1));
 
         when(notificationClient.getNotifications(userId)).thenReturn(List.of(
                 recentNotification("GOAL", "GOAL for Home!"),
@@ -366,7 +368,7 @@ class NotificationControllerTest {
                 recentNotification("MATCH_KICKOFF", "KICK OFF!"),
                 recentNotification("MATCH_UPDATE", "LIVE: Home 1:0 Away")));
 
-        List<Map<String, Object>> toasts = controller.liveToasts(auth, new MockHttpSession());
+        List<Map<String, Object>> toasts = controller.liveToasts(auth, session);
 
         assertThat(toasts).extracting(t -> t.get("type"))
                 .containsExactlyInAnyOrder("GOAL", "MATCH_HALFTIME", "MATCH_FULLTIME", "MATCH_KICKOFF");

@@ -94,7 +94,7 @@
 
 <div id="goal-toasts" class="goal-toast-wrap" sec:authorize="isAuthenticated()"></div>
 
-<dialog id="confirmDialog" class="confirm-dialog" sec:authorize="hasRole('ADMIN')">
+<dialog id="confirmDialog" class="confirm-dialog" sec:authorize="isAuthenticated()">
     <div class="confirm-dialog-icon">&#9888;</div>
     <h2 class="confirm-dialog-title" id="confirmDialogTitle"></h2>
     <p class="confirm-dialog-body">
@@ -107,7 +107,7 @@
         <button type="button" class="btn-del" id="confirmDialogConfirm" th:text="#{common.delete}">Delete</button>
     </div>
 </dialog>
-<script sec:authorize="hasRole('ADMIN')">
+<script sec:authorize="isAuthenticated()">
 (function() {
     var dialog = document.getElementById('confirmDialog');
     if (!dialog) return;
@@ -310,7 +310,7 @@
         wrap.appendChild(el);
         requestAnimationFrame(function() { el.classList.add('show'); });
 
-        var timer = setTimeout(dismiss, 30000);
+        var timer = setTimeout(dismiss, 15000 + Math.random() * 15000);
         function dismiss() {
             clearTimeout(timer);
             el.classList.remove('show');
