@@ -144,7 +144,7 @@ class SquadControllerTest {
                 authentication, redirect);
 
         assertThat(view).isEqualTo("redirect:/teams");
-        assertThat((String) redirect.getFlashAttributes().get("statusMessage")).contains("approval");
+        assertThat(redirect.getFlashAttributes().get("statusMessage")).isEqualTo("flash.squad.submitted");
     }
 
     @Test
@@ -356,7 +356,7 @@ class SquadControllerTest {
         squadController.submit(teamId, form, binding, new ExtendedModelMap(),
                 authentication, redirect);
 
-        assertThat((String) redirect.getFlashAttributes().get("statusMessage")).contains("approval");
+        assertThat(redirect.getFlashAttributes().get("statusMessage")).isEqualTo("flash.squad.updatesubmitted");
     }
 
     private static PlayerRowDto row(Integer shirtNumber, String firstName, String lastName) {

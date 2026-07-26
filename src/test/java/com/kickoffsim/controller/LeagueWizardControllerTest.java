@@ -103,7 +103,7 @@ class LeagueWizardControllerTest {
         String view = controller.chooseTeams(7, model, ra);
 
         assertThat(view).isEqualTo("redirect:/leagues/wizard");
-        assertThat(ra.getFlashAttributes().get("warnMessage")).isEqualTo("Invalid league format.");
+        assertThat(ra.getFlashAttributes().get("warnMessage")).isEqualTo("flash.league.invalidformat");
     }
 
     @Test
@@ -139,7 +139,7 @@ class LeagueWizardControllerTest {
         String view = controller.newTeams(7, null, model, ra);
 
         assertThat(view).isEqualTo("redirect:/leagues/wizard");
-        assertThat(ra.getFlashAttributes().get("warnMessage")).isEqualTo("Invalid league format.");
+        assertThat(ra.getFlashAttributes().get("warnMessage")).isEqualTo("flash.league.invalidformat");
     }
 
     @Test
@@ -152,7 +152,7 @@ class LeagueWizardControllerTest {
         String view = controller.newTeams(6, ids, model, ra);
 
         assertThat(view).isEqualTo("redirect:/leagues/wizard/teams?format=6");
-        assertThat(ra.getFlashAttributes().get("warnMessage")).asString().contains("more teams");
+        assertThat(ra.getFlashAttributes().get("warnMessage")).isEqualTo("flash.league.toomanyteams");
     }
 
     @Test
@@ -165,7 +165,7 @@ class LeagueWizardControllerTest {
         String view = controller.newTeams(6, List.of(id1), model, ra);
 
         assertThat(view).isEqualTo("redirect:/leagues/wizard/teams?format=6");
-        assertThat(ra.getFlashAttributes().get("warnMessage")).asString().contains("no longer eligible");
+        assertThat(ra.getFlashAttributes().get("warnMessage")).isEqualTo("flash.league.teamsineligible");
     }
 
     @Test
@@ -178,7 +178,7 @@ class LeagueWizardControllerTest {
         String view = controller.newTeams(6, List.of(id1), model, ra);
 
         assertThat(view).isEqualTo("redirect:/leagues/wizard/teams?format=6");
-        assertThat(ra.getFlashAttributes().get("warnMessage")).asString().contains("no longer eligible");
+        assertThat(ra.getFlashAttributes().get("warnMessage")).isEqualTo("flash.league.teamsineligible");
     }
 
     @Test
@@ -425,7 +425,7 @@ class LeagueWizardControllerTest {
 
         assertThat(br.hasErrors()).isFalse();
         assertThat(view).isEqualTo("redirect:/leagues/" + leagueId + "#schedule");
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("League created and schedule generated.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.league.createdwithschedule");
     }
 
     @Test
@@ -441,7 +441,7 @@ class LeagueWizardControllerTest {
         String view = controller.submit(form, br, null, model, auth, ra);
 
         assertThat(view).isEqualTo("redirect:/leagues");
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("League created and schedule generated.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.league.createdwithschedule");
     }
 
     @Test
@@ -456,7 +456,7 @@ class LeagueWizardControllerTest {
         String view = controller.submit(form, br, null, model, auth, ra);
 
         assertThat(view).isEqualTo("redirect:/leagues");
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("Submitted for admin approval.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.common.submitted");
     }
 
     private LeagueBundlePayload bundlePayload(UUID existingTeamId) {

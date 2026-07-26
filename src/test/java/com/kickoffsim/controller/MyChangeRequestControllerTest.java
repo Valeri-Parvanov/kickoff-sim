@@ -155,7 +155,7 @@ class MyChangeRequestControllerTest {
         RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
 
         assertThat(controller.cancel(id, auth, ra)).isEqualTo("redirect:/my-change-requests");
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("Request cancelled.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.changerequest.cancelled");
     }
 
     @Test

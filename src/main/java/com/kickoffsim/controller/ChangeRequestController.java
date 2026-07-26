@@ -32,15 +32,14 @@ public class ChangeRequestController {
                            RedirectAttributes redirectAttributes) {
         try {
             changeRequestService.approve(id, authentication);
-            redirectAttributes.addFlashAttribute("statusMessage", "Change request approved.");
+            redirectAttributes.addFlashAttribute("statusMessage", "flash.changerequest.approved");
         } catch (ChangeRequestApprovalException e) {
             redirectAttributes.addFlashAttribute("errorMessage",
                     "Could not approve change request: %s".formatted(e.getMessage()));
             redirectAttributes.addFlashAttribute("failedRequestId", id);
             redirectAttributes.addFlashAttribute("suggestedReason", e.getMessage());
         } catch (DataIntegrityViolationException e) {
-            redirectAttributes.addFlashAttribute("errorMessage",
-                    "This request cannot be approved — a record with that name already exists. Please reject it instead.");
+            redirectAttributes.addFlashAttribute("errorMessage", "flash.changerequest.duplicate");
             redirectAttributes.addFlashAttribute("failedRequestId", id);
             redirectAttributes.addFlashAttribute("suggestedReason", "A record with that name already exists");
         }
@@ -52,7 +51,7 @@ public class ChangeRequestController {
                           Authentication authentication, RedirectAttributes redirectAttributes) {
         try {
             changeRequestService.reject(id, authentication, reason);
-            redirectAttributes.addFlashAttribute("statusMessage", "Change request rejected.");
+            redirectAttributes.addFlashAttribute("statusMessage", "flash.changerequest.rejected");
         } catch (ChangeRequestApprovalException e) {
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
         }

@@ -1,5 +1,5 @@
-<!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+﻿<!DOCTYPE html>
+<html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -21,7 +21,8 @@
     <h1 th:if="${errorTitle == null and status == 404}" th:text="'&#128269; ' + #{error.notfound}">&#128269; Page not found</h1>
     <h1 th:if="${errorTitle == null and status != 404}" th:text="#{error.wentwrong}">Something went wrong</h1>
 
-    <p class="error-desc" th:if="${errorMessage != null}" th:text="${errorMessage}"></p>
+    <p class="error-desc" th:if="${errorMessage != null}"
+       th:text="${#messages.msgOrNull(errorMessage) != null ? #messages.msgOrNull(errorMessage) : errorMessage}"></p>
     <p class="error-desc" th:if="${errorMessage == null and status == 404}">
         <span th:text="#{error.pageprefix}">The page</span> <strong th:text="${path}"></strong> <span th:text="#{error.doesnotexist}">does not exist.</span>
     </p>

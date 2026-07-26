@@ -164,7 +164,7 @@ public class NotificationController {
             model.addAttribute("liveThreshold", LocalDateTime.now().minusMinutes(90));
             model.addAttribute("currentUrl", "/feed");
             model.addAttribute("subscribedMatchIds", Set.of());
-            model.addAttribute("warnMessage", "Notification service is temporarily unavailable.");
+            model.addAttribute("warnMessage", "flash.notif.unavailable");
         }
         return "feed";
     }
@@ -298,7 +298,7 @@ public class NotificationController {
             log.info("User {} subscribed to {} {}", authentication.getName(), entityType, entityId);
             backfillMatchSubscriptions(userId, entityType, entityId);
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("warnMessage", "Already following or notification service unavailable.");
+            redirectAttributes.addFlashAttribute("warnMessage", "flash.notif.alreadyfollowing");
         }
         return returnUrl != null ? "redirect:" + returnUrl : "redirect:/feed";
     }
@@ -369,10 +369,10 @@ public class NotificationController {
             RedirectAttributes redirectAttributes) {
         try {
             notificationClient.unsubscribe(id);
-            redirectAttributes.addFlashAttribute("statusMessage", "Unfollowed successfully.");
+            redirectAttributes.addFlashAttribute("statusMessage", "flash.notif.unfollowed");
             log.info("User {} unsubscribed subscription {}", authentication.getName(), id);
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("warnMessage", "Could not unfollow. Try again.");
+            redirectAttributes.addFlashAttribute("warnMessage", "flash.notif.unfollowfailed");
         }
         return returnUrl != null ? "redirect:" + returnUrl : "redirect:/feed";
     }

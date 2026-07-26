@@ -51,8 +51,7 @@ public class AuthController {
         }
 
         if (assignedRole == Role.ADMIN) {
-            redirectAttributes.addFlashAttribute("statusMessage",
-                    "Account created! You're the first registered user, so you've been given admin access.");
+            redirectAttributes.addFlashAttribute("statusMessage", "flash.auth.firstadmin");
         }
 
         return "redirect:/login";

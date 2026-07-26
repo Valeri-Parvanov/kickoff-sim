@@ -15,14 +15,14 @@ public final class MatchTeamValidator {
             return;
         }
         if (matchDto.getHomeTeamId().equals(matchDto.getAwayTeamId())) {
-            bindingResult.rejectValue("awayTeamId", "team.same", "Away team must differ from home team");
+            bindingResult.rejectValue("awayTeamId", "validation.match.teams.different");
             return;
         }
 
         TeamDto homeTeam = teamService.findById(matchDto.getHomeTeamId());
         TeamDto awayTeam = teamService.findById(matchDto.getAwayTeamId());
         if (!homeTeam.getLeagueId().equals(awayTeam.getLeagueId())) {
-            bindingResult.rejectValue("awayTeamId", "team.differentLeague", "Both teams must be in the same league");
+            bindingResult.rejectValue("awayTeamId", "validation.match.teams.sameleague");
         }
     }
 }

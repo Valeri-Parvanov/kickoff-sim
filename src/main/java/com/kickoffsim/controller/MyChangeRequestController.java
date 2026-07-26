@@ -82,7 +82,7 @@ public class MyChangeRequestController {
                          RedirectAttributes redirectAttributes) {
         try {
             changeRequestService.cancelMine(id, authentication);
-            redirectAttributes.addFlashAttribute("statusMessage", "Request cancelled.");
+            redirectAttributes.addFlashAttribute("statusMessage", "flash.changerequest.cancelled");
         } catch (ChangeRequestApprovalException e) {
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
         }

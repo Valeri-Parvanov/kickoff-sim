@@ -28,23 +28,23 @@ public final class SquadRowValidator {
             String base = prefix + "[" + i + "].";
 
             if (row.getFirstName() == null || row.getFirstName().isBlank()) {
-                bindingResult.rejectValue(base + "firstName", "NotBlank", "First name is required");
+                bindingResult.rejectValue(base + "firstName", "validation.player.firstname.required");
             }
             if (row.getLastName() == null || row.getLastName().isBlank()) {
-                bindingResult.rejectValue(base + "lastName", "NotBlank", "Last name is required");
+                bindingResult.rejectValue(base + "lastName", "validation.player.lastname.required");
             }
 
             Integer number = row.getShirtNumber();
             if (number == null) {
-                bindingResult.rejectValue(base + "shirtNumber", "NotNull", "Shirt number is required");
+                bindingResult.rejectValue(base + "shirtNumber", "validation.player.shirt.required");
             } else if (number < 1 || number > 99) {
-                bindingResult.rejectValue(base + "shirtNumber", "Range", "Shirt number must be 1–99");
+                bindingResult.rejectValue(base + "shirtNumber", "validation.player.shirt.range");
             } else if (takenNumbers.contains(number)) {
-                bindingResult.rejectValue(base + "shirtNumber", "Taken",
-                        "Shirt number " + number + " is already taken in this team");
+                bindingResult.rejectValue(base + "shirtNumber", "validation.player.shirt.taken",
+                        new Object[]{number}, null);
             } else if (!batchNumbers.add(number)) {
-                bindingResult.rejectValue(base + "shirtNumber", "Duplicate",
-                        "Shirt number " + number + " is used twice in this form");
+                bindingResult.rejectValue(base + "shirtNumber", "validation.player.shirt.duplicate",
+                        new Object[]{number}, null);
             }
         }
         return filledRows;

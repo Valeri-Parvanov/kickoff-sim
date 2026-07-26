@@ -21,24 +21,24 @@ public class MatchDto {
 
     private UUID id;
 
-    @NotNull(message = "Please select a home team")
+    @NotNull(message = "{validation.match.home.required}")
     private UUID homeTeamId;
 
-    @NotNull(message = "Please select an away team")
+    @NotNull(message = "{validation.match.away.required}")
     private UUID awayTeamId;
 
-    @PositiveOrZero(message = "Home score cannot be negative")
+    @PositiveOrZero(message = "{validation.match.homescore.nonnegative}")
     private Integer homeScore;
 
-    @PositiveOrZero(message = "Away score cannot be negative")
+    @PositiveOrZero(message = "{validation.match.awayscore.nonnegative}")
     private Integer awayScore;
 
-    @NotNull(message = "Please select a date and time")
-    @PastOrPresent(message = "Match date/time cannot be in the future")
+    @NotNull(message = "{validation.match.datetime.required}")
+    @PastOrPresent(message = "{validation.match.datetime.future}")
     private LocalDateTime playedAt;
 
     @JsonIgnore
-    @AssertTrue(message = "Matches must be scheduled between 08:00 and 23:30, on the hour or half hour")
+    @AssertTrue(message = "{validation.match.datetime.window}")
     public boolean isPlayedAtTimeValid() {
         if (playedAt == null) return true;
         LocalTime t = playedAt.toLocalTime();

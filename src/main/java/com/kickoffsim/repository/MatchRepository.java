@@ -16,17 +16,23 @@ public interface MatchRepository extends JpaRepository<Match, UUID> {
 
     @Override
     @EntityGraph(attributePaths = {
-            "homeTeam", "awayTeam",
+            "homeTeam", "homeTeam.league", "awayTeam",
             "goals", "goals.scorer", "goals.scorer.team", "goals.assistant"})
     List<Match> findAll(Sort sort);
 
     List<Match> findAllByHomeTeamOrAwayTeam(Team homeTeam, Team awayTeam);
 
     @EntityGraph(attributePaths = {
-            "homeTeam", "awayTeam",
+            "homeTeam", "homeTeam.league", "awayTeam",
             "goals", "goals.scorer", "goals.scorer.team", "goals.assistant"})
     @Query("SELECT m FROM Match m WHERE m.homeTeam.league.id = :leagueId OR m.awayTeam.league.id = :leagueId ORDER BY m.playedAt DESC")
     List<Match> findByLeagueId(@Param("leagueId") UUID leagueId);
+
+    @EntityGraph(attributePaths = {
+            "homeTeam", "homeTeam.league", "awayTeam",
+            "goals", "goals.scorer", "goals.scorer.team", "goals.assistant"})
+    @Query("SELECT m FROM Match m WHERE m.homeTeam.id = :teamId OR m.awayTeam.id = :teamId ORDER BY m.playedAt ASC")
+    List<Match> findByTeamId(@Param("teamId") UUID teamId);
 
     @Query("SELECT COUNT(m) > 0 FROM Match m WHERE m.homeTeam.league.id = :leagueId OR m.awayTeam.league.id = :leagueId")
     boolean existsByLeagueId(@Param("leagueId") UUID leagueId);
@@ -64,7 +70,7 @@ public interface MatchRepository extends JpaRepository<Match, UUID> {
     List<Match> findForFulltimeNotification(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 
     @EntityGraph(attributePaths = {
-            "homeTeam", "awayTeam",
+            "homeTeam", "homeTeam.league", "awayTeam",
             "goals", "goals.scorer", "goals.scorer.team", "goals.assistant"})
     @Query("SELECT m FROM Match m WHERE m.playedAt >= :start AND m.playedAt < :end ORDER BY m.playedAt ASC")
     List<Match> findByDateRange(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);

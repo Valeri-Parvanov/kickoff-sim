@@ -14,7 +14,7 @@ import java.util.concurrent.ThreadLocalRandom;
 @Getter
 @Setter
 @Entity
-@Table(name = "teams")
+@Table(name = "teams", indexes = @Index(columnList = "city"))
 public class Team {
 
     @Id

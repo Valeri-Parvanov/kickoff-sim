@@ -56,7 +56,7 @@ public class LeagueWizardController {
     @GetMapping("/teams")
     public String chooseTeams(@RequestParam int format, Model model, RedirectAttributes redirectAttributes) {
         if (LeagueFormat.forTeamCount(format).isEmpty()) {
-            redirectAttributes.addFlashAttribute("warnMessage", "Invalid league format.");
+            redirectAttributes.addFlashAttribute("warnMessage", "flash.league.invalidformat");
             return "redirect:/leagues/wizard";
         }
 
@@ -76,13 +76,13 @@ public class LeagueWizardController {
                             @RequestParam(required = false) List<UUID> existingTeamIds,
                             Model model, RedirectAttributes redirectAttributes) {
         if (LeagueFormat.forTeamCount(format).isEmpty()) {
-            redirectAttributes.addFlashAttribute("warnMessage", "Invalid league format.");
+            redirectAttributes.addFlashAttribute("warnMessage", "flash.league.invalidformat");
             return "redirect:/leagues/wizard";
         }
         List<UUID> selected = existingTeamIds != null ? existingTeamIds : List.of();
         if (selected.size() > format) {
             redirectAttributes.addFlashAttribute("warnMessage",
-                    "You selected more teams than the chosen format allows.");
+                    "flash.league.toomanyteams");
             return "redirect:/leagues/wizard/teams?format=" + format;
         }
 
@@ -92,7 +92,7 @@ public class LeagueWizardController {
                 .toList();
         if (eligibleSelected.size() != selected.size()) {
             redirectAttributes.addFlashAttribute("warnMessage",
-                    "One or more selected teams are no longer eligible. Please reselect.");
+                    "flash.league.teamsineligible");
             return "redirect:/leagues/wizard/teams?format=" + format;
         }
 
@@ -149,13 +149,15 @@ public class LeagueWizardController {
             TeamDto team = teamService.findById(teamId);
             if (team.getLeagueId() != null || team.getPlayerCount() < MIN_SQUAD_SIZE) {
                 bindingResult.reject("wizard.existing.ineligible",
-                        "Team '" + team.getName() + "' is no longer eligible. Please restart the wizard.");
+                        new Object[]{team.getName()},
+                        "Team " + team.getName() + " is no longer eligible. Please restart the wizard.");
             }
             existingTeams.add(team);
         }
 
         if (form.getExistingTeamIds().size() + form.getNewTeams().size() != form.getFormat()) {
             bindingResult.reject("wizard.count.mismatch",
+                    new Object[]{form.getFormat()},
                     "The number of teams must exactly match the chosen format (" + form.getFormat() + ").");
         }
 
@@ -166,10 +168,10 @@ public class LeagueWizardController {
             String prefix = "newTeams[" + i + "]";
 
             if (teamForm.getName() == null || teamForm.getName().isBlank()) {
-                bindingResult.rejectValue(prefix + ".name", "NotBlank", "Team name is required");
+                bindingResult.rejectValue(prefix + ".name", "validation.team.name.required");
             }
             if (teamForm.getCity() == null || teamForm.getCity().isBlank()) {
-                bindingResult.rejectValue(prefix + ".city", "NotBlank", "City is required");
+                bindingResult.rejectValue(prefix + ".city", "validation.team.city.required");
             }
 
             List<Integer> filledRows = SquadRowValidator.validate(
@@ -178,10 +180,12 @@ public class LeagueWizardController {
 
             if (filledRows.size() < MIN_SQUAD_SIZE) {
                 bindingResult.reject("wizard.squad.minimum",
+                        new Object[]{i + 1, MIN_SQUAD_SIZE},
                         "Team " + (i + 1) + " must have at least " + MIN_SQUAD_SIZE + " players.");
             }
             if (filledRows.size() > MAX_SQUAD_SIZE) {
                 bindingResult.reject("wizard.squad.capacity",
+                        new Object[]{i + 1, MAX_SQUAD_SIZE},
                         "Team " + (i + 1) + " can have at most " + MAX_SQUAD_SIZE + " players.");
             }
 
@@ -240,11 +244,11 @@ public class LeagueWizardController {
                     .filter(l -> form.getLeagueName().equals(l.getName()))
                     .map(LeagueDto::getId)
                     .findFirst().orElse(null);
-            redirectAttributes.addFlashAttribute("statusMessage", "League created and schedule generated.");
+            redirectAttributes.addFlashAttribute("statusMessage", "flash.league.createdwithschedule");
             return newLeagueId != null ? "redirect:/leagues/" + newLeagueId + "#schedule" : "redirect:/leagues";
         }
 
-        redirectAttributes.addFlashAttribute("statusMessage", "Submitted for admin approval.");
+        redirectAttributes.addFlashAttribute("statusMessage", "flash.common.submitted");
         return "redirect:/leagues";
     }
 

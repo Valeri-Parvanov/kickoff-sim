@@ -149,7 +149,7 @@ class MatchControllerTest {
         String view = controller.create(dto, br, null, model, auth, ra);
 
         assertThat(view).isEqualTo("redirect:/matches");
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("Submitted for admin approval.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.common.submitted");
     }
 
     @Test
@@ -255,7 +255,7 @@ class MatchControllerTest {
         String view = controller.create(dto, br, null, model, auth, ra);
 
         assertThat(view).isEqualTo("redirect:/matches");
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("Match created.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.match.created");
     }
 
     @Test
@@ -281,7 +281,7 @@ class MatchControllerTest {
         String view = controller.edit(id, dto, br, null, model, auth, ra);
 
         assertThat(view).isEqualTo("redirect:/matches");
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("Submitted for admin approval.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.common.submitted");
     }
 
     @Test
@@ -291,7 +291,7 @@ class MatchControllerTest {
         RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
 
         assertThat(controller.delete(id, auth, ra)).isEqualTo("redirect:/matches");
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("Match deleted.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.match.deleted");
     }
 
     @Test
@@ -846,7 +846,7 @@ class MatchControllerTest {
         RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
 
         assertThat(controller.delete(id, auth, ra)).isEqualTo("redirect:/matches");
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("Submitted for admin approval.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.common.submitted");
     }
 
     @Test

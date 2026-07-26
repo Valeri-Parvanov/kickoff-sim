@@ -14,14 +14,14 @@ public class TeamDto {
 
     private UUID id;
 
-    @NotBlank(message = "Team name is required")
-    @Size(max = 100, message = "Team name must be at most 100 characters")
-    @Pattern(regexp = "^\\S+$", message = "Team name must not contain spaces")
+    @NotBlank(message = "{validation.team.name.required}")
+    @Size(max = 100, message = "{validation.team.name.max}")
+    @Pattern(regexp = "^\\S+$", message = "{validation.team.name.nospaces}")
     private String name;
 
-    @NotBlank(message = "City is required")
-    @Size(max = 100, message = "City must be at most 100 characters")
-    @Pattern(regexp = "^\\S+$", message = "City must not contain spaces")
+    @NotBlank(message = "{validation.team.city.required}")
+    @Size(max = 100, message = "{validation.team.city.max}")
+    @Pattern(regexp = "^\\S+$", message = "{validation.team.city.nospaces}")
     private String city;
 
     private UUID leagueId;

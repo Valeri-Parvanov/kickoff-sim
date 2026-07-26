@@ -12,11 +12,11 @@ import java.time.LocalTime;
 @Setter
 public class ScheduleForm {
 
-    @NotNull(message = "Start date is required")
+    @NotNull(message = "{validation.schedule.date.required}")
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate startDate;
 
-    @NotNull(message = "Start time is required")
+    @NotNull(message = "{validation.schedule.time.required}")
     @DateTimeFormat(pattern = "HH:mm")
     private LocalTime startTime = LocalTime.of(11, 0);
 }

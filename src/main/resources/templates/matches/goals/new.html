@@ -1,5 +1,5 @@
-<!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+﻿<!DOCTYPE html>
+<html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -28,7 +28,8 @@
 
     <div>
         <label for="minute" th:text="#{goals.minute}">Minute</label> <span class="field-hint" style="display:inline">(1&ndash;40)</span>
-        <input type="number" id="minute" th:field="*{minute}" min="1" max="40" placeholder="e.g. 25" required/>
+        <input type="number" id="minute" th:field="*{minute}" min="1" max="40"
+               th:placeholder="#{goals.minute.placeholder}" placeholder="e.g. 25" required/>
         <span style="color:red" th:if="${#fields.hasErrors('minute')}" th:errors="*{minute}"></span>
     </div>
 

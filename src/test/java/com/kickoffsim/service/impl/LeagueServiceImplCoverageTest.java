@@ -76,7 +76,7 @@ class LeagueServiceImplCoverageTest {
     @Test
     void findById_notFound_throws() {
         UUID id = UUID.randomUUID();
-        when(leagueRepository.findById(id)).thenReturn(java.util.Optional.empty());
+        when(leagueRepository.findByIdWithTeams(id)).thenReturn(java.util.Optional.empty());
 
         assertThatThrownBy(() -> service.findById(id)).isInstanceOf(EntityNotFoundException.class);
     }
@@ -153,7 +153,7 @@ class LeagueServiceImplCoverageTest {
     void update_updatesEntity() {
         UUID id = UUID.randomUUID();
         League league = leagueWith();
-        when(leagueRepository.findById(id)).thenReturn(java.util.Optional.of(league));
+        when(leagueRepository.findByIdWithTeams(id)).thenReturn(java.util.Optional.of(league));
         when(leagueRepository.save(any())).thenAnswer(a -> a.getArgument(0));
         LeagueDto dto = new LeagueDto();
         dto.setName("Renamed");
@@ -166,7 +166,7 @@ class LeagueServiceImplCoverageTest {
         UUID id = UUID.randomUUID();
         Team t = team("A");
         League league = leagueWith(t);
-        when(leagueRepository.findById(id)).thenReturn(java.util.Optional.of(league));
+        when(leagueRepository.findByIdWithTeams(id)).thenReturn(java.util.Optional.of(league));
         when(matchRepository.findAllByHomeTeamOrAwayTeam(t, t)).thenReturn(List.<Match>of());
 
         service.delete(id);
@@ -189,7 +189,7 @@ class LeagueServiceImplCoverageTest {
         Team home = team("Alpha");
         Team away = team("Beta");
         League league = leagueWith(home, away);
-        when(leagueRepository.findById(league.getId())).thenReturn(java.util.Optional.of(league));
+        when(leagueRepository.findByIdWithTeams(league.getId())).thenReturn(java.util.Optional.of(league));
 
         MatchDto finished = new MatchDto();
         finished.setId(UUID.randomUUID());
@@ -271,7 +271,7 @@ class LeagueServiceImplCoverageTest {
         Team alpha = team("Alpha");
         Team beta = team("Beta");
         League league = leagueWith(alpha, beta);
-        when(leagueRepository.findById(league.getId())).thenReturn(java.util.Optional.of(league));
+        when(leagueRepository.findByIdWithTeams(league.getId())).thenReturn(java.util.Optional.of(league));
 
         MatchDto first = new MatchDto();
         first.setId(UUID.randomUUID());
@@ -304,7 +304,7 @@ class LeagueServiceImplCoverageTest {
         Team alpha = team("Alpha");
         Team beta = team("Beta");
         League league = leagueWith(alpha, beta);
-        when(leagueRepository.findById(league.getId())).thenReturn(java.util.Optional.of(league));
+        when(leagueRepository.findByIdWithTeams(league.getId())).thenReturn(java.util.Optional.of(league));
 
         MatchDto live = new MatchDto();
         live.setId(UUID.randomUUID());
@@ -344,7 +344,7 @@ class LeagueServiceImplCoverageTest {
         Team alpha = team("Alpha");
         Team beta = team("Beta");
         League league = leagueWith(alpha, beta);
-        when(leagueRepository.findById(league.getId())).thenReturn(java.util.Optional.of(league));
+        when(leagueRepository.findByIdWithTeams(league.getId())).thenReturn(java.util.Optional.of(league));
 
         MatchDto awayWin = new MatchDto();
         awayWin.setId(UUID.randomUUID());
@@ -385,7 +385,7 @@ class LeagueServiceImplCoverageTest {
         Team alpha = team("Alpha");
         Team beta = team("Beta");
         League league = leagueWith(alpha, beta);
-        when(leagueRepository.findById(league.getId())).thenReturn(java.util.Optional.of(league));
+        when(leagueRepository.findByIdWithTeams(league.getId())).thenReturn(java.util.Optional.of(league));
 
         MatchDto d1 = new MatchDto();
         d1.setId(UUID.randomUUID());
@@ -433,7 +433,7 @@ class LeagueServiceImplCoverageTest {
     @Test
     void findById_found_returnsDto() {
         League league = leagueWith();
-        when(leagueRepository.findById(league.getId())).thenReturn(java.util.Optional.of(league));
+        when(leagueRepository.findByIdWithTeams(league.getId())).thenReturn(java.util.Optional.of(league));
 
         assertThat(service.findById(league.getId()).getName()).isEqualTo("First League");
     }
@@ -443,7 +443,7 @@ class LeagueServiceImplCoverageTest {
         Team alpha = team("Alpha");
         Team beta = team("Beta");
         League league = leagueWith(alpha, beta);
-        when(leagueRepository.findById(league.getId())).thenReturn(java.util.Optional.of(league));
+        when(leagueRepository.findByIdWithTeams(league.getId())).thenReturn(java.util.Optional.of(league));
 
         MatchDto finished = new MatchDto();
         finished.setId(UUID.randomUUID());
@@ -488,7 +488,7 @@ class LeagueServiceImplCoverageTest {
         Team alpha = team("Alpha");
         Team beta = team("Beta");
         League league = leagueWith(alpha, beta);
-        when(leagueRepository.findById(league.getId())).thenReturn(java.util.Optional.of(league));
+        when(leagueRepository.findByIdWithTeams(league.getId())).thenReturn(java.util.Optional.of(league));
 
         MatchDto live = new MatchDto();
         live.setId(UUID.randomUUID());
@@ -525,7 +525,7 @@ class LeagueServiceImplCoverageTest {
         Team alpha = team("Alpha");
         Team beta = team("Beta");
         League league = leagueWith(alpha, beta);
-        when(leagueRepository.findById(league.getId())).thenReturn(java.util.Optional.of(league));
+        when(leagueRepository.findByIdWithTeams(league.getId())).thenReturn(java.util.Optional.of(league));
 
         MatchDto finished = new MatchDto();
         finished.setId(UUID.randomUUID());
@@ -556,7 +556,7 @@ class LeagueServiceImplCoverageTest {
         Team alpha = team("Alpha");
         Team beta = team("Beta");
         League league = leagueWith(alpha, beta);
-        when(leagueRepository.findById(league.getId())).thenReturn(java.util.Optional.of(league));
+        when(leagueRepository.findByIdWithTeams(league.getId())).thenReturn(java.util.Optional.of(league));
 
         MatchDto finished = new MatchDto();
         finished.setId(UUID.randomUUID());
@@ -589,7 +589,7 @@ class LeagueServiceImplCoverageTest {
         Team t = team("Alpha");
         League league = leagueWith(t);
         when(leagueRepository.findFinishedBefore(any())).thenReturn(List.of(league));
-        when(leagueRepository.findById(league.getId())).thenReturn(java.util.Optional.of(league));
+        when(leagueRepository.findByIdWithTeams(league.getId())).thenReturn(java.util.Optional.of(league));
         when(matchRepository.findAllByHomeTeamOrAwayTeam(t, t)).thenReturn(List.<Match>of());
 
         int count = service.deleteFinishedOlderThan(90);

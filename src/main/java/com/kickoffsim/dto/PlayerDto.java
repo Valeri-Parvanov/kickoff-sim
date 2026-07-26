@@ -12,20 +12,20 @@ public class PlayerDto {
 
     private UUID id;
 
-    @NotBlank(message = "First name is required")
-    @Size(max = 100, message = "First name must be at most 100 characters")
+    @NotBlank(message = "{validation.player.firstname.required}")
+    @Size(max = 100, message = "{validation.player.firstname.max}")
     private String firstName;
 
-    @NotBlank(message = "Last name is required")
-    @Size(max = 100, message = "Last name must be at most 100 characters")
+    @NotBlank(message = "{validation.player.lastname.required}")
+    @Size(max = 100, message = "{validation.player.lastname.max}")
     private String lastName;
 
-    @NotNull(message = "Shirt number is required")
-    @Positive(message = "Shirt number must be greater than 0")
-    @Max(value = 99, message = "Shirt number must be at most 99")
+    @NotNull(message = "{validation.player.shirt.required}")
+    @Positive(message = "{validation.player.shirt.positive}")
+    @Max(value = 99, message = "{validation.player.shirt.max}")
     private Integer shirtNumber;
 
-    @NotNull(message = "Please select a team")
+    @NotNull(message = "{validation.player.team.required}")
     private UUID teamId;
 
     private String teamName;

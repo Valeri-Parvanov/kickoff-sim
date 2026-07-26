@@ -16,8 +16,8 @@ import java.util.UUID;
 @Setter
 public class LeagueWizardForm {
 
-    @NotBlank(message = "League name is required")
-    @Size(max = 100, message = "League name must be at most 100 characters")
+    @NotBlank(message = "{validation.league.name.required}")
+    @Size(max = 100, message = "{validation.league.name.max}")
     private String leagueName;
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)

@@ -269,7 +269,7 @@ public class MatchController {
                 EntityType.MATCH, ChangeAction.CREATE, matchDto, null, authentication);
         if (fromRequest != null) changeRequestService.cancelIfPending(fromRequest, authentication);
         redirectAttributes.addFlashAttribute("statusMessage",
-                executed ? "Match created." : "Submitted for admin approval.");
+                executed ? "flash.match.created" : "flash.common.submitted");
         return "redirect:/matches";
     }
 
@@ -303,7 +303,7 @@ public class MatchController {
                 EntityType.MATCH, ChangeAction.UPDATE, matchDto, id, authentication);
         if (fromRequest != null) changeRequestService.cancelIfPending(fromRequest, authentication);
         redirectAttributes.addFlashAttribute("statusMessage",
-                executed ? "Match updated." : "Submitted for admin approval.");
+                executed ? "flash.match.updated" : "flash.common.submitted");
         return "redirect:/matches";
     }
 
@@ -313,7 +313,7 @@ public class MatchController {
         boolean executed = changeRequestService.submitOrExecute(
                 EntityType.MATCH, ChangeAction.DELETE, null, id, authentication);
         redirectAttributes.addFlashAttribute("statusMessage",
-                executed ? "Match deleted." : "Submitted for admin approval.");
+                executed ? "flash.match.deleted" : "flash.common.submitted");
         return "redirect:/matches";
     }
 
@@ -337,7 +337,7 @@ public class MatchController {
         }
         try {
             matchService.addGoal(id, goalEventDto);
-            redirectAttributes.addFlashAttribute("statusMessage", "Goal recorded.");
+            redirectAttributes.addFlashAttribute("statusMessage", "flash.goal.recorded");
             return "redirect:/matches/" + id;
         } catch (InvalidGoalException e) {
             populateGoalFormModel(id, model);
@@ -378,7 +378,7 @@ public class MatchController {
         }
         try {
             matchService.updateGoal(goalId, goalEventDto);
-            redirectAttributes.addFlashAttribute("statusMessage", "Goal updated.");
+            redirectAttributes.addFlashAttribute("statusMessage", "flash.goal.updated");
             return "redirect:/matches/" + id;
         } catch (InvalidGoalException e) {
             populateGoalFormModel(id, model);
@@ -393,7 +393,7 @@ public class MatchController {
     public String deleteGoal(@PathVariable UUID id, @PathVariable UUID goalId,
                              RedirectAttributes redirectAttributes) {
         matchService.deleteGoal(goalId);
-        redirectAttributes.addFlashAttribute("statusMessage", "Goal removed.");
+        redirectAttributes.addFlashAttribute("statusMessage", "flash.goal.removed");
         return "redirect:/matches/" + id;
     }
 

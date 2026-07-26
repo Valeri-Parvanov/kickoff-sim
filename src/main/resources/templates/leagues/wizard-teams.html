@@ -1,5 +1,5 @@
-<!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+﻿<!DOCTYPE html>
+<html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -79,8 +79,11 @@
     function update() {
         var selected = checkboxes.filter(function (cb) { return cb.checked; }).length;
         var newTeams = Math.max(0, format - selected);
-        text.textContent = 'Selected ' + selected + ' of ' + format + ' teams — '
-            + newTeams + ' new team' + (newTeams === 1 ? '' : 's') + ' will be created next.';
+        var i18n = document.getElementById('global-js-i18n').dataset;
+        text.textContent = i18n.selectedCount
+            .replace('{0}', selected)
+            .replace('{1}', format)
+            + ' · ' + i18n.newCount.replace('{0}', newTeams);
         checkboxes.forEach(function (cb) {
             if (!cb.checked && selected >= format) {
                 cb.disabled = true;

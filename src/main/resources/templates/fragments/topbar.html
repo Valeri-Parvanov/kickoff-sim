@@ -1,20 +1,38 @@
-<!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org"
+﻿<!DOCTYPE html>
+<html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <body>
 <th:block th:fragment="topbar">
 <aside class="sidebar">
     <div class="sidebar-header">
-        <a th:href="@{/}" class="sidebar-brand"><span class="ball">&#9917;</span>Kickoff Sim</a>
-        <button class="hamburger-btn" id="sidebarToggle" aria-label="Toggle navigation">
+        <a th:href="@{/}" class="sidebar-brand" th:title="#{nav.home}">
+            <span th:replace="~{fragments/topbar :: brandLogoCompact}"></span>
+            <span class="sidebar-brand-text">Kickoff <em>Sim</em></span>
+        </a>
+        <button class="hamburger-btn" id="sidebarToggle" th:attr="aria-label=#{nav.toggle}">
             <span></span><span></span><span></span>
         </button>
+    </div>
+
+    <div class="global-search">
+        <input type="text" id="globalSearchInput" class="global-search-input" autocomplete="off"
+               th:placeholder="#{nav.search.placeholder}"/>
+        <div id="globalSearchResults" class="global-search-dropdown" hidden
+             th:attr="data-label-teams=#{nav.search.teams},data-label-players=#{nav.search.players},data-label-leagues=#{nav.search.leagues},data-no-results=#{nav.search.noresults}"></div>
     </div>
 
     <nav class="sidebar-nav">
         <div class="sidebar-section-label" th:text="#{nav.browse}">Browse</div>
         <a th:href="@{/leagues}">&#127942; <span th:text="#{nav.leagues}">Leagues</span></a>
-        <a th:href="@{/teams}">&#128737; <span th:text="#{nav.teams}">Teams</span></a>
+        <a th:href="@{/teams}"><svg class="nav-icon-shield" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false">
+            <defs>
+                <linearGradient id="navShieldGrad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stop-color="#4ade80"/>
+                    <stop offset="1" stop-color="#16a34a"/>
+                </linearGradient>
+            </defs>
+            <path d="M12 2 L20 5.3 L20 11 C20 16.4 16.6 19.7 12 21.5 C7.4 19.7 4 16.4 4 11 L4 5.3 Z" fill="url(#navShieldGrad)" stroke="#fde047" stroke-width="1.1"/>
+        </svg> <span th:text="#{nav.teams}">Teams</span></a>
         <a th:href="@{/matches}">&#9917; <span th:text="#{nav.matches}">Matches</span></a>
 
         <div class="sidebar-section-label" sec:authorize="isAuthenticated()" th:text="#{nav.myaccount}">My Account</div>
@@ -92,7 +110,64 @@
     </div>
 </aside>
 
-<div id="goal-toasts" class="goal-toast-wrap" sec:authorize="isAuthenticated()"></div>
+<button type="button" id="themeToggle" class="theme-toggle"
+        th:attr="aria-label=#{nav.theme.toggle},title=#{nav.theme.toggle}">
+    <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+        <path d="M20 14.2A8.2 8.2 0 0 1 9.8 4 8.5 8.5 0 1 0 20 14.2Z" fill="currentColor"/>
+    </svg>
+    <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+        <circle cx="12" cy="12" r="4.6" fill="currentColor"/>
+        <g stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+            <path d="M12 1.8v2.6M12 19.6v2.6M1.8 12h2.6M19.6 12h2.6M4.8 4.8l1.9 1.9M17.3 17.3l1.9 1.9M19.2 4.8l-1.9 1.9M6.7 17.3l-1.9 1.9"/>
+        </g>
+    </svg>
+</button>
+<script>
+(function() {
+    var STORAGE_KEY = 'kickoffTheme';
+    var root = document.documentElement;
+
+    function apply(theme) {
+        if (theme === 'dark') {
+            root.setAttribute('data-theme', 'dark');
+        } else {
+            root.removeAttribute('data-theme');
+        }
+    }
+
+    var stored;
+    try { stored = localStorage.getItem(STORAGE_KEY); } catch (e) {}
+    if (!stored && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        stored = 'dark';
+    }
+    apply(stored);
+
+    document.addEventListener('DOMContentLoaded', function() {
+        var fe = document.querySelector('.form-error-dialog');
+        if (!fe) return;
+        if (typeof fe.showModal === 'function') {
+            fe.showModal();
+        } else {
+            fe.setAttribute('open', '');
+        }
+        fe.querySelector('.flash-dialog-ok').addEventListener('click', function() { fe.close(); });
+        fe.addEventListener('click', function(e) { if (e.target === fe) fe.close(); });
+    });
+
+    var btn = document.getElementById('themeToggle');
+    if (!btn) return;
+    btn.addEventListener('click', function() {
+        var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        apply(next);
+        try { localStorage.setItem(STORAGE_KEY, next); } catch (e) {}
+    });
+}());
+</script>
+
+<div id="goal-toasts" class="goal-toast-wrap" sec:authorize="isAuthenticated()"
+     th:attr="data-kickoff=#{toast.kickoff},data-halftime=#{toast.halftime},data-secondhalf=#{toast.secondhalf},data-fulltime=#{toast.fulltime},data-assist=#{toast.assist},data-vs=#{toast.vs},data-og=#{matches.og},data-pen=#{matches.pen}"></div>
+<div id="global-js-i18n" hidden
+     th:attr="data-locale=${#locale.toLanguageTag()},data-follow=#{matches.follow},data-unfollow=#{matches.unfollow},data-newer=#{matches.newer},data-older=#{matches.older},data-page=#{matches.page},data-results=#{matches.tab.results},data-round=#{matches.round},data-in-progress=#{matches.inprogress},data-selected-count=#{leagues.wizard.selectedcount},data-new-count=#{leagues.wizard.newcount},data-player-count=#{teams.squad.playercount}"></div>
 
 <dialog id="confirmDialog" class="confirm-dialog" sec:authorize="isAuthenticated()">
     <div class="confirm-dialog-icon">&#9888;</div>
@@ -177,9 +252,30 @@
         try { localStorage.setItem(SHOWN_KEY, JSON.stringify(ids)); } catch (e) {}
     }
 
-    var GOAL_TOAST_RE = /^GOAL for (.+?)!\s*(.+?)(?:\s\(assist:\s(.+?)\))?\s+(\d+)'(?:\s\((own goal|penalty)\))?\s+—\s+(.+?)\s+(\d+):(\d+)\s+(.+)$/;
+    var GOAL_TOAST_RE = /^GOAL for (.+?)!\s*(.+?)(?:\s\(assist:\s(.+?)\))?(?:\s+(\d+)')?(?:\s\((own goal|penalty)\))?\s+—\s+(.+?)\s+(\d+):(\d+)\s+(.+)$/;
     var STATUS_TOAST_RE = /^(.+?)\s+vs\s+(.+?)\s+—\s+(FULL TIME|HALF TIME|SECOND HALF)\s+(\d+)-(\d+)$/;
     var KICKOFF_TOAST_RE = /^(.+?)\s+vs\s+(.+?)\s+—\s+KICK OFF!$/;
+
+    var L = (function() {
+        var w = document.getElementById('goal-toasts');
+        var d = (w && w.dataset) || {};
+        return {
+            kickoff: d.kickoff || 'KICK OFF!',
+            halftime: d.halftime || 'HALF TIME',
+            secondhalf: d.secondhalf || 'SECOND HALF',
+            fulltime: d.fulltime || 'FULL TIME',
+            assist: d.assist || 'assist',
+            og: d.og || 'OG',
+            pen: d.pen || 'pen.',
+            vs: d.vs || 'vs'
+        };
+    }());
+
+    function statusLabel(englishLabel) {
+        if (englishLabel === 'FULL TIME') return L.fulltime;
+        if (englishLabel === 'SECOND HALF') return L.secondhalf;
+        return L.halftime;
+    }
 
     function showToast(message, type) {
         var wrap = document.getElementById('goal-toasts');
@@ -209,7 +305,7 @@
 
             var matchLine = document.createElement('div');
             matchLine.className = 'goal-toast-match';
-            matchLine.textContent = homeTeam + ' vs ' + awayTeam;
+            matchLine.textContent = homeTeam + ' ' + L.vs + ' ' + awayTeam;
             body.appendChild(matchLine);
 
             var scoreLine = document.createElement('div');
@@ -231,11 +327,11 @@
 
             var scorerLine = document.createElement('div');
             scorerLine.className = 'goal-toast-scorer';
-            scorerLine.appendChild(document.createTextNode(scorer + ' · ' + minute + '\''));
+            scorerLine.appendChild(document.createTextNode(minute ? scorer + ' · ' + minute + '\'' : scorer));
             if (flag) {
                 var badge = document.createElement('span');
                 badge.className = 'goal-type-badge ' + (flag === 'own goal' ? 'og' : 'pen');
-                badge.textContent = flag === 'own goal' ? 'OG' : 'pen.';
+                badge.textContent = flag === 'own goal' ? L.og : L.pen;
                 scorerLine.appendChild(document.createTextNode(' '));
                 scorerLine.appendChild(badge);
             }
@@ -244,7 +340,7 @@
             if (assist) {
                 var assistLine = document.createElement('div');
                 assistLine.className = 'goal-toast-assist';
-                assistLine.textContent = 'assist: ' + assist;
+                assistLine.textContent = L.assist + ': ' + assist;
                 body.appendChild(assistLine);
             }
         } else if (type === 'MATCH_KICKOFF') {
@@ -255,12 +351,12 @@
 
                 var koStatusLine = document.createElement('div');
                 koStatusLine.className = 'goal-toast-status';
-                koStatusLine.textContent = '🟢 KICK OFF!';
+                koStatusLine.textContent = '🟢 ' + L.kickoff;
                 body.appendChild(koStatusLine);
 
                 var koMatchLine = document.createElement('div');
                 koMatchLine.className = 'goal-toast-scorer';
-                koMatchLine.textContent = koHome + ' vs ' + koAway;
+                koMatchLine.textContent = koHome + ' ' + L.vs + ' ' + koAway;
                 body.appendChild(koMatchLine);
             } else {
                 var koText = document.createElement('div');
@@ -280,12 +376,12 @@
                 var statusIcon = label === 'FULL TIME' ? '🏁 ' : (label === 'SECOND HALF' ? '▶️ ' : '⏸ ');
                 var statusLine = document.createElement('div');
                 statusLine.className = 'goal-toast-status';
-                statusLine.textContent = statusIcon + label;
+                statusLine.textContent = statusIcon + statusLabel(label);
                 body.appendChild(statusLine);
 
                 var matchLine = document.createElement('div');
                 matchLine.className = 'goal-toast-scorer';
-                matchLine.textContent = home + ' vs ' + away + ' · ' + hScore + ':' + aScore;
+                matchLine.textContent = home + ' ' + L.vs + ' ' + away + ' · ' + hScore + ':' + aScore;
                 body.appendChild(matchLine);
             } else {
                 var statusText = document.createElement('div');
@@ -378,25 +474,344 @@
             .then(function(data) {
                 btn.classList.toggle('followed', data.following);
                 btn.setAttribute('aria-pressed', data.following);
-                btn.title = data.following ? 'Stop following this match' : 'Follow this match';
+                btn.title = data.following
+                    ? document.getElementById('global-js-i18n').dataset.unfollow
+                    : document.getElementById('global-js-i18n').dataset.follow;
             })
             .catch(function() {})
             .then(function() { btn.disabled = false; });
     }, true);
 }());
 </script>
+<script>
+(function() {
+    var input = document.getElementById('globalSearchInput');
+    var dropdown = document.getElementById('globalSearchResults');
+    if (!input || !dropdown) return;
+
+    var MIN_LENGTH = 3;
+    var DEBOUNCE_MS = 300;
+    var labels = {
+        teams: dropdown.dataset.labelTeams,
+        players: dropdown.dataset.labelPlayers,
+        leagues: dropdown.dataset.labelLeagues
+    };
+    var icons = { teams: '🛡️', players: '🧑', leagues: '🏆' };
+    var noResultsText = dropdown.dataset.noResults;
+    var debounceTimer = null;
+    var currentRequestId = 0;
+
+    function hideDropdown() {
+        dropdown.hidden = true;
+        dropdown.textContent = '';
+    }
+
+    function renderGroup(key, items) {
+        if (!items || !items.length) return null;
+        var group = document.createElement('div');
+        group.className = 'global-search-group';
+
+        var label = document.createElement('div');
+        label.className = 'global-search-group-label';
+        label.textContent = icons[key] + ' ' + labels[key];
+        group.appendChild(label);
+
+        items.forEach(function(item) {
+            var link = document.createElement('a');
+            link.className = 'global-search-item';
+            link.href = item.url;
+
+            var main = document.createElement('span');
+            main.className = 'global-search-item-label';
+            main.textContent = item.label;
+            link.appendChild(main);
+
+            if (item.sublabel) {
+                var sub = document.createElement('span');
+                sub.className = 'global-search-item-sublabel';
+                sub.textContent = item.sublabel;
+                link.appendChild(sub);
+            }
+
+            group.appendChild(link);
+        });
+
+        return group;
+    }
+
+    function renderResults(data) {
+        dropdown.textContent = '';
+        var groups = [
+            renderGroup('teams', data.teams),
+            renderGroup('players', data.players),
+            renderGroup('leagues', data.leagues)
+        ].filter(function(g) { return g !== null; });
+
+        if (!groups.length) {
+            var empty = document.createElement('div');
+            empty.className = 'global-search-empty';
+            empty.textContent = noResultsText;
+            dropdown.appendChild(empty);
+        } else {
+            groups.forEach(function(g) { dropdown.appendChild(g); });
+        }
+        dropdown.hidden = false;
+    }
+
+    function runSearch(q) {
+        var requestId = ++currentRequestId;
+        fetch('/search/suggest?q=' + encodeURIComponent(q))
+            .then(function(r) { return r.ok ? r.json() : Promise.reject(); })
+            .then(function(data) {
+                if (requestId !== currentRequestId) return;
+                renderResults(data);
+            })
+            .catch(function() {});
+    }
+
+    input.addEventListener('input', function() {
+        var q = input.value.trim();
+        clearTimeout(debounceTimer);
+        if (q.length < MIN_LENGTH) {
+            hideDropdown();
+            return;
+        }
+        debounceTimer = setTimeout(function() { runSearch(q); }, DEBOUNCE_MS);
+    });
+
+    input.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            hideDropdown();
+            input.blur();
+        }
+    });
+
+    document.addEventListener('click', function(e) {
+        if (e.target === input || dropdown.contains(e.target)) return;
+        hideDropdown();
+    });
+}());
+</script>
+</th:block>
+
+
+<th:block th:fragment="errorDialog(errors)">
+<dialog th:if="${errors != null and !errors.isEmpty()}" class="flash-dialog fd-error form-error-dialog">
+    <div class="flash-dialog-icon" aria-hidden="true"><span>&#10006;</span></div>
+    <h2 class="flash-dialog-title" th:text="#{flash.title.error}">Something went wrong</h2>
+    <div class="flash-dialog-body">
+        <p th:each="err : ${errors}" th:text="${err}"></p>
+    </div>
+    <div class="flash-dialog-actions">
+        <button type="button" class="flash-dialog-ok" th:text="#{common.ok}">OK</button>
+    </div>
+</dialog>
+</th:block>
+
+<th:block th:fragment="brandLogo">
+<svg class="ks-logo" viewBox="0 0 140 140" role="img" aria-label="Kickoff Sim">
+    <defs>
+        <linearGradient id="ksSky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#0d4a24"/>
+            <stop offset="0.55" stop-color="#052a13"/>
+            <stop offset="1" stop-color="#011207"/>
+        </linearGradient>
+        <linearGradient id="ksTurf" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#1fbe5c"/>
+            <stop offset="1" stop-color="#075c2a"/>
+        </linearGradient>
+        <linearGradient id="ksRim" x1="0.1" y1="0" x2="0.9" y2="1">
+            <stop offset="0" stop-color="#fff6cc"/>
+            <stop offset="0.35" stop-color="#fde047"/>
+            <stop offset="0.72" stop-color="#f0a417"/>
+            <stop offset="1" stop-color="#a8560a"/>
+        </linearGradient>
+        <linearGradient id="ksGold" x1="0.2" y1="0" x2="0.8" y2="1">
+            <stop offset="0" stop-color="#fff3bd"/>
+            <stop offset="0.42" stop-color="#fcd34d"/>
+            <stop offset="1" stop-color="#c2760b"/>
+        </linearGradient>
+        <radialGradient id="ksFlood" cx="0.5" cy="0" r="1">
+            <stop offset="0" stop-color="#fff4bf" stop-opacity="0.5"/>
+            <stop offset="1" stop-color="#fff4bf" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="ksBall" cx="0.34" cy="0.28" r="0.9">
+            <stop offset="0" stop-color="#ffffff"/>
+            <stop offset="0.62" stop-color="#f4f8f5"/>
+            <stop offset="1" stop-color="#b9c9be"/>
+        </radialGradient>
+        <clipPath id="ksClip"><circle cx="64" cy="78" r="54"/></clipPath>
+        <filter id="ksShadow" x="-30%" y="-30%" width="160%" height="160%">
+            <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#011207" flood-opacity="0.55"/>
+        </filter>
+        <filter id="ksBallShadow" x="-30%" y="-30%" width="160%" height="160%">
+            <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#011207" flood-opacity="0.55"/>
+        </filter>
+    </defs>
+
+    <g filter="url(#ksShadow)">
+        <circle cx="64" cy="78" r="54" fill="url(#ksSky)"/>
+
+        <g clip-path="url(#ksClip)">
+            <rect x="10" y="24" width="108" height="62" fill="url(#ksFlood)"/>
+            <path d="M28 24 L18 62 L40 62 L44 24 Z" fill="#fff4bf" opacity="0.07"/>
+            <path d="M100 24 L110 62 L88 62 L84 24 Z" fill="#fff4bf" opacity="0.07"/>
+
+            <path d="M-24 140 L26 82 H102 L152 140 Z" fill="url(#ksTurf)"/>
+            <g fill="#ffffff" opacity="0.055">
+                <path d="M-4 140 L38 82 H50 L18 140 Z"/>
+                <path d="M62 140 L74 82 H86 L98 140 Z"/>
+                <path d="M126 140 L94 82 H106 L148 140 Z"/>
+            </g>
+            <g fill="none" stroke="#eafff2" stroke-opacity="0.62" stroke-width="1.6">
+                <path d="M-24 140 L26 82 H102 L152 140"/>
+                <ellipse cx="64" cy="108" rx="27" ry="11.5"/>
+                <path d="M46 82 h36 v11 h-36 z"/>
+                <path d="M56 82 h16 v5 h-16 z"/>
+            </g>
+
+            <ellipse cx="64" cy="118" rx="24" ry="7" fill="#011207" opacity="0.38"/>
+            <g transform="translate(44 74)">
+                <path d="M11 3 h18 v10.5 c0 8.4-4.2 13.6-9 15.2 C15.2 27.1 11 21.9 11 13.5 Z" fill="url(#ksGold)"/>
+                <path d="M11.4 6.2 C3.4 6.2 2.6 17.4 11.4 19.6" fill="none" stroke="url(#ksGold)" stroke-width="2.8" stroke-linecap="round"/>
+                <path d="M28.6 6.2 C36.6 6.2 37.4 17.4 28.6 19.6" fill="none" stroke="url(#ksGold)" stroke-width="2.8" stroke-linecap="round"/>
+                <path d="M14.5 6.6 h11 v6.4 c0 4.4-2.4 7.2-5.5 8.2 -3.1-1-5.5-3.8-5.5-8.2 Z" fill="#ffffff" opacity="0.22"/>
+                <rect x="18.2" y="28.4" width="3.6" height="5.6" fill="url(#ksGold)"/>
+                <path d="M12.8 34 h14.4 l2.2 5 h-18.8 z" fill="url(#ksGold)"/>
+                <rect x="8.6" y="39" width="22.8" height="4.6" rx="1.4" fill="url(#ksGold)"/>
+            </g>
+
+            <g stroke="#fde047" stroke-linecap="round">
+                <path d="M22 46 h26" stroke-width="4.4" opacity="0.9"/>
+                <path d="M14 58 h20" stroke-width="3.4" opacity="0.5"/>
+                <path d="M22 69 h12" stroke-width="2.6" opacity="0.28"/>
+            </g>
+        </g>
+
+        <circle cx="64" cy="78" r="54" fill="none" stroke="url(#ksRim)" stroke-width="5.5"/>
+        <circle cx="64" cy="78" r="47.5" fill="none" stroke="#fde047" stroke-opacity="0.22" stroke-width="1.2"/>
+    </g>
+
+    <g filter="url(#ksBallShadow)" transform="translate(104 40)">
+        <circle cx="0" cy="0" r="23" fill="url(#ksBall)"/>
+        <g fill="#08301a">
+            <path d="M0 -13 l10.5 7.6 -4 12.3h-13l-4-12.3z"/>
+            <path d="M0 -22.7a22.7 22.7 0 0 1 12.6 3.8l-3.4 6.2-9.2-6.6-9.2 6.6-3.4-6.2A22.7 22.7 0 0 1 0 -22.7z" opacity="0.93"/>
+            <path d="M-20.8 5.4a22.7 22.7 0 0 1-1.3-10.1l6.8 1.4 1.9 9.4-6.4 4.4a22.7 22.7 0 0 1-1-5.1z" opacity="0.93"/>
+            <path d="M20.8 5.4a22.7 22.7 0 0 0 1.3-10.1l-6.8 1.4-1.9 9.4 6.4 4.4a22.7 22.7 0 0 0 1-5.1z" opacity="0.93"/>
+            <path d="M-11.6 21.1l4.2-6.1h14.8l4.2 6.1a22.7 22.7 0 0 1-23.2 0z" opacity="0.93"/>
+        </g>
+        <circle cx="0" cy="0" r="23" fill="none" stroke="#08301a" stroke-opacity="0.38" stroke-width="1.4"/>
+    </g>
+</svg>
+</th:block>
+
+<th:block th:fragment="brandLogoCompact">
+<svg class="ks-logo-compact" viewBox="0 0 140 140" role="img" aria-label="Kickoff Sim">
+    <defs>
+        <linearGradient id="kscSky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#0d4a24"/>
+            <stop offset="0.55" stop-color="#052a13"/>
+            <stop offset="1" stop-color="#011207"/>
+        </linearGradient>
+        <linearGradient id="kscTurf" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#1fbe5c"/>
+            <stop offset="1" stop-color="#075c2a"/>
+        </linearGradient>
+        <linearGradient id="kscRim" x1="0.1" y1="0" x2="0.9" y2="1">
+            <stop offset="0" stop-color="#fff6cc"/>
+            <stop offset="0.35" stop-color="#fde047"/>
+            <stop offset="0.72" stop-color="#f0a417"/>
+            <stop offset="1" stop-color="#a8560a"/>
+        </linearGradient>
+        <linearGradient id="kscGold" x1="0.2" y1="0" x2="0.8" y2="1">
+            <stop offset="0" stop-color="#fff3bd"/>
+            <stop offset="0.42" stop-color="#fcd34d"/>
+            <stop offset="1" stop-color="#c2760b"/>
+        </linearGradient>
+        <radialGradient id="kscBall" cx="0.34" cy="0.28" r="0.9">
+            <stop offset="0" stop-color="#ffffff"/>
+            <stop offset="0.62" stop-color="#f4f8f5"/>
+            <stop offset="1" stop-color="#b9c9be"/>
+        </radialGradient>
+        <clipPath id="kscClip"><circle cx="70" cy="70" r="66"/></clipPath>
+    </defs>
+
+    <circle cx="70" cy="70" r="66" fill="url(#kscSky)"/>
+    <g clip-path="url(#kscClip)">
+        <path d="M-16 140 L34 76 H106 L156 140 Z" fill="url(#kscTurf)"/>
+        <g fill="none" stroke="#eafff2" stroke-opacity="0.6" stroke-width="2">
+            <path d="M-16 140 L34 76 H106 L156 140"/>
+            <ellipse cx="70" cy="104" rx="26" ry="11"/>
+        </g>
+        <g transform="translate(51 71) scale(0.92)">
+            <path d="M11 3 h18 v10.5 c0 8.4-4.2 13.6-9 15.2 C15.2 27.1 11 21.9 11 13.5 Z" fill="url(#kscGold)"/>
+            <path d="M11.4 6.2 C3.4 6.2 2.6 17.4 11.4 19.6" fill="none" stroke="url(#kscGold)" stroke-width="2.8" stroke-linecap="round"/>
+            <path d="M28.6 6.2 C36.6 6.2 37.4 17.4 28.6 19.6" fill="none" stroke="url(#kscGold)" stroke-width="2.8" stroke-linecap="round"/>
+            <rect x="18.2" y="28.4" width="3.6" height="5.6" fill="url(#kscGold)"/>
+            <path d="M12.8 34 h14.4 l2.2 5 h-18.8 z" fill="url(#kscGold)"/>
+            <rect x="8.6" y="39" width="22.8" height="4.6" rx="1.4" fill="url(#kscGold)"/>
+        </g>
+        <g transform="translate(101 40)">
+            <circle cx="0" cy="0" r="21" fill="url(#kscBall)"/>
+            <path d="M0 -11.9 l9.6 6.9 -3.7 11.2h-11.8l-3.7-11.2z" fill="#08301a"/>
+            <path d="M0 -20.7a20.7 20.7 0 0 1 11.5 3.5l-3.1 5.7-8.4-6-8.4 6-3.1-5.7A20.7 20.7 0 0 1 0 -20.7z" fill="#08301a" opacity="0.93"/>
+            <path d="M-19 4.9a20.7 20.7 0 0 1-1.2-9.2l6.2 1.3 1.7 8.6-5.8 4a20.7 20.7 0 0 1-.9-4.7z" fill="#08301a" opacity="0.93"/>
+            <path d="M19 4.9a20.7 20.7 0 0 0 1.2-9.2l-6.2 1.3-1.7 8.6 5.8 4a20.7 20.7 0 0 0 .9-4.7z" fill="#08301a" opacity="0.93"/>
+            <path d="M-10.6 19.2l3.8-5.6h13.6l3.8 5.6a20.7 20.7 0 0 1-21.2 0z" fill="#08301a" opacity="0.93"/>
+        </g>
+    </g>
+    <circle cx="70" cy="70" r="66" fill="none" stroke="url(#kscRim)" stroke-width="6"/>
+</svg>
 </th:block>
 
 <th:block th:fragment="messages">
-    <div th:if="${statusMessage}" class="status-message" th:text="${statusMessage}"></div>
-    <div th:if="${warnMessage}" class="warn-message" th:text="${warnMessage}"></div>
-    <div th:if="${errorMessage}" class="error-message" th:text="${errorMessage}"></div>
-    <div th:if="${scheduleError}" class="error-message" th:text="${scheduleError}"></div>
+<th:block th:with="hasFlash=${statusMessage != null or warnMessage != null or errorMessage != null or scheduleError != null},
+                   isError=${errorMessage != null or scheduleError != null},
+                   isWarn=${warnMessage != null}">
+<dialog th:if="${hasFlash}" id="flashDialog" class="flash-dialog"
+        th:classappend="${isError} ? ' fd-error' : (${isWarn} ? ' fd-warn' : ' fd-success')"
+        aria-labelledby="flashDialogTitle">
+    <div class="flash-dialog-icon" aria-hidden="true">
+        <span th:if="${isError}">&#10006;</span>
+        <span th:if="${!isError and isWarn}">&#33;</span>
+        <span th:if="${!isError and !isWarn}">&#10004;</span>
+    </div>
+    <h2 class="flash-dialog-title" id="flashDialogTitle"
+        th:text="${isError} ? #{flash.title.error} : (${isWarn} ? #{flash.title.warning} : #{flash.title.success})">Done</h2>
+    <div class="flash-dialog-body">
+        <p th:if="${statusMessage}"
+           th:text="${#messages.msgOrNull(statusMessage) != null ? #messages.msgOrNull(statusMessage) : statusMessage}"></p>
+        <p th:if="${warnMessage}"
+           th:text="${#messages.msgOrNull(warnMessage) != null ? #messages.msgOrNull(warnMessage) : warnMessage}"></p>
+        <p th:if="${errorMessage}"
+           th:text="${#messages.msgOrNull(errorMessage) != null ? #messages.msgOrNull(errorMessage) : errorMessage}"></p>
+        <p th:if="${scheduleError}"
+           th:text="${#messages.msgOrNull(scheduleError) != null ? #messages.msgOrNull(scheduleError) : scheduleError}"></p>
+    </div>
+    <div class="flash-dialog-actions">
+        <button type="button" class="flash-dialog-ok" th:text="#{common.ok}">OK</button>
+    </div>
+</dialog>
+<script th:if="${hasFlash}">
+(function() {
+    var d = document.getElementById('flashDialog');
+    if (!d) return;
+    if (typeof d.showModal === 'function') {
+        d.showModal();
+    } else {
+        d.setAttribute('open', '');
+    }
+    d.querySelector('.flash-dialog-ok').addEventListener('click', function() { d.close(); });
+    d.addEventListener('click', function(e) { if (e.target === d) d.close(); });
+}());
+</script>
+</th:block>
 </th:block>
 
 <th:block th:fragment="goalRow(m, g)">
     <div class="half-label" th:if="${g.firstInHalf}" th:attr="data-half=${g.half.name()}">
-        <span th:text="${g.half.name() == 'FIRST' ? '1st Half' : '2nd Half'}"></span>
+        <span th:text="${g.half.name() == 'FIRST'} ? #{matches.half1} : #{matches.half2}"></span>
         <span class="half-score" th:if="${g.half.name() == 'FIRST'}"
               th:text="${m.homeHalfScore} + ':' + ${m.awayHalfScore}"></span>
         <span class="half-score" th:unless="${g.half.name() == 'FIRST'}"
@@ -410,8 +825,8 @@
                 <span class="goal-minute" th:if="${g.minute != null}"
                       th:text="${(g.half.name() == 'FIRST' ? g.minute : g.minute + 20)} + '\'' + ' '"></span>
                 <span class="goal-scorer-name" th:text="${g.scorerName}"></span>
-                <span class="goal-type-badge og" th:if="${g.ownGoal}">OG</span>
-                <span class="goal-type-badge pen" th:if="${g.penalty}">pen.</span>
+                <span class="goal-type-badge og" th:if="${g.ownGoal}" th:text="#{matches.og}">OG</span>
+                <span class="goal-type-badge pen" th:if="${g.penalty}" th:text="#{matches.pen}">pen.</span>
                 <span class="goal-assist" th:if="${g.assistantName != null}"
                       th:text="' (' + ${g.assistantName} + ')'"></span>
                 <span class="running-score"
@@ -425,8 +840,8 @@
                 <span class="goal-assist" th:if="${g.assistantName != null}"
                       th:text="'(' + ${g.assistantName} + ') '"></span>
                 <span class="goal-scorer-name" th:text="${g.scorerName}"></span>
-                <span class="goal-type-badge og" th:if="${g.ownGoal}">OG</span>
-                <span class="goal-type-badge pen" th:if="${g.penalty}">pen.</span>
+                <span class="goal-type-badge og" th:if="${g.ownGoal}" th:text="#{matches.og}">OG</span>
+                <span class="goal-type-badge pen" th:if="${g.penalty}" th:text="#{matches.pen}">pen.</span>
                 <span class="goal-minute" th:if="${g.minute != null}"
                       th:text="' ' + ${(g.half.name() == 'FIRST' ? g.minute : g.minute + 20)} + '\''"></span>
                 <span class="goal-icon">&#9917;</span>
@@ -442,7 +857,7 @@
           class="match-star-form">
         <button type="submit" class="match-star"
                 th:classappend="${followed} ? ' followed' : ''"
-                th:title="${followed} ? 'Stop following this match' : 'Follow this match'"
+                th:title="${followed} ? #{matches.unfollow} : #{matches.follow}"
                 th:attr="aria-pressed=${followed}">
             <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>

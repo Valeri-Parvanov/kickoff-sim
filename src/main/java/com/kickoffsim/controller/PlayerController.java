@@ -95,7 +95,7 @@ public class PlayerController {
         if (fromRequest != null) changeRequestService.cancelIfPending(fromRequest, authentication);
         UUID redirectTeamId = executed ? playerDto.getTeamId() : playerService.findById(id).getTeamId();
         redirectAttributes.addFlashAttribute("statusMessage",
-                executed ? "Player updated." : "Submitted for admin approval.");
+                executed ? "flash.player.updated" : "flash.common.submitted");
         return "redirect:/teams/" + redirectTeamId;
     }
 
@@ -107,7 +107,7 @@ public class PlayerController {
         boolean executed = changeRequestService.submitOrExecute(
                 EntityType.PLAYER, ChangeAction.DELETE, null, id, authentication);
         redirectAttributes.addFlashAttribute("statusMessage",
-                executed ? "Player deleted." : "Submitted for admin approval.");
+                executed ? "flash.player.deleted" : "flash.common.submitted");
         return returnTeam != null ? "redirect:/teams/" + returnTeam : "redirect:/teams";
     }
 }

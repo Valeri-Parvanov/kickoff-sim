@@ -111,14 +111,12 @@ public class TeamController {
                 ? request.getRequestURI()
                 : request.getRequestURI() + "?" + request.getQueryString());
 
-        List<MatchDto> all = matchService.findAll(Sort.by(Sort.Direction.ASC, "playedAt"));
-        model.addAttribute("teamResults", all.stream()
-                .filter(m -> id.equals(m.getHomeTeamId()) || id.equals(m.getAwayTeamId()))
+        List<MatchDto> teamMatches = matchService.findAllForTeam(id);
+        model.addAttribute("teamResults", teamMatches.stream()
                 .filter(m -> !m.getPlayedAt().isAfter(now))
                 .sorted(Comparator.comparing(MatchDto::getPlayedAt).reversed())
                 .toList());
-        model.addAttribute("teamUpcoming", all.stream()
-                .filter(m -> id.equals(m.getHomeTeamId()) || id.equals(m.getAwayTeamId()))
+        model.addAttribute("teamUpcoming", teamMatches.stream()
                 .filter(m -> m.getPlayedAt().isAfter(now))
                 .toList());
         return "teams/detail";
@@ -174,7 +172,7 @@ public class TeamController {
         List<TeamDto> teams;
         Map<UUID, int[]> standings;
         if ("players".equals(sort) || "position".equals(sort)) {
-            teams = teamService.findAll(DEFAULT_SORT);
+            teams = new ArrayList<>(teamService.findAll(DEFAULT_SORT));
             standings = standingsByTeamId(teams);
             teams.sort(computedFieldComparator(sort, "desc".equalsIgnoreCase(dir), standings));
         } else {
@@ -287,10 +285,12 @@ public class TeamController {
         List<Integer> filledRows =
                 SquadRowValidator.validate(form.getPlayers(), "players", Collections.emptySet(), bindingResult);
         if (form.getTeamId() == null && filledRows.size() < 6) {
-            bindingResult.reject("squad.minimum", "A team must have at least 6 players.");
+            bindingResult.reject("squad.minimum", new Object[]{6},
+                    "A team must have at least 6 players.");
         }
         if (filledRows.size() > MAX_SQUAD_SIZE) {
-            bindingResult.reject("squad.capacity", "A team can have at most " + MAX_SQUAD_SIZE + " players.");
+            bindingResult.reject("squad.capacity.max", new Object[]{MAX_SQUAD_SIZE},
+                    "A team can have at most " + MAX_SQUAD_SIZE + " players.");
         }
         if (form.getTeamId() == null
                 && form.getName() != null && !form.getName().isBlank()
@@ -337,7 +337,7 @@ public class TeamController {
 
         if (fromRequest != null) changeRequestService.cancelIfPending(fromRequest, authentication);
         redirectAttributes.addFlashAttribute("statusMessage",
-                executed ? "Team created." : "Submitted for admin approval.");
+                executed ? "flash.team.created" : "flash.common.submitted");
         return "redirect:/teams";
     }
 
@@ -389,7 +389,7 @@ public class TeamController {
                 EntityType.TEAM, ChangeAction.UPDATE, teamDto, id, authentication);
         if (fromRequest != null) changeRequestService.cancelIfPending(fromRequest, authentication);
         redirectAttributes.addFlashAttribute("statusMessage",
-                executed ? "Team updated." : "Submitted for admin approval.");
+                executed ? "flash.team.updated" : "flash.common.submitted");
         return "redirect:/teams";
     }
 
@@ -400,7 +400,7 @@ public class TeamController {
             boolean executed = changeRequestService.submitOrExecute(
                     EntityType.TEAM, ChangeAction.DELETE, null, id, authentication);
             redirectAttributes.addFlashAttribute("statusMessage",
-                    executed ? "Team deleted." : "Submitted for admin approval.");
+                    executed ? "flash.team.deleted" : "flash.common.submitted");
         } catch (InvalidLeagueOperationException ex) {
             redirectAttributes.addFlashAttribute("errorMessage", ex.getMessage());
         }

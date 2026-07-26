@@ -5,7 +5,9 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -23,4 +25,10 @@ public class LeagueDetailView {
     private LeagueFormat format;
     private LocalDate scheduleStartDate;
     private LocalTime scheduleStartTime;
+    private LocalDateTime endsAt;
+
+    public String getEndsAtUtcIso() {
+        if (endsAt == null) return "";
+        return endsAt.atZone(ZoneId.of("Europe/Sofia")).toInstant().toString();
+    }
 }

@@ -9,7 +9,7 @@ import lombok.Setter;
 @Setter
 public class ProfileDto {
 
-    @Email(message = "Enter a valid email address")
-    @Size(max = 100)
+    @Email(message = "{validation.profile.email.invalid}")
+    @Size(max = 100, message = "{validation.profile.email.max}")
     private String email;
 }

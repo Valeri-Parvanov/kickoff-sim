@@ -82,6 +82,7 @@ public class SquadController {
         }
         if (filledRows.size() > remaining) {
             bindingResult.reject("squad.capacity",
+                    new Object[]{remaining},
                     "This team has room for only " + remaining + " more player(s).");
         }
 
@@ -101,7 +102,7 @@ public class SquadController {
 
         redirectAttributes.addFlashAttribute("statusMessage", executed
                 ? filledRows.size() + " player(s) added to " + team.getName() + "."
-                : "Squad submitted for admin approval.");
+                : "flash.squad.submitted");
         return "redirect:/teams";
     }
 
@@ -111,7 +112,8 @@ public class SquadController {
                 SquadRowValidator.validate(squadForm.getRows(), "rows", Collections.emptySet(), bindingResult);
 
         if (filledRows.size() < MIN_SQUAD_SIZE) {
-            bindingResult.reject("squad.minimum", "A team must have at least " + MIN_SQUAD_SIZE + " players.");
+            bindingResult.reject("squad.minimum", new Object[]{MIN_SQUAD_SIZE},
+                    "A team must have at least " + MIN_SQUAD_SIZE + " players.");
         }
 
         if (bindingResult.hasErrors()) {
@@ -128,8 +130,8 @@ public class SquadController {
                 EntityType.TEAM_SQUAD, ChangeAction.UPDATE, payload, teamId, authentication);
 
         redirectAttributes.addFlashAttribute("statusMessage", executed
-                ? "Squad updated."
-                : "Squad update submitted for admin approval.");
+                ? "flash.squad.updated"
+                : "flash.squad.updatesubmitted");
         return "redirect:/teams";
     }
 

@@ -10,15 +10,15 @@ import lombok.Setter;
 @Setter
 public class RegisterDto {
 
-    @NotBlank
-    @Size(min = 3, max = 50)
-    @Pattern(regexp = "^\\S+$", message = "Username cannot contain spaces")
+    @NotBlank(message = "{validation.register.username.required}")
+    @Size(min = 3, max = 50, message = "{validation.register.username.size}")
+    @Pattern(regexp = "^\\S+$", message = "{validation.register.username.nospaces}")
     private String username;
 
-    @NotBlank
-    @Size(min = 6, max = 100)
+    @NotBlank(message = "{validation.register.password.required}")
+    @Size(min = 6, max = 100, message = "{validation.register.password.size}")
     private String password;
 
-    @NotBlank
+    @NotBlank(message = "{validation.register.confirm.required}")
     private String confirmPassword;
 }

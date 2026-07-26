@@ -14,21 +14,21 @@ class LeagueFormatTest {
         assertThat(LeagueFormat.SIX.getTotalRounds()).isEqualTo(15);
         assertThat(LeagueFormat.SIX.getMatchesPerRound()).isEqualTo(3);
         assertThat(LeagueFormat.SIX.getTotalMatches()).isEqualTo(45);
-        assertThat(LeagueFormat.SIX.getCycleName()).isEqualTo("Triple round-robin (each opponent three times)");
+        assertThat(LeagueFormat.SIX.getCycleNameKey()).isEqualTo("leagues.format.triple");
     }
 
     @Test
     void eight_hasExpectedDerivedValues() {
         assertThat(LeagueFormat.EIGHT.getTeamCount()).isEqualTo(8);
         assertThat(LeagueFormat.EIGHT.getCycles()).isEqualTo(2);
-        assertThat(LeagueFormat.EIGHT.getCycleName()).isEqualTo("Double round-robin (each opponent twice)");
+        assertThat(LeagueFormat.EIGHT.getCycleNameKey()).isEqualTo("leagues.format.double");
     }
 
     @Test
     void ten_hasExpectedDerivedValues() {
         assertThat(LeagueFormat.TEN.getTeamCount()).isEqualTo(10);
         assertThat(LeagueFormat.TEN.getCycles()).isEqualTo(2);
-        assertThat(LeagueFormat.TEN.getCycleName()).isEqualTo("Double round-robin (each opponent twice)");
+        assertThat(LeagueFormat.TEN.getCycleNameKey()).isEqualTo("leagues.format.double");
     }
 
     @Test
@@ -39,7 +39,7 @@ class LeagueFormatTest {
         assertThat(LeagueFormat.SIXTEEN.getTotalRounds()).isEqualTo(15);
         assertThat(LeagueFormat.SIXTEEN.getMatchesPerRound()).isEqualTo(8);
         assertThat(LeagueFormat.SIXTEEN.getTotalMatches()).isEqualTo(120);
-        assertThat(LeagueFormat.SIXTEEN.getCycleName()).isEqualTo("Single round-robin (each opponent once)");
+        assertThat(LeagueFormat.SIXTEEN.getCycleNameKey()).isEqualTo("leagues.format.single");
     }
 
     @Test

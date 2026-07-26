@@ -42,7 +42,7 @@ public class GlobalExceptionHandler {
     public String handleNoResource(Model model) {
         model.addAttribute("status", 404);
         model.addAttribute("errorTitle", "Page not found");
-        model.addAttribute("errorMessage", "The page you're looking for doesn't exist. Please check the address or use the links below.");
+        model.addAttribute("errorMessage", "flash.error.pagenotfound");
         return "error";
     }
 
@@ -50,7 +50,7 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public String handleEntityNotFound(Model model) {
         model.addAttribute("status", 404);
-        model.addAttribute("errorMessage", "The requested item was not found. It may have been deleted or the link may be outdated.");
+        model.addAttribute("errorMessage", "flash.error.itemnotfound");
         return "error";
     }
 
@@ -66,7 +66,7 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.CONFLICT)
     public String handleSquadLimitExceeded(Model model) {
         model.addAttribute("status", 409);
-        model.addAttribute("errorMessage", "This team's squad is already full (maximum 12 players).");
+        model.addAttribute("errorMessage", "flash.error.squadfull");
         return "error";
     }
 
@@ -92,7 +92,7 @@ public class GlobalExceptionHandler {
         String targetUrl = (referer != null && !referer.isEmpty()) ? referer : "/";
 
         FlashMap flashMap = new FlashMap();
-        flashMap.put("errorMessage", "A record with this name already exists. Please choose a different name or add a city.");
+        flashMap.put("errorMessage", "flash.error.duplicatename");
         try {
             String path = new java.net.URI(targetUrl).getPath();
             flashMap.setTargetRequestPath(path);
@@ -111,7 +111,7 @@ public class GlobalExceptionHandler {
     public String handleGeneric(Exception ex, Model model) {
         log.error("Unhandled exception", ex);
         model.addAttribute("status", 500);
-        model.addAttribute("errorMessage", "Something unexpected happened. Please try again or use the links below to navigate.");
+        model.addAttribute("errorMessage", "flash.error.unexpected");
         return "error";
     }
 }

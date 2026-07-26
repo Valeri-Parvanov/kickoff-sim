@@ -14,7 +14,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @Entity
-@Table(name = "matches")
+@Table(name = "matches", indexes = @Index(columnList = "playedAt"))
 public class Match {
 
     @Id

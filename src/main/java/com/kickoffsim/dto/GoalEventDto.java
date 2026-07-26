@@ -12,14 +12,14 @@ import java.util.UUID;
 @Setter
 public class GoalEventDto {
 
-    @NotNull(message = "Please select the scorer")
+    @NotNull(message = "{validation.goal.scorer.required}")
     private UUID scorerId;
 
     private UUID assistantId;
 
-    @NotNull(message = "Minute is required")
-    @Min(value = 1, message = "Minute must be at least 1")
-    @Max(value = 40, message = "Minute must be at most 40")
+    @NotNull(message = "{validation.goal.minute.required}")
+    @Min(value = 1, message = "{validation.goal.minute.min}")
+    @Max(value = 40, message = "{validation.goal.minute.max}")
     private Integer minute;
 
     private boolean ownGoal;

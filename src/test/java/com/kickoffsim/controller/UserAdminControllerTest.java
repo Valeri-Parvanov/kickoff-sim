@@ -112,7 +112,7 @@ class UserAdminControllerTest {
         String view = controller.changeRole(id, Role.ADMIN, "bob", auth, req, resp, ra);
 
         assertThat(view).isEqualTo("redirect:/admin/users");
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("Role updated successfully.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.user.roleupdated");
     }
 
     @Test
@@ -126,7 +126,7 @@ class UserAdminControllerTest {
         String view = controller.changeRole(id, Role.ADMIN, "admin", auth, req, resp, ra);
 
         assertThat(view).isEqualTo("redirect:/admin/users");
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("Role updated successfully.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.user.roleupdated");
     }
 
     @Test
@@ -169,7 +169,7 @@ class UserAdminControllerTest {
         String view = controller.setStatus(id, false, "bob", auth, req, resp, ra);
 
         assertThat(view).isEqualTo("redirect:/admin/users");
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("User deactivated successfully.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.user.deactivated");
     }
 
     @Test
@@ -183,7 +183,7 @@ class UserAdminControllerTest {
         String view = controller.setStatus(id, true, "bob", auth, req, resp, ra);
 
         assertThat(view).isEqualTo("redirect:/admin/users");
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("User reactivated successfully.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.user.reactivated");
     }
 
     @Test
@@ -197,7 +197,7 @@ class UserAdminControllerTest {
         String view = controller.setStatus(id, true, "admin", auth, req, resp, ra);
 
         assertThat(view).isEqualTo("redirect:/admin/users");
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("User reactivated successfully.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.user.reactivated");
     }
 
     @Test

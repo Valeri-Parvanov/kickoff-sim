@@ -155,7 +155,7 @@ class PlayerControllerTest {
         String view = controller.edit(id, dto, br, null, model, auth, ra);
 
         assertThat(view).isEqualTo("redirect:/teams/" + resolvedTeamId);
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("Submitted for admin approval.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.common.submitted");
     }
 
     @Test
@@ -185,7 +185,7 @@ class PlayerControllerTest {
         String view = controller.delete(id, returnTeam, auth, ra);
 
         assertThat(view).isEqualTo("redirect:/teams/" + returnTeam);
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("Player deleted.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.player.deleted");
     }
 
     @Test
@@ -202,7 +202,7 @@ class PlayerControllerTest {
         String view = controller.edit(id, dto, br, null, model, auth, ra);
 
         assertThat(view).isEqualTo("redirect:/teams/" + teamId);
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("Player updated.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.player.updated");
     }
 
     @Test
@@ -268,6 +268,6 @@ class PlayerControllerTest {
         RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
 
         assertThat(controller.delete(id, null, auth, ra)).isEqualTo("redirect:/teams");
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("Submitted for admin approval.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.common.submitted");
     }
 }

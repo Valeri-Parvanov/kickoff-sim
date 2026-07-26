@@ -1,5 +1,5 @@
 ﻿<!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,7 +15,7 @@
 <main class="page">
 <h1 th:text="#{nav.login}">Login</h1>
 
-<p th:if="${statusMessage}" th:text="${statusMessage}" class="status-message"></p>
+<div th:replace="~{fragments/topbar :: messages}"></div>
 <p th:if="${param.expired}" class="error-message" th:text="#{login.expired}">Your session has expired. Please log in again.</p>
 <p th:if="${param.deactivated}" class="status-message" th:text="#{login.deactivated}">Your account has been deactivated.</p>
 <p style="color:red" th:if="${param.error}" th:text="#{login.invalid}">Invalid username or password</p>

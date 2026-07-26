@@ -1,5 +1,5 @@
-<!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org"
+﻿<!DOCTYPE html>
+<html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
     <meta charset="UTF-8">
@@ -561,7 +561,7 @@ var _feedActivateSub;
         if (authed) {
             starHtml = '<form action="/notifications/match/' + m.id + '/toggle" method="post" class="match-star-form">'
                 + '<button type="submit" class="match-star' + (m.followed ? ' followed' : '') + '"'
-                + ' title="' + (m.followed ? 'Stop following this match' : 'Follow this match') + '"'
+                + ' title="' + (m.followed ? document.getElementById('global-js-i18n').dataset.unfollow : document.getElementById('global-js-i18n').dataset.follow) + '"'
                 + ' aria-pressed="' + !!m.followed + '">'
                 + '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>'
                 + '</button></form>';
@@ -572,7 +572,9 @@ var _feedActivateSub;
             metaInfo += '<a class="match-league-tag" href="/leagues/' + esc(m.leagueId) + '">' + esc(m.leagueName) + '</a>';
         }
         if (m.roundNumber != null) {
-            metaInfo += '<span class="match-round">Round ' + esc(m.roundNumber) + '</span>';
+            metaInfo += '<span class="match-round">'
+                + document.getElementById('global-js-i18n').dataset.round + ' '
+                + esc(m.roundNumber) + '</span>';
         }
 
         details.innerHTML =
@@ -598,7 +600,8 @@ var _feedActivateSub;
                 '</div>' +
             '</summary>' +
             '<div class="match-card-expand">' +
-                '<p class="match-in-progress" style="font-size:0.82rem;color:var(--muted);margin:0.4rem 0 0;text-align:center;">Match in progress.</p>' +
+                '<p class="match-in-progress" style="font-size:0.82rem;color:var(--muted);margin:0.4rem 0 0;text-align:center;">'
+                    + document.getElementById('global-js-i18n').dataset.inProgress + '</p>' +
             '</div>';
 
         var timeEl = details.querySelector('[data-utc]');
@@ -606,7 +609,7 @@ var _feedActivateSub;
             try {
                 var d = new Date(timeEl.dataset.utc);
                 if (!isNaN(d.getTime())) {
-                    timeEl.textContent = String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + d.getFullYear() + ' · ' + d.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+                    timeEl.textContent = String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + d.getFullYear() + ' · ' + d.toLocaleTimeString(document.getElementById('global-js-i18n').dataset.locale, {hour:'2-digit',minute:'2-digit'});
                 }
             } catch(e) {}
         }
@@ -672,9 +675,9 @@ var _feedActivateSub;
             var fmt = el.dataset.fmt;
             if (fmt === 'datetime-compact') {
                 el.textContent = String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + d.getFullYear()
-                    + ' · ' + d.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+                    + ' · ' + d.toLocaleTimeString(document.getElementById('global-js-i18n').dataset.locale, {hour:'2-digit',minute:'2-digit'});
             } else if (fmt === 'time') {
-                el.textContent = d.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+                el.textContent = d.toLocaleTimeString(document.getElementById('global-js-i18n').dataset.locale, {hour:'2-digit',minute:'2-digit'});
             } else if (fmt === 'date-iso') {
                 el.textContent = String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + d.getFullYear();
             } else if (fmt === 'elapsed') {

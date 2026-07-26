@@ -5,19 +5,19 @@ import java.util.Optional;
 
 public enum LeagueFormat {
 
-    SIX(6, 3, "Triple round-robin (each opponent three times)"),
-    EIGHT(8, 2, "Double round-robin (each opponent twice)"),
-    TEN(10, 2, "Double round-robin (each opponent twice)"),
-    SIXTEEN(16, 1, "Single round-robin (each opponent once)");
+    SIX(6, 3, "leagues.format.triple"),
+    EIGHT(8, 2, "leagues.format.double"),
+    TEN(10, 2, "leagues.format.double"),
+    SIXTEEN(16, 1, "leagues.format.single");
 
     private final int teamCount;
     private final int cycles;
-    private final String cycleName;
+    private final String cycleNameKey;
 
-    LeagueFormat(int teamCount, int cycles, String cycleName) {
+    LeagueFormat(int teamCount, int cycles, String cycleNameKey) {
         this.teamCount = teamCount;
         this.cycles = cycles;
-        this.cycleName = cycleName;
+        this.cycleNameKey = cycleNameKey;
     }
 
     public int getTeamCount() {
@@ -44,8 +44,8 @@ public enum LeagueFormat {
         return (teamCount * (teamCount - 1) / 2) * cycles;
     }
 
-    public String getCycleName() {
-        return cycleName;
+    public String getCycleNameKey() {
+        return cycleNameKey;
     }
 
     public static Optional<LeagueFormat> forTeamCount(int count) {

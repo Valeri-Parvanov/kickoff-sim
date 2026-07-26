@@ -40,7 +40,6 @@ import com.kickoffsim.client.SubscriptionDto;
 import com.kickoffsim.model.User;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -136,7 +135,7 @@ class TeamControllerTest {
         TeamDto high = team(UUID.randomUUID());
         high.setPlayerCount(12);
 
-        when(teamService.findAll(any(Sort.class))).thenReturn(new ArrayList<>(List.of(high, low)));
+        when(teamService.findAll(any(Sort.class))).thenReturn(List.of(high, low));
         when(teamService.findAllFree()).thenReturn(List.of());
         Model model = new ExtendedModelMap();
 
@@ -154,7 +153,7 @@ class TeamControllerTest {
         TeamDto high = team(UUID.randomUUID());
         high.setPlayerCount(12);
 
-        when(teamService.findAll(any(Sort.class))).thenReturn(new ArrayList<>(List.of(low, high)));
+        when(teamService.findAll(any(Sort.class))).thenReturn(List.of(low, high));
         when(teamService.findAllFree()).thenReturn(List.of());
         Model model = new ExtendedModelMap();
 
@@ -174,7 +173,7 @@ class TeamControllerTest {
         firstPlace.setLeagueId(leagueId);
         TeamDto noLeague = team(UUID.randomUUID());
 
-        when(teamService.findAll(any(Sort.class))).thenReturn(new ArrayList<>(List.of(noLeague, secondPlace, firstPlace)));
+        when(teamService.findAll(any(Sort.class))).thenReturn(List.of(noLeague, secondPlace, firstPlace));
         when(teamService.findAllFree()).thenReturn(List.of());
 
         StandingRow row1 = new StandingRow();
@@ -202,7 +201,7 @@ class TeamControllerTest {
         TeamDto secondPlace = team(UUID.randomUUID());
         secondPlace.setLeagueId(leagueId);
 
-        when(teamService.findAll(any(Sort.class))).thenReturn(new ArrayList<>(List.of(firstPlace, secondPlace)));
+        when(teamService.findAll(any(Sort.class))).thenReturn(List.of(firstPlace, secondPlace));
         when(teamService.findAllFree()).thenReturn(List.of());
 
         StandingRow row1 = new StandingRow();
@@ -248,7 +247,7 @@ class TeamControllerTest {
         when(teamService.findById(id)).thenReturn(team(id));
         when(playerService.findAllByTeam(id)).thenReturn(List.of());
         when(playerService.squadRemainingSlots(id)).thenReturn(12);
-        when(matchService.findAll(any(Sort.class))).thenReturn(List.of());
+        when(matchService.findAllForTeam(id)).thenReturn(List.of());
         HttpServletRequest request = mock(HttpServletRequest.class);
         when(request.getQueryString()).thenReturn(null);
         when(request.getRequestURI()).thenReturn("/teams/" + id);
@@ -290,7 +289,7 @@ class TeamControllerTest {
         past.setHomeTeamId(id);
         past.setAwayTeamId(UUID.randomUUID());
         past.setPlayedAt(LocalDateTime.now().minusDays(1));
-        when(matchService.findAll(any(Sort.class))).thenReturn(List.of(past));
+        when(matchService.findAllForTeam(id)).thenReturn(List.of(past));
 
         HttpServletRequest request = mock(HttpServletRequest.class);
         when(request.getQueryString()).thenReturn(null);
@@ -338,7 +337,7 @@ class TeamControllerTest {
         String view = controller.create(form, br, null, model, auth, ra);
 
         assertThat(view).isEqualTo("redirect:/teams");
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("Team created.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.team.created");
     }
 
     @Test
@@ -365,7 +364,7 @@ class TeamControllerTest {
         String view = controller.edit(id, dto, br, null, model, auth, ra);
 
         assertThat(view).isEqualTo("redirect:/teams");
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("Team updated.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.team.updated");
     }
 
     @Test
@@ -419,7 +418,7 @@ class TeamControllerTest {
         RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
 
         assertThat(controller.create(form, br, null, model, auth, ra)).isEqualTo("redirect:/teams");
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("Team created.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.team.created");
     }
 
     @Test
@@ -548,7 +547,7 @@ class TeamControllerTest {
         RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
 
         assertThat(controller.delete(id, auth, ra)).isEqualTo("redirect:/teams");
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("Submitted for admin approval.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.common.submitted");
     }
 
     @Test
@@ -558,7 +557,7 @@ class TeamControllerTest {
         RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
 
         assertThat(controller.delete(id, auth, ra)).isEqualTo("redirect:/teams");
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("Team deleted.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.team.deleted");
     }
 
     @Test
@@ -643,12 +642,10 @@ class TeamControllerTest {
 
         MatchDto pastHome = sideMatch(id, UUID.randomUUID(), LocalDateTime.now().minusDays(1));
         MatchDto pastAway = sideMatch(UUID.randomUUID(), id, LocalDateTime.now().minusDays(2));
-        MatchDto pastNeither = sideMatch(UUID.randomUUID(), UUID.randomUUID(), LocalDateTime.now().minusDays(3));
         MatchDto futureHome = sideMatch(id, UUID.randomUUID(), LocalDateTime.now().plusDays(1));
         MatchDto futureAway = sideMatch(UUID.randomUUID(), id, LocalDateTime.now().plusDays(2));
-        MatchDto futureNeither = sideMatch(UUID.randomUUID(), UUID.randomUUID(), LocalDateTime.now().plusDays(3));
-        when(matchService.findAll(any(Sort.class))).thenReturn(
-                List.of(pastHome, pastAway, pastNeither, futureHome, futureAway, futureNeither));
+        when(matchService.findAllForTeam(id)).thenReturn(
+                List.of(pastHome, pastAway, futureHome, futureAway));
 
         HttpServletRequest request = mock(HttpServletRequest.class);
         when(request.getQueryString()).thenReturn("tab=results");
@@ -672,7 +669,7 @@ class TeamControllerTest {
         when(teamService.findById(id)).thenReturn(team(id));
         when(playerService.findAllByTeam(id)).thenReturn(List.of());
         when(playerService.squadRemainingSlots(id)).thenReturn(12);
-        when(matchService.findAll(any(Sort.class))).thenReturn(List.of());
+        when(matchService.findAllForTeam(id)).thenReturn(List.of());
         when(notificationClient.getSubscriptions(any())).thenThrow(new RuntimeException("down"));
         HttpServletRequest request = mock(HttpServletRequest.class);
         when(request.getQueryString()).thenReturn(null);
@@ -918,7 +915,7 @@ class TeamControllerTest {
         String view = controller.create(form, br, null, model, auth, ra);
 
         assertThat(view).isEqualTo("redirect:/teams");
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("Submitted for admin approval.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.common.submitted");
     }
 
     @Test
@@ -989,7 +986,7 @@ class TeamControllerTest {
         String view = controller.edit(id, dto, br, null, model, auth, ra);
 
         assertThat(view).isEqualTo("redirect:/teams");
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("Submitted for admin approval.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.common.submitted");
     }
 
     @Test

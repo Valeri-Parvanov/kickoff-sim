@@ -49,7 +49,7 @@ class ChangeRequestControllerTest {
         RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
 
         assertThat(controller.approve(id, auth, ra)).isEqualTo("redirect:/admin/change-requests");
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("Change request approved.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.changerequest.approved");
     }
 
     @Test
@@ -71,8 +71,7 @@ class ChangeRequestControllerTest {
         RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
 
         assertThat(controller.approve(id, auth, ra)).isEqualTo("redirect:/admin/change-requests");
-        assertThat(ra.getFlashAttributes().get("errorMessage"))
-                .isEqualTo("This request cannot be approved — a record with that name already exists. Please reject it instead.");
+        assertThat(ra.getFlashAttributes().get("errorMessage")).isEqualTo("flash.changerequest.duplicate");
         assertThat(ra.getFlashAttributes()).containsKey("failedRequestId");
     }
 
@@ -82,7 +81,7 @@ class ChangeRequestControllerTest {
         RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
 
         assertThat(controller.reject(id, "spam", auth, ra)).isEqualTo("redirect:/admin/change-requests");
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("Change request rejected.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.changerequest.rejected");
     }
 
     @Test

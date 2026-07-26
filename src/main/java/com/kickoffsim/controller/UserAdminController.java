@@ -57,7 +57,7 @@ public class UserAdminController {
                 new SecurityContextLogoutHandler().logout(request, response, authentication);
                 return "redirect:/login";
             }
-            redirectAttributes.addFlashAttribute("statusMessage", "Role updated successfully.");
+            redirectAttributes.addFlashAttribute("statusMessage", "flash.user.roleupdated");
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
         }
@@ -79,7 +79,7 @@ public class UserAdminController {
                 return "redirect:/login";
             }
             redirectAttributes.addFlashAttribute("statusMessage",
-                    enabled ? "User reactivated successfully." : "User deactivated successfully.");
+                    enabled ? "flash.user.reactivated" : "flash.user.deactivated");
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
         }
