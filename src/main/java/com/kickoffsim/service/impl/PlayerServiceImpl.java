@@ -12,6 +12,7 @@ import com.kickoffsim.repository.TeamRepository;
 import com.kickoffsim.service.PlayerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -62,6 +63,13 @@ public class PlayerServiceImpl implements PlayerService {
                     dto.setAssists(assistsByPlayer.getOrDefault(dto.getId(), 0L).intValue());
                 })
                 .sorted(Comparator.comparingInt(PlayerDto::getShirtNumber))
+                .toList();
+    }
+
+    @Override
+    public List<PlayerDto> searchByName(String q) {
+        return playerRepository.searchTop6ByFullName(q, PageRequest.of(0, 6)).stream()
+                .map(this::toDto)
                 .toList();
     }
 

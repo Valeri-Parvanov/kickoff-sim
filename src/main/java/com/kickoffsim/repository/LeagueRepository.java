@@ -18,4 +18,6 @@ public interface LeagueRepository extends JpaRepository<League, UUID> {
     @Query("SELECT l FROM League l WHERE EXISTS (SELECT 1 FROM Match m WHERE m.homeTeam.league = l) "
             + "AND NOT EXISTS (SELECT 1 FROM Match m2 WHERE m2.homeTeam.league = l AND m2.playedAt >= :cutoff)")
     List<League> findFinishedBefore(@Param("cutoff") LocalDateTime cutoff);
+
+    List<League> findTop6ByNameContainingIgnoreCase(String name);
 }

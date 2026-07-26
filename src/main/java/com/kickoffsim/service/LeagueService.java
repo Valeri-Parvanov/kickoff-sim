@@ -15,6 +15,8 @@ public interface LeagueService {
 
     LeagueDto findById(UUID id);
 
+    List<LeagueDto> searchByName(String q);
+
     LeagueDetailView findDetail(UUID id);
 
     LeagueDto create(LeagueDto leagueDto);

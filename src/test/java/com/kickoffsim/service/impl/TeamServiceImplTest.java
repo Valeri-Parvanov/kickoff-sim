@@ -21,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
 import java.util.List;
@@ -31,6 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -58,6 +60,7 @@ class TeamServiceImplTest {
         league.setId(leagueId);
         league.setName("First League");
         when(playerRepository.countByTeam(any())).thenReturn(0L);
+        when(playerRepository.countAllGroupedByTeam()).thenReturn(List.of());
     }
 
     @Test
@@ -85,6 +88,20 @@ class TeamServiceImplTest {
     }
 
     @Test
+    void findAll_populatesPlayerCountFromGroupedQuery() {
+        Team withPlayers = new Team();
+        withPlayers.setId(UUID.randomUUID());
+        withPlayers.setName("Alpha");
+        when(teamRepository.findAll(any(Sort.class))).thenReturn(List.of(withPlayers));
+        when(playerRepository.countAllGroupedByTeam())
+                .thenReturn(List.<Object[]>of(new Object[]{withPlayers.getId(), 7L}));
+
+        List<TeamDto> result = teamService.findAll();
+
+        assertThat(result.get(0).getPlayerCount()).isEqualTo(7L);
+    }
+
+    @Test
     void findAll_withExplicitSort_delegatesToRepository() {
         Sort customSort = Sort.by("name");
         when(teamRepository.findAll(customSort)).thenReturn(List.of());
@@ -100,12 +117,63 @@ class TeamServiceImplTest {
         free.setId(UUID.randomUUID());
         free.setName("Free FC");
         when(teamRepository.findAllByLeagueIsNull()).thenReturn(List.of(free));
-        when(playerRepository.countByTeam(free)).thenReturn(4L);
+        when(playerRepository.countAllGroupedByTeam())
+                .thenReturn(List.<Object[]>of(new Object[]{free.getId(), 4L}));
 
         List<TeamDto> result = teamService.findAllFree();
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getPlayerCount()).isEqualTo(4L);
+    }
+
+    @Test
+    void findAllFree_teamWithNoPlayers_defaultsCountToZero() {
+        Team free = new Team();
+        free.setId(UUID.randomUUID());
+        free.setName("Free FC");
+        when(teamRepository.findAllByLeagueIsNull()).thenReturn(List.of(free));
+
+        List<TeamDto> result = teamService.findAllFree();
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getPlayerCount()).isZero();
+    }
+
+    @Test
+    void searchByName_returnsMatches() {
+        Team found = new Team();
+        found.setId(UUID.randomUUID());
+        found.setName("Sofia FC");
+        when(teamRepository.searchTop6ByNameOrCity(eq("sofia"), any(Pageable.class)))
+                .thenReturn(List.of(found));
+
+        List<TeamDto> result = teamService.searchByName("sofia");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getName()).isEqualTo("Sofia FC");
+    }
+
+    @Test
+    void searchByName_matchesByCity() {
+        Team found = new Team();
+        found.setId(UUID.randomUUID());
+        found.setName("Tundzha FC");
+        found.setCity("Yambol");
+        when(teamRepository.searchTop6ByNameOrCity(eq("yambol"), any(Pageable.class)))
+                .thenReturn(List.of(found));
+
+        List<TeamDto> result = teamService.searchByName("yambol");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getCity()).isEqualTo("Yambol");
+    }
+
+    @Test
+    void searchByName_noMatches_returnsEmpty() {
+        when(teamRepository.searchTop6ByNameOrCity(eq("zzz"), any(Pageable.class)))
+                .thenReturn(List.of());
+
+        assertThat(teamService.searchByName("zzz")).isEmpty();
     }
 
     @Test
@@ -271,7 +339,6 @@ class TeamServiceImplTest {
         team.setLeague(league);
 
         when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
-        when(matchRepository.existsByLeagueId(leagueId)).thenReturn(true);
 
         assertThatThrownBy(() -> teamService.delete(teamId))
                 .isInstanceOf(InvalidLeagueOperationException.class);
@@ -281,23 +348,20 @@ class TeamServiceImplTest {
     }
 
     @Test
-    void delete_teamInLeagueWithoutSchedule_deletesNormally() {
+    void delete_teamInLeagueWithoutSchedule_throwsInvalidLeagueOperationException() {
         UUID teamId = UUID.randomUUID();
         Team team = new Team();
         team.setId(teamId);
         team.setName("Test FC");
         team.setLeague(league);
 
-        List<Match> matches = List.of(new Match());
-
         when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
-        when(matchRepository.existsByLeagueId(leagueId)).thenReturn(false);
-        when(matchRepository.findAllByHomeTeamOrAwayTeam(team, team)).thenReturn(matches);
 
-        teamService.delete(teamId);
+        assertThatThrownBy(() -> teamService.delete(teamId))
+                .isInstanceOf(InvalidLeagueOperationException.class);
 
-        verify(matchRepository).deleteAll(matches);
-        verify(teamRepository).delete(team);
+        verify(matchRepository, never()).deleteAll(anyList());
+        verify(teamRepository, never()).delete(any());
     }
 
     @Test

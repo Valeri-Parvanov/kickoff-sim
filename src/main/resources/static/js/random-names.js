@@ -30,27 +30,30 @@ const PLAYER_LAST_NAMES = [
     "Blagoev", "Zhivkov", "Aleksandrov", "Manchev"
 ];
 
-const LEAGUE_NAME_PREFIXES = [
-    "Sofia", "National", "Premier", "Capital", "Regional",
-    "Amateur", "Municipal", "Indoor", "Winter", "Summer",
-    "Open", "Business", "Rooftop", "Weekend", "Midnight",
-    "Underdog", "Sunday", "Backstreet", "Iron", "Golden"
-];
-
-const LEAGUE_NAME_SUFFIXES = [
-    "League", "Division", "Championship", "Cup", "Series", "Tournament",
-    "Derby", "Showdown", "Circuit", "Classic", "Invitational"
-];
-
-const LEAGUE_NAMES = [
-    "Kyufte Cup", "Banitsa Bowl", "Rakia Rumble", "Sirene Series",
-    "Shopska Shield", "Pensioner's Pride", "Domat Derby", "Mekitsa Masters",
-    "Ayrian Arena", "Tarator Trophy", "Kapama Klasico", "Lyutenitsa League",
-    "Boza Bracket", "Kebapche Kings", "Sarma Showcase", "Salata Slam",
-    "Snezhanka Cup", "Chubritsa Challenge", "Mecho Millennium", "Zimnitsa Zone",
-    "Barcode United Cup", "Sunday Sunflower League", "Noshten Nadprevar",
-    "Gradinska Gauntlet", "Tikvenik Trophy", "Kyoftavitsa Klasika",
-    "Party Boza League", "Skara Slam", "Ledeno Kafe Cup", "Mizeria Masters"
+const LEAGUE_FOODS = [
+    { food: "Banitsa", types: ["Bowl", "Cup", "Derby", "Masters"] },
+    { food: "Tarator", types: ["Trophy", "Cup", "Derby", "Open"] },
+    { food: "Kyufte", types: ["Cup", "Kings", "Classic", "Derby"] },
+    { food: "Kebapche", types: ["Kings", "Cup", "Derby", "Masters"] },
+    { food: "Skara", types: ["Slam", "Showdown", "Cup", "Derby"] },
+    { food: "Mekitsa", types: ["Masters", "Cup", "Derby", "Open"] },
+    { food: "Kyoftavitsa", types: ["Cup", "Derby", "Klasika"] },
+    { food: "Domat", types: ["Derby", "Cup", "Bowl", "Showdown"] },
+    { food: "Lyutenitsa", types: ["League", "Derby", "Cup", "Masters"] },
+    { food: "Zimnitsa", types: ["Zone", "Cup", "Derby"] },
+    { food: "Shopska", types: ["Shield", "Showdown", "Cup", "Derby"] },
+    { food: "Salata", types: ["Slam", "Series", "Cup", "Open"] },
+    { food: "Sarma", types: ["Showdown", "Series", "Cup", "Derby"] },
+    { food: "Sirene", types: ["Series", "Shield", "Cup", "Derby"] },
+    { food: "Boza", types: ["Bowl", "Cup", "Nights", "Derby"] },
+    { food: "Rakia", types: ["Rumble", "Cup", "Open", "Derby"] },
+    { food: "Ayran", types: ["Arena", "Open", "Cup", "Derby"] },
+    { food: "Tikvenik", types: ["Trophy", "Cup", "Derby"] },
+    { food: "Snezhanka", types: ["Series", "Shield", "Cup", "Open"] },
+    { food: "Mizeria", types: ["Masters", "Open", "Cup", "Derby"] },
+    { food: "Chubritsa", types: ["Challenge", "Cup", "Derby"] },
+    { food: "Kapama", types: ["Classic", "Cup", "Masters", "Derby"] },
+    { food: "Ledeno Kafe", types: ["Cup", "Derby", "Open"] }
 ];
 
 const CITIES = [
@@ -81,11 +84,60 @@ function randomPlayerLastName() {
     return randomFrom(PLAYER_LAST_NAMES);
 }
 
+const LEAGUE_TYPES_FALLBACK = [
+    "Cup", "Derby", "League", "Masters", "Trophy",
+    "Classic", "Open", "Series", "Shield", "Challenge"
+];
+
 function randomLeagueName() {
-    if (Math.random() < 0.5) {
-        return randomFrom(LEAGUE_NAMES);
+    const entry = randomFrom(LEAGUE_FOODS);
+    return entry.food + " " + randomFrom(entry.types);
+}
+
+function leagueTypesFor(food) {
+    const key = (food || "").trim().toLowerCase();
+    const entry = LEAGUE_FOODS.find(function (e) {
+        return e.food.toLowerCase() === key;
+    });
+    return entry ? entry.types : LEAGUE_TYPES_FALLBACK;
+}
+
+function syncLeagueName(foodId, typeId, targetId) {
+    const food = document.getElementById(foodId).value.trim();
+    const type = document.getElementById(typeId).value.trim();
+    document.getElementById(targetId).value = [food, type].filter(Boolean).join(" ");
+}
+
+function splitLeagueName(foodId, typeId, targetId) {
+    const full = document.getElementById(targetId).value.trim();
+    if (!full) return;
+    const cut = full.lastIndexOf(" ");
+    if (cut === -1) {
+        document.getElementById(foodId).value = full;
+        return;
     }
-    return randomFrom(LEAGUE_NAME_PREFIXES) + " " + randomFrom(LEAGUE_NAME_SUFFIXES);
+    document.getElementById(foodId).value = full.slice(0, cut);
+    document.getElementById(typeId).value = full.slice(cut + 1);
+}
+
+function fillRandomLeagueFood(foodId, typeId, targetId) {
+    const entry = randomFrom(LEAGUE_FOODS);
+    document.getElementById(foodId).value = entry.food;
+
+    const typeEl = document.getElementById(typeId);
+    if (entry.types.indexOf(typeEl.value.trim()) === -1) {
+        typeEl.value = randomFrom(entry.types);
+    }
+    syncLeagueName(foodId, typeId, targetId);
+}
+
+function fillRandomLeagueType(foodId, typeId, targetId) {
+    const foodEl = document.getElementById(foodId);
+    if (!foodEl.value.trim()) {
+        foodEl.value = randomFrom(LEAGUE_FOODS).food;
+    }
+    document.getElementById(typeId).value = randomFrom(leagueTypesFor(foodEl.value));
+    syncLeagueName(foodId, typeId, targetId);
 }
 
 function randomCity() {
@@ -101,9 +153,6 @@ function fillRandomPlayerName(firstNameInputId, lastNameInputId) {
     document.getElementById(lastNameInputId).value = randomPlayerLastName();
 }
 
-function fillRandomLeagueName(inputId) {
-    document.getElementById(inputId).value = randomLeagueName();
-}
 
 function fillRandomCity(inputId) {
     document.getElementById(inputId).value = randomCity();
@@ -176,7 +225,10 @@ function clearSquadIn(blockEl) {
 function wizardUpdateSquadCount(blockEl) {
     var visible = blockEl.querySelectorAll("tbody tr:not(.wizard-row-hidden)").length;
     var label = blockEl.querySelector(".wizard-squad-count");
-    if (label) label.textContent = visible + " player" + (visible === 1 ? "" : "s");
+    if (label) {
+        label.textContent = document.getElementById("global-js-i18n")
+            .dataset.playerCount.replace("{0}", visible);
+    }
     var growBtn = blockEl.querySelector(".wizard-grow-btn");
     var shrinkBtn = blockEl.querySelector(".wizard-shrink-btn");
     if (growBtn) growBtn.disabled = visible >= 12;

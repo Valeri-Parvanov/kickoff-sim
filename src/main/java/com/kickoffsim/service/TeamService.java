@@ -16,6 +16,8 @@ public interface TeamService {
 
     List<TeamDto> findAllFree();
 
+    List<TeamDto> searchByName(String q);
+
     boolean existsByName(String name);
 
     boolean existsByNameAndCity(String name, String city);

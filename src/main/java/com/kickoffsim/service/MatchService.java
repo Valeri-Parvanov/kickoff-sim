@@ -33,6 +33,8 @@ public interface MatchService {
 
     List<MatchDto> findByLeague(UUID leagueId);
 
+    List<MatchDto> findAllForTeam(UUID teamId);
+
     List<LocalDate> findAllMatchDates();
 
     List<MatchDto> findByDate(LocalDate date);

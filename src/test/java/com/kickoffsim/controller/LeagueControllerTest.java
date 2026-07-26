@@ -27,6 +27,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.ui.ExtendedModelMap;
 import org.springframework.ui.Model;
@@ -66,6 +67,20 @@ class LeagueControllerTest {
     @InjectMocks private LeagueController controller;
 
     private final Authentication auth = mock(Authentication.class);
+
+    @Test
+    void logo_returnsSvgResponse() {
+        UUID id = UUID.randomUUID();
+        LeagueDto league = new LeagueDto();
+        league.setId(id);
+        league.setName("Premier Cup");
+        when(leagueService.findById(id)).thenReturn(league);
+
+        ResponseEntity<String> resp = controller.logo(id);
+
+        assertThat(resp.getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(resp.getBody()).contains("svg");
+    }
 
     private TeamDto eligibleTeam() {
         TeamDto t = new TeamDto();
@@ -145,7 +160,7 @@ class LeagueControllerTest {
         String view = controller.create(dto, br, null, auth, ra, model);
 
         assertThat(view).isEqualTo("redirect:/leagues");
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("Submitted for admin approval.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.common.submitted");
     }
 
     @Test
@@ -155,7 +170,7 @@ class LeagueControllerTest {
         RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
 
         assertThat(controller.delete(id, auth, ra)).isEqualTo("redirect:/leagues");
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("League deleted.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.league.deleted");
     }
 
     @Test
@@ -370,7 +385,7 @@ class LeagueControllerTest {
         RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
 
         assertThat(controller.create(dto, br, null, auth, ra, model)).isEqualTo("redirect:/leagues");
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("League created.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.league.created");
     }
 
     @Test
@@ -750,7 +765,7 @@ class LeagueControllerTest {
         RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
 
         assertThat(controller.delete(id, auth, ra)).isEqualTo("redirect:/leagues");
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("Submitted for admin approval.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.common.submitted");
     }
 
     @Test
@@ -870,7 +885,7 @@ class LeagueControllerTest {
         RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
 
         assertThat(controller.create(dto, br, null, auth, ra, model)).isEqualTo("redirect:/leagues");
-        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("League created.");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.league.created");
         verify(scheduleService, never()).generate(any(), any(), any());
     }
 

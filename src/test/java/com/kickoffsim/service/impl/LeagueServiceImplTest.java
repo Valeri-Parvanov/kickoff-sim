@@ -149,9 +149,29 @@ class LeagueServiceImplTest {
     }
 
     @Test
+    void searchByName_returnsMatches() {
+        League found = new League();
+        found.setId(UUID.randomUUID());
+        found.setName("Premier Cup");
+        when(leagueRepository.findTop6ByNameContainingIgnoreCase("premier")).thenReturn(List.of(found));
+
+        List<LeagueDto> result = leagueService.searchByName("premier");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getName()).isEqualTo("Premier Cup");
+    }
+
+    @Test
+    void searchByName_noMatches_returnsEmpty() {
+        when(leagueRepository.findTop6ByNameContainingIgnoreCase("zzz")).thenReturn(List.of());
+
+        assertThat(leagueService.searchByName("zzz")).isEmpty();
+    }
+
+    @Test
     void findById_notFound_throwsEntityNotFoundException() {
         UUID id = UUID.randomUUID();
-        when(leagueRepository.findById(id)).thenReturn(Optional.empty());
+        when(leagueRepository.findByIdWithTeams(id)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> leagueService.findById(id))
                 .isInstanceOf(EntityNotFoundException.class);
@@ -170,7 +190,7 @@ class LeagueServiceImplTest {
         league.setId(leagueId);
         league.getTeams().addAll(List.of(teamA, teamB));
 
-        when(leagueRepository.findById(leagueId)).thenReturn(Optional.of(league));
+        when(leagueRepository.findByIdWithTeams(leagueId)).thenReturn(Optional.of(league));
         when(matchRepository.findAllByHomeTeamOrAwayTeam(teamA, teamA)).thenReturn(List.of(new Match()));
         when(matchRepository.findAllByHomeTeamOrAwayTeam(teamB, teamB)).thenReturn(List.of(new Match()));
         when(teamRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -185,7 +205,7 @@ class LeagueServiceImplTest {
     @Test
     void delete_notFound_throwsEntityNotFoundException() {
         UUID id = UUID.randomUUID();
-        when(leagueRepository.findById(id)).thenReturn(Optional.empty());
+        when(leagueRepository.findByIdWithTeams(id)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> leagueService.delete(id))
                 .isInstanceOf(EntityNotFoundException.class);
@@ -198,7 +218,7 @@ class LeagueServiceImplTest {
         league.setId(leagueId);
         league.setName("First League");
 
-        when(leagueRepository.findById(leagueId)).thenReturn(Optional.of(league));
+        when(leagueRepository.findByIdWithTeams(leagueId)).thenReturn(Optional.of(league));
         when(matchRepository.hasPlayedMatchesForLeague(eq(leagueId), any(LocalDateTime.class))).thenReturn(true);
 
         assertThatThrownBy(() -> leagueService.delete(leagueId))
@@ -226,7 +246,7 @@ class LeagueServiceImplTest {
     @Test
     void update_notFound_throwsEntityNotFoundException() {
         UUID id = UUID.randomUUID();
-        when(leagueRepository.findById(id)).thenReturn(Optional.empty());
+        when(leagueRepository.findByIdWithTeams(id)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> leagueService.update(id, new LeagueDto()))
                 .isInstanceOf(EntityNotFoundException.class);
@@ -238,7 +258,7 @@ class LeagueServiceImplTest {
         League league = new League();
         league.setId(id);
         league.setName("Old Name");
-        when(leagueRepository.findById(id)).thenReturn(Optional.of(league));
+        when(leagueRepository.findByIdWithTeams(id)).thenReturn(Optional.of(league));
         when(leagueRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(matchRepository.countByLeagueId(id)).thenReturn(0L);
         when(matchRepository.countPlayedByLeagueId(eq(id), any(LocalDateTime.class))).thenReturn(0L);
@@ -362,7 +382,7 @@ class LeagueServiceImplTest {
         league.setId(leagueId);
         league.setName("Premier");
         league.getTeams().addAll(List.of(teamA, teamB, teamC));
-        when(leagueRepository.findById(leagueId)).thenReturn(Optional.of(league));
+        when(leagueRepository.findByIdWithTeams(leagueId)).thenReturn(Optional.of(league));
 
         LocalDateTime old = LocalDateTime.now().minusHours(2);
         MatchDto win = matchDto(teamA.getId(), teamB.getId(), old, 2, 1);
@@ -396,6 +416,53 @@ class LeagueServiceImplTest {
     }
 
     @Test
+    void findDetail_endsAt_isTheLatestKickoffAcrossAllMatches() {
+        UUID leagueId = UUID.randomUUID();
+        Team teamA = teamEntity("Alpha");
+        Team teamB = teamEntity("Bravo");
+
+        League league = new League();
+        league.setId(leagueId);
+        league.setName("Premier");
+        league.getTeams().addAll(List.of(teamA, teamB));
+        when(leagueRepository.findByIdWithTeams(leagueId)).thenReturn(Optional.of(league));
+
+        LocalDateTime early = LocalDateTime.now().plusDays(1);
+        LocalDateTime last = LocalDateTime.now().plusDays(9).withHour(21).withMinute(30);
+        MatchDto first = matchDto(teamA.getId(), teamB.getId(), early, 0, 0);
+        MatchDto middle = matchDto(teamB.getId(), teamA.getId(), last.minusDays(3), 0, 0);
+        MatchDto finale = matchDto(teamA.getId(), teamB.getId(), last, 0, 0);
+        MatchDto unscheduled = matchDto(teamB.getId(), teamA.getId(), null, 0, 0);
+
+        when(matchService.findByLeague(leagueId)).thenReturn(List.of(first, unscheduled, finale, middle));
+
+        LeagueDetailView view = leagueService.findDetail(leagueId);
+
+        assertThat(view.getEndsAt()).isEqualTo(last);
+        assertThat(view.getEndsAtUtcIso()).isNotEmpty();
+    }
+
+    @Test
+    void findDetail_noScheduledMatches_leavesEndsAtNull() {
+        UUID leagueId = UUID.randomUUID();
+        Team teamA = teamEntity("Alpha");
+        Team teamB = teamEntity("Bravo");
+
+        League league = new League();
+        league.setId(leagueId);
+        league.setName("Premier");
+        league.getTeams().addAll(List.of(teamA, teamB));
+        when(leagueRepository.findByIdWithTeams(leagueId)).thenReturn(Optional.of(league));
+        when(matchService.findByLeague(leagueId))
+                .thenReturn(List.of(matchDto(teamA.getId(), teamB.getId(), null, 0, 0)));
+
+        LeagueDetailView view = leagueService.findDetail(leagueId);
+
+        assertThat(view.getEndsAt()).isNull();
+        assertThat(view.getEndsAtUtcIso()).isEmpty();
+    }
+
+    @Test
     void findDetail_liveMatchGoalTimeline_computesScoreFromGoals() {
         UUID leagueId = UUID.randomUUID();
         Team teamA = teamEntity("Alpha");
@@ -405,7 +472,7 @@ class LeagueServiceImplTest {
         league.setId(leagueId);
         league.setName("Premier");
         league.getTeams().addAll(List.of(teamA, teamB));
-        when(leagueRepository.findById(leagueId)).thenReturn(Optional.of(league));
+        when(leagueRepository.findByIdWithTeams(leagueId)).thenReturn(Optional.of(league));
 
         MatchDto liveEarly = matchDto(teamA.getId(), teamB.getId(), LocalDateTime.now().minusMinutes(10), 0, 0);
         liveEarly.getGoalTimeline().add(goal(5, Half.FIRST, true));
@@ -439,7 +506,7 @@ class LeagueServiceImplTest {
         league.setId(leagueId);
         league.setName("Premier");
         league.getTeams().addAll(List.of(teamA, teamB));
-        when(leagueRepository.findById(leagueId)).thenReturn(Optional.of(league));
+        when(leagueRepository.findByIdWithTeams(leagueId)).thenReturn(Optional.of(league));
 
         MatchDto live = matchDto(teamA.getId(), teamB.getId(), LocalDateTime.now().minusMinutes(5), 0, 0);
         GoalDto revealed = goal(1, Half.FIRST, true);
@@ -474,7 +541,7 @@ class LeagueServiceImplTest {
         league.setId(leagueId);
         league.setName("Premier");
         league.getTeams().addAll(List.of(teamA, teamB, teamC, teamD, teamE, teamF, teamG, teamH));
-        when(leagueRepository.findById(leagueId)).thenReturn(Optional.of(league));
+        when(leagueRepository.findByIdWithTeams(leagueId)).thenReturn(Optional.of(league));
 
         LocalDateTime old = LocalDateTime.now().minusHours(2);
         MatchDto aBeatsC = matchDto(teamA.getId(), teamC.getId(), old, 2, 0);

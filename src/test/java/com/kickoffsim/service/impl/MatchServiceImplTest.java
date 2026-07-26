@@ -100,6 +100,17 @@ class MatchServiceImplTest {
         match.setPlayedAt(LocalDateTime.now().minusDays(1));
     }
 
+    @Test
+    void findAllForTeam_delegatesToRepositoryAndMapsToDto() {
+        when(matchRepository.findByTeamId(homeTeamId)).thenReturn(List.of(match));
+
+        List<MatchDto> result = matchService.findAllForTeam(homeTeamId);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getId()).isEqualTo(matchId);
+        assertThat(result.get(0).getHomeTeamId()).isEqualTo(homeTeamId);
+    }
+
     @ParameterizedTest(name = "minute={0} → half={1}, storedMinute={2}")
     @CsvSource({
             "1,  FIRST,  1",

@@ -15,11 +15,14 @@ import com.kickoffsim.service.TeamService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -49,19 +52,32 @@ public class TeamServiceImpl implements TeamService {
 
     @Override
     public List<TeamDto> findAll(Sort sort) {
+        Map<UUID, Long> playerCounts = playerCountsByTeam();
         return teamRepository.findAll(sort).stream()
-                .map(this::toDto)
+                .map(t -> toDto(t, playerCounts.getOrDefault(t.getId(), 0L)))
                 .toList();
     }
 
     @Override
     public List<TeamDto> findAllFree() {
+        Map<UUID, Long> playerCounts = playerCountsByTeam();
         return teamRepository.findAllByLeagueIsNull().stream()
-                .map(t -> {
-                    TeamDto dto = toDto(t);
-                    dto.setPlayerCount(playerRepository.countByTeam(t));
-                    return dto;
-                })
+                .map(t -> toDto(t, playerCounts.getOrDefault(t.getId(), 0L)))
+                .toList();
+    }
+
+    private Map<UUID, Long> playerCountsByTeam() {
+        Map<UUID, Long> counts = new HashMap<>();
+        for (Object[] row : playerRepository.countAllGroupedByTeam()) {
+            counts.put((UUID) row[0], (Long) row[1]);
+        }
+        return counts;
+    }
+
+    @Override
+    public List<TeamDto> searchByName(String q) {
+        return teamRepository.searchTop6ByNameOrCity(q, PageRequest.of(0, 6)).stream()
+                .map(this::toDto)
                 .toList();
     }
 
@@ -117,9 +133,9 @@ public class TeamServiceImpl implements TeamService {
     @Transactional
     public void delete(UUID id) {
         Team team = getTeamOrThrow(id);
-        if (team.getLeague() != null && matchRepository.existsByLeagueId(team.getLeague().getId())) {
+        if (team.getLeague() != null) {
             throw new InvalidLeagueOperationException(
-                    "Cannot delete '%s' — it belongs to league '%s', which already has a generated schedule. Delete the league instead if you need to remove it."
+                    "Cannot delete '%s' — it belongs to league '%s'. Remove it from the league first, or delete the league instead."
                             .formatted(team.getName(), team.getLeague().getName()));
         }
         List<Match> matches = matchRepository.findAllByHomeTeamOrAwayTeam(team, team);
@@ -150,13 +166,17 @@ public class TeamServiceImpl implements TeamService {
     }
 
     private TeamDto toDto(Team team) {
+        return toDto(team, playerRepository.countByTeam(team));
+    }
+
+    private TeamDto toDto(Team team, long playerCount) {
         TeamDto teamDto = new TeamDto();
         teamDto.setId(team.getId());
         teamDto.setName(team.getName());
         teamDto.setCity(team.getCity());
         teamDto.setLeagueId(team.getLeague() != null ? team.getLeague().getId() : null);
         teamDto.setLeagueName(team.getLeague() != null ? team.getLeague().getName() : null);
-        teamDto.setPlayerCount(playerRepository.countByTeam(team));
+        teamDto.setPlayerCount(playerCount);
         teamDto.setStrength(team.getStrength());
         return teamDto;
     }

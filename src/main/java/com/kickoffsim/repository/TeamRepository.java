@@ -2,6 +2,7 @@ package com.kickoffsim.repository;
 
 import com.kickoffsim.model.League;
 import com.kickoffsim.model.Team;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -26,4 +27,8 @@ public interface TeamRepository extends JpaRepository<Team, UUID> {
     boolean existsByNameAndCity(@Param("name") String name, @Param("city") String city);
 
     List<Team> findAllByLeagueIsNull();
+
+    @EntityGraph(attributePaths = "league")
+    @Query("SELECT t FROM Team t WHERE LOWER(CONCAT(t.name, ' ', COALESCE(t.city, ''))) LIKE LOWER(CONCAT('%', :q, '%')) ORDER BY t.name ASC")
+    List<Team> searchTop6ByNameOrCity(@Param("q") String q, Pageable pageable);
 }

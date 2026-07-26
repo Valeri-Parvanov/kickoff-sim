@@ -17,6 +17,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
 import java.util.List;
@@ -52,6 +53,30 @@ class PlayerServiceImplTest {
         team.setName("Test FC");
         when(goalRepository.countGoalsByTeamGroupedByScorer(any(), any())).thenReturn(List.of());
         when(goalRepository.countAssistsByTeamGroupedByAssistant(any(), any())).thenReturn(List.of());
+    }
+
+    @Test
+    void searchByName_returnsMatches() {
+        Player p = new Player();
+        p.setId(UUID.randomUUID());
+        p.setFirstName("Ivan");
+        p.setLastName("Petrov");
+        p.setTeam(team);
+        when(playerRepository.searchTop6ByFullName(eq("Ivan"), any(Pageable.class)))
+                .thenReturn(List.of(p));
+
+        List<PlayerDto> result = playerService.searchByName("Ivan");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getFirstName()).isEqualTo("Ivan");
+    }
+
+    @Test
+    void searchByName_noMatches_returnsEmpty() {
+        when(playerRepository.searchTop6ByFullName(eq("zzz"), any(Pageable.class)))
+                .thenReturn(List.of());
+
+        assertThat(playerService.searchByName("zzz")).isEmpty();
     }
 
     @Test

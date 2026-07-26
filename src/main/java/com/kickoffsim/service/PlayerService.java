@@ -14,6 +14,8 @@ public interface PlayerService {
 
     List<PlayerDto> findAllByTeam(UUID teamId);
 
+    List<PlayerDto> searchByName(String q);
+
     int squadRemainingSlots(UUID teamId);
 
     PlayerDto findById(UUID id);

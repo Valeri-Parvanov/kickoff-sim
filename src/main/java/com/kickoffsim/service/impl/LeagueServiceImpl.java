@@ -69,6 +69,13 @@ public class LeagueServiceImpl implements LeagueService {
     }
 
     @Override
+    public List<LeagueDto> searchByName(String q) {
+        return leagueRepository.findTop6ByNameContainingIgnoreCase(q).stream()
+                .map(this::toDto)
+                .toList();
+    }
+
+    @Override
     @Transactional
     @CacheEvict(value = "leagues", allEntries = true)
     public LeagueDto create(LeagueDto leagueDto) {
@@ -265,6 +272,11 @@ public class LeagueServiceImpl implements LeagueService {
         view.setFormat(LeagueFormat.forTeamCount(league.getTeams().size()).orElse(null));
         view.setScheduleStartDate(league.getScheduleStartDate());
         view.setScheduleStartTime(league.getScheduleStartTime());
+        view.setEndsAt(allMatches.stream()
+                .map(MatchDto::getPlayedAt)
+                .filter(Objects::nonNull)
+                .max(Comparator.naturalOrder())
+                .orElse(null));
         return view;
     }
 
@@ -396,7 +408,7 @@ public class LeagueServiceImpl implements LeagueService {
     }
 
     private League getLeagueOrThrow(UUID id) {
-        return leagueRepository.findById(id)
+        return leagueRepository.findByIdWithTeams(id)
                 .orElseThrow(() -> new EntityNotFoundException("League with id %s not found".formatted(id)));
     }
 

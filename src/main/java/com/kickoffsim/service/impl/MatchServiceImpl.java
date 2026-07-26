@@ -212,6 +212,13 @@ public class MatchServiceImpl implements MatchService {
                 .toList();
     }
 
+    @Override
+    public List<MatchDto> findAllForTeam(UUID teamId) {
+        return matchRepository.findByTeamId(teamId).stream()
+                .map(this::toDto)
+                .toList();
+    }
+
     private static Half rawMinuteToHalf(int rawMinute) {
         return rawMinute <= 20 ? Half.FIRST : Half.SECOND;
     }
