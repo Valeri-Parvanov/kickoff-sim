@@ -1,5 +1,6 @@
 package com.kickoffsim.service.impl;
 
+import com.kickoffsim.dto.ChangePasswordDto;
 import com.kickoffsim.dto.ProfileDto;
 import com.kickoffsim.dto.RegisterDto;
 import com.kickoffsim.exception.EntityNotFoundException;
@@ -179,6 +180,46 @@ class UserServiceImplTest {
         ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).save(captor.capture());
         assertThat(captor.getValue().getEmail()).isNull();
+    }
+
+    @Test
+    void changePassword_correctCurrentPassword_updatesAndSaves() {
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setUsername("alice");
+        user.setPassword("oldEncoded");
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("old", "oldEncoded")).thenReturn(true);
+        when(passwordEncoder.encode("newpass1")).thenReturn("newEncoded");
+
+        ChangePasswordDto dto = new ChangePasswordDto();
+        dto.setCurrentPassword("old");
+        dto.setNewPassword("newpass1");
+        dto.setConfirmPassword("newpass1");
+        userService.changePassword("alice", dto);
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(captor.capture());
+        assertThat(captor.getValue().getPassword()).isEqualTo("newEncoded");
+    }
+
+    @Test
+    void changePassword_wrongCurrentPassword_throwsIllegalArgumentException() {
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setUsername("alice");
+        user.setPassword("oldEncoded");
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("wrong", "oldEncoded")).thenReturn(false);
+
+        ChangePasswordDto dto = new ChangePasswordDto();
+        dto.setCurrentPassword("wrong");
+        dto.setNewPassword("newpass1");
+        dto.setConfirmPassword("newpass1");
+
+        assertThatThrownBy(() -> userService.changePassword("alice", dto))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(userRepository, never()).save(any());
     }
 
     @Test
@@ -396,6 +437,165 @@ class UserServiceImplTest {
         assertThatThrownBy(() -> userService.setEnabled(id, false, "admin"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("last administrator");
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void setEnabled_disableAlreadyDisabledUser_noOp() {
+        UUID id = UUID.randomUUID();
+        User user = new User();
+        user.setId(id);
+        user.setRole(Role.USER);
+        user.setEnabled(false);
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+
+        userService.setEnabled(id, false, "admin");
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void setEnabled_reactivateDisabledUser_alsoClearsLock() {
+        UUID id = UUID.randomUUID();
+        User user = new User();
+        user.setId(id);
+        user.setRole(Role.USER);
+        user.setEnabled(false);
+        user.setFailedLoginAttempts(3);
+        user.setLockedUntil(java.time.LocalDateTime.now().plusMinutes(10));
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+
+        userService.setEnabled(id, true, "admin");
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(captor.capture());
+        assertThat(captor.getValue().isEnabled()).isTrue();
+        assertThat(captor.getValue().getFailedLoginAttempts()).isZero();
+        assertThat(captor.getValue().getLockedUntil()).isNull();
+    }
+
+    @Test
+    void setEnabled_reactivateAlreadyEnabledButLockedUser_clearsLockAndSaves() {
+        UUID id = UUID.randomUUID();
+        User user = new User();
+        user.setId(id);
+        user.setRole(Role.USER);
+        user.setEnabled(true);
+        user.setLockedUntil(java.time.LocalDateTime.now().plusMinutes(10));
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+
+        userService.setEnabled(id, true, "admin");
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(captor.capture());
+        assertThat(captor.getValue().getLockedUntil()).isNull();
+    }
+
+    @Test
+    void setEnabled_reactivateAlreadyEnabledButWithFailedAttempts_clearsAttemptsAndSaves() {
+        UUID id = UUID.randomUUID();
+        User user = new User();
+        user.setId(id);
+        user.setRole(Role.USER);
+        user.setEnabled(true);
+        user.setFailedLoginAttempts(2);
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+
+        userService.setEnabled(id, true, "admin");
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(captor.capture());
+        assertThat(captor.getValue().getFailedLoginAttempts()).isZero();
+    }
+
+    @Test
+    void recordLoginFailure_incrementsAttempts() {
+        User user = new User();
+        user.setUsername("alice");
+        user.setFailedLoginAttempts(2);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+
+        userService.recordLoginFailure("alice");
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(captor.capture());
+        assertThat(captor.getValue().getFailedLoginAttempts()).isEqualTo(3);
+        assertThat(captor.getValue().getLockedUntil()).isNull();
+    }
+
+    @Test
+    void recordLoginFailure_reachesThreshold_locksAndResetsCounter() {
+        User user = new User();
+        user.setUsername("alice");
+        user.setFailedLoginAttempts(4);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+
+        userService.recordLoginFailure("alice");
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(captor.capture());
+        assertThat(captor.getValue().getFailedLoginAttempts()).isZero();
+        assertThat(captor.getValue().getLockedUntil()).isNotNull();
+        assertThat(captor.getValue().getLockedUntil()).isAfter(java.time.LocalDateTime.now());
+    }
+
+    @Test
+    void recordLoginFailure_unknownUsername_noOp() {
+        when(userRepository.findByUsername("ghost")).thenReturn(Optional.empty());
+
+        userService.recordLoginFailure("ghost");
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void recordLoginSuccess_resetsLockState() {
+        User user = new User();
+        user.setUsername("alice");
+        user.setFailedLoginAttempts(3);
+        user.setLockedUntil(java.time.LocalDateTime.now().plusMinutes(10));
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+
+        userService.recordLoginSuccess("alice");
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(captor.capture());
+        assertThat(captor.getValue().getFailedLoginAttempts()).isZero();
+        assertThat(captor.getValue().getLockedUntil()).isNull();
+    }
+
+    @Test
+    void recordLoginSuccess_zeroAttemptsButLocked_resetsAndSaves() {
+        User user = new User();
+        user.setUsername("alice");
+        user.setFailedLoginAttempts(0);
+        user.setLockedUntil(java.time.LocalDateTime.now().plusMinutes(10));
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+
+        userService.recordLoginSuccess("alice");
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(captor.capture());
+        assertThat(captor.getValue().getLockedUntil()).isNull();
+    }
+
+    @Test
+    void recordLoginSuccess_alreadyClean_noOp() {
+        User user = new User();
+        user.setUsername("alice");
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+
+        userService.recordLoginSuccess("alice");
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void recordLoginSuccess_unknownUsername_noOp() {
+        when(userRepository.findByUsername("ghost")).thenReturn(Optional.empty());
+
+        userService.recordLoginSuccess("ghost");
+
         verify(userRepository, never()).save(any());
     }
 

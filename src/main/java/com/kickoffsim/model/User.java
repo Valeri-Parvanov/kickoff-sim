@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Getter
@@ -37,4 +38,10 @@ public class User {
     @org.hibernate.annotations.ColumnDefault("true")
     @Column(nullable = false)
     private boolean enabled = true;
+
+    @org.hibernate.annotations.ColumnDefault("0")
+    @Column(nullable = false)
+    private int failedLoginAttempts = 0;
+
+    private LocalDateTime lockedUntil;
 }

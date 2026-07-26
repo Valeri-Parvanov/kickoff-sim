@@ -13,6 +13,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
+import org.springframework.security.web.csrf.CsrfFilter;
 
 import java.time.LocalDateTime;
 
@@ -48,7 +49,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/register", "/login", "/css/**", "/js/**", "/teams/*/logo").permitAll()
+                        .requestMatchers("/", "/register", "/login", "/css/**", "/js/**", "/teams/*/logo", "/leagues/*/logo").permitAll()
                         .anyRequest().authenticated())
                 .formLogin(form -> form
                         .loginPage("/login")
@@ -59,7 +60,8 @@ public class SecurityConfig {
                         .logoutSuccessUrl("/")
                         .permitAll())
                 .exceptionHandling(ex -> ex
-                        .accessDeniedHandler(notFoundAccessDeniedHandler));
+                        .accessDeniedHandler(notFoundAccessDeniedHandler))
+                .addFilterAfter(new EagerCsrfTokenFilter(), CsrfFilter.class);
 
         return http.build();
     }

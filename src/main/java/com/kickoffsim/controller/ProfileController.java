@@ -1,5 +1,6 @@
 package com.kickoffsim.controller;
 
+import com.kickoffsim.dto.ChangePasswordDto;
 import com.kickoffsim.dto.DeactivateAccountDto;
 import com.kickoffsim.dto.ProfileDto;
 import com.kickoffsim.model.User;
@@ -33,6 +34,7 @@ public class ProfileController {
         dto.setEmail(user.getEmail());
         model.addAttribute("profileDto", dto);
         model.addAttribute("deactivateAccountDto", new DeactivateAccountDto());
+        model.addAttribute("changePasswordDto", new ChangePasswordDto());
         model.addAttribute("profileUsername", user.getUsername());
         model.addAttribute("userRole", user.getRole().name());
         return "profile";
@@ -47,6 +49,7 @@ public class ProfileController {
         User user = userService.findByUsername(authentication.getName());
         if (bindingResult.hasErrors()) {
             model.addAttribute("deactivateAccountDto", new DeactivateAccountDto());
+            model.addAttribute("changePasswordDto", new ChangePasswordDto());
             model.addAttribute("profileUsername", user.getUsername());
             model.addAttribute("userRole", user.getRole().name());
             return "profile";
@@ -56,13 +59,49 @@ public class ProfileController {
             userService.updateProfile(authentication.getName(), dto);
         } catch (IllegalArgumentException e) {
             model.addAttribute("deactivateAccountDto", new DeactivateAccountDto());
+            model.addAttribute("changePasswordDto", new ChangePasswordDto());
             model.addAttribute("profileUsername", user.getUsername());
             model.addAttribute("userRole", user.getRole().name());
             model.addAttribute("errorMessage", e.getMessage());
             return "profile";
         }
 
-        redirectAttributes.addFlashAttribute("statusMessage", "Profile updated successfully.");
+        redirectAttributes.addFlashAttribute("statusMessage", "flash.profile.updated");
+        return "redirect:/profile";
+    }
+
+    @PostMapping("/password")
+    public String changePassword(@Valid @ModelAttribute("changePasswordDto") ChangePasswordDto dto,
+                                 BindingResult bindingResult,
+                                 Authentication authentication,
+                                 RedirectAttributes redirectAttributes,
+                                 Model model) {
+        if (!dto.getNewPassword().equals(dto.getConfirmPassword())) {
+            bindingResult.rejectValue("confirmPassword", "password.mismatch", "Passwords do not match");
+        }
+
+        User user = userService.findByUsername(authentication.getName());
+        if (bindingResult.hasErrors()) {
+            model.addAttribute("profileDto", toProfileDto(user));
+            model.addAttribute("deactivateAccountDto", new DeactivateAccountDto());
+            model.addAttribute("profileUsername", user.getUsername());
+            model.addAttribute("userRole", user.getRole().name());
+            return "profile";
+        }
+
+        try {
+            userService.changePassword(authentication.getName(), dto);
+        } catch (IllegalArgumentException e) {
+            model.addAttribute("profileDto", toProfileDto(user));
+            model.addAttribute("deactivateAccountDto", new DeactivateAccountDto());
+            model.addAttribute("changePasswordDto", new ChangePasswordDto());
+            model.addAttribute("profileUsername", user.getUsername());
+            model.addAttribute("userRole", user.getRole().name());
+            model.addAttribute("errorMessage", e.getMessage());
+            return "profile";
+        }
+
+        redirectAttributes.addFlashAttribute("statusMessage", "flash.profile.passwordchanged");
         return "redirect:/profile";
     }
 
@@ -76,6 +115,7 @@ public class ProfileController {
         User user = userService.findByUsername(authentication.getName());
         if (bindingResult.hasErrors()) {
             model.addAttribute("profileDto", toProfileDto(user));
+            model.addAttribute("changePasswordDto", new ChangePasswordDto());
             model.addAttribute("profileUsername", user.getUsername());
             model.addAttribute("userRole", user.getRole().name());
             return "profile";
@@ -86,6 +126,7 @@ public class ProfileController {
         } catch (IllegalArgumentException | IllegalStateException e) {
             model.addAttribute("profileDto", toProfileDto(user));
             model.addAttribute("deactivateAccountDto", new DeactivateAccountDto());
+            model.addAttribute("changePasswordDto", new ChangePasswordDto());
             model.addAttribute("profileUsername", user.getUsername());
             model.addAttribute("userRole", user.getRole().name());
             model.addAttribute("errorMessage", e.getMessage());

@@ -1,5 +1,6 @@
 package com.kickoffsim.controller;
 
+import com.kickoffsim.dto.ChangePasswordDto;
 import com.kickoffsim.dto.DeactivateAccountDto;
 import com.kickoffsim.dto.ProfileDto;
 import com.kickoffsim.model.Role;
@@ -98,6 +99,76 @@ class ProfileControllerTest {
 
         assertThat(controller.updateProfile(dto, br, auth, ra, model)).isEqualTo("profile");
         assertThat(model.getAttribute("errorMessage")).isEqualTo("bad email");
+    }
+
+    @Test
+    void changePassword_valid_redirects() {
+        when(auth.getName()).thenReturn("alice");
+        when(userService.findByUsername("alice")).thenReturn(user());
+        ChangePasswordDto dto = new ChangePasswordDto();
+        dto.setCurrentPassword("old");
+        dto.setNewPassword("newpass1");
+        dto.setConfirmPassword("newpass1");
+        BindingResult br = new BeanPropertyBindingResult(dto, "changePasswordDto");
+        RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
+        Model model = new ExtendedModelMap();
+
+        assertThat(controller.changePassword(dto, br, auth, ra, model)).isEqualTo("redirect:/profile");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.profile.passwordchanged");
+    }
+
+    @Test
+    void changePassword_mismatchedConfirm_returnsViewWithFieldError() {
+        when(auth.getName()).thenReturn("alice");
+        when(userService.findByUsername("alice")).thenReturn(user());
+        ChangePasswordDto dto = new ChangePasswordDto();
+        dto.setCurrentPassword("old");
+        dto.setNewPassword("newpass1");
+        dto.setConfirmPassword("different");
+        BindingResult br = new BeanPropertyBindingResult(dto, "changePasswordDto");
+        RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
+        Model model = new ExtendedModelMap();
+
+        String view = controller.changePassword(dto, br, auth, ra, model);
+
+        assertThat(view).isEqualTo("profile");
+        assertThat(br.getFieldError("confirmPassword")).isNotNull();
+    }
+
+    @Test
+    void changePassword_bindingErrors_returnsView() {
+        when(auth.getName()).thenReturn("alice");
+        when(userService.findByUsername("alice")).thenReturn(user());
+        ChangePasswordDto dto = new ChangePasswordDto();
+        dto.setCurrentPassword("old");
+        dto.setNewPassword("newpass1");
+        dto.setConfirmPassword("newpass1");
+        BindingResult br = new BeanPropertyBindingResult(dto, "changePasswordDto");
+        br.reject("err", "bad");
+        RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
+        Model model = new ExtendedModelMap();
+
+        assertThat(controller.changePassword(dto, br, auth, ra, model)).isEqualTo("profile");
+    }
+
+    @Test
+    void changePassword_wrongCurrentPassword_returnsViewWithError() {
+        when(auth.getName()).thenReturn("alice");
+        when(userService.findByUsername("alice")).thenReturn(user());
+        doThrow(new IllegalArgumentException("Current password is incorrect."))
+                .when(userService).changePassword(eq("alice"), any());
+        ChangePasswordDto dto = new ChangePasswordDto();
+        dto.setCurrentPassword("wrong");
+        dto.setNewPassword("newpass1");
+        dto.setConfirmPassword("newpass1");
+        BindingResult br = new BeanPropertyBindingResult(dto, "changePasswordDto");
+        RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
+        Model model = new ExtendedModelMap();
+
+        String view = controller.changePassword(dto, br, auth, ra, model);
+
+        assertThat(view).isEqualTo("profile");
+        assertThat(model.getAttribute("errorMessage")).isEqualTo("Current password is incorrect.");
     }
 
     @Test

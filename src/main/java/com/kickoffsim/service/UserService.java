@@ -1,5 +1,6 @@
 package com.kickoffsim.service;
 
+import com.kickoffsim.dto.ChangePasswordDto;
 import com.kickoffsim.dto.ProfileDto;
 import com.kickoffsim.dto.RegisterDto;
 import com.kickoffsim.model.Role;
@@ -16,6 +17,8 @@ public interface UserService {
 
     void updateProfile(String currentUsername, ProfileDto dto);
 
+    void changePassword(String currentUsername, ChangePasswordDto dto);
+
     Page<User> findAllPaged(int page, int size);
 
     long countByRole(Role role);
@@ -25,4 +28,8 @@ public interface UserService {
     void deactivateSelf(String username, String rawPassword);
 
     void setEnabled(UUID userId, boolean enabled, String actingUsername);
+
+    void recordLoginFailure(String username);
+
+    void recordLoginSuccess(String username);
 }

@@ -94,4 +94,48 @@ class CustomUserDetailsServiceTest {
 
         assertThat(details.isEnabled()).isFalse();
     }
+
+    @Test
+    void loadUserByUsername_lockedUser_returnsAccountNonLockedFalse() {
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setUsername("bob");
+        user.setPassword("pass");
+        user.setRole(Role.USER);
+        user.setLockedUntil(java.time.LocalDateTime.now().plusMinutes(10));
+        when(userRepository.findByUsername("bob")).thenReturn(Optional.of(user));
+
+        UserDetails details = service.loadUserByUsername("bob");
+
+        assertThat(details.isAccountNonLocked()).isFalse();
+    }
+
+    @Test
+    void loadUserByUsername_expiredLock_returnsAccountNonLockedTrue() {
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setUsername("bob");
+        user.setPassword("pass");
+        user.setRole(Role.USER);
+        user.setLockedUntil(java.time.LocalDateTime.now().minusMinutes(1));
+        when(userRepository.findByUsername("bob")).thenReturn(Optional.of(user));
+
+        UserDetails details = service.loadUserByUsername("bob");
+
+        assertThat(details.isAccountNonLocked()).isTrue();
+    }
+
+    @Test
+    void loadUserByUsername_noLock_returnsAccountNonLockedTrue() {
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setUsername("bob");
+        user.setPassword("pass");
+        user.setRole(Role.USER);
+        when(userRepository.findByUsername("bob")).thenReturn(Optional.of(user));
+
+        UserDetails details = service.loadUserByUsername("bob");
+
+        assertThat(details.isAccountNonLocked()).isTrue();
+    }
 }

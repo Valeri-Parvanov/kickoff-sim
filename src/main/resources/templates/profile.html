@@ -1,5 +1,5 @@
-<!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+﻿<!DOCTYPE html>
+<html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -38,6 +38,26 @@
             <span class="field-error" th:if="${#fields.hasErrors('email')}" th:errors="*{email}"></span>
         </div>
         <button type="submit" class="btn-save-profile" th:text="#{profile.savechanges}">Save changes</button>
+    </form>
+
+    <form th:action="@{/profile/password}" th:object="${changePasswordDto}" method="post" class="card-form profile-form">
+        <h2 class="profile-section-title" th:text="#{profile.changepassword}">Change password</h2>
+        <div>
+            <label for="currentPassword" th:text="#{profile.changepassword.current}">Current password</label>
+            <input type="password" id="currentPassword" th:field="*{currentPassword}" autocomplete="current-password">
+            <span class="field-error" th:if="${#fields.hasErrors('currentPassword')}" th:errors="*{currentPassword}"></span>
+        </div>
+        <div>
+            <label for="newPassword" th:text="#{profile.changepassword.new}">New password</label>
+            <input type="password" id="newPassword" th:field="*{newPassword}" autocomplete="new-password">
+            <span class="field-error" th:if="${#fields.hasErrors('newPassword')}" th:errors="*{newPassword}"></span>
+        </div>
+        <div>
+            <label for="confirmNewPassword" th:text="#{profile.changepassword.confirm}">Confirm new password</label>
+            <input type="password" id="confirmNewPassword" th:field="*{confirmPassword}" autocomplete="new-password">
+            <span class="field-error" th:if="${#fields.hasErrors('confirmPassword')}" th:errors="*{confirmPassword}"></span>
+        </div>
+        <button type="submit" class="btn-save-profile" th:text="#{profile.changepassword.button}">Change password</button>
     </form>
 
     <form id="deactivateSelfForm" th:action="@{/profile/deactivate}" th:object="${deactivateAccountDto}"

@@ -1,5 +1,6 @@
 package com.kickoffsim.service.impl;
 
+import com.kickoffsim.dto.ChangePasswordDto;
 import com.kickoffsim.dto.ProfileDto;
 import com.kickoffsim.dto.RegisterDto;
 import com.kickoffsim.exception.EntityNotFoundException;
@@ -18,6 +19,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Service
@@ -25,6 +27,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UserServiceImpl implements UserService {
+
+    private static final int MAX_FAILED_ATTEMPTS = 5;
+    private static final int LOCK_MINUTES = 15;
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -67,6 +72,18 @@ public class UserServiceImpl implements UserService {
         user.setEmail(email);
         userRepository.save(user);
         log.info("Profile updated for user '{}'", currentUsername);
+    }
+
+    @Override
+    @Transactional
+    public void changePassword(String currentUsername, ChangePasswordDto dto) {
+        User user = findByUsername(currentUsername);
+        if (!passwordEncoder.matches(dto.getCurrentPassword(), user.getPassword())) {
+            throw new IllegalArgumentException("Current password is incorrect.");
+        }
+        user.setPassword(passwordEncoder.encode(dto.getNewPassword()));
+        userRepository.save(user);
+        log.info("Password changed for user '{}'", currentUsername);
     }
 
     @Override
@@ -117,15 +134,48 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
 
-        if (user.isEnabled() == enabled) return;
-
         if (enabled) {
+            boolean alreadyClean = user.isEnabled()
+                    && user.getFailedLoginAttempts() == 0
+                    && user.getLockedUntil() == null;
+            if (alreadyClean) return;
             user.setEnabled(true);
+            user.setFailedLoginAttempts(0);
+            user.setLockedUntil(null);
             userRepository.save(user);
         } else {
+            if (!user.isEnabled()) return;
             deactivate(user);
         }
         log.info("User '{}' enabled set to {} by '{}'", user.getUsername(), enabled, actingUsername);
+    }
+
+    @Override
+    @Transactional
+    public void recordLoginFailure(String username) {
+        userRepository.findByUsername(username).ifPresent(user -> {
+            int attempts = user.getFailedLoginAttempts() + 1;
+            if (attempts >= MAX_FAILED_ATTEMPTS) {
+                user.setLockedUntil(LocalDateTime.now().plusMinutes(LOCK_MINUTES));
+                user.setFailedLoginAttempts(0);
+                log.info("User '{}' locked for {} minutes after {} failed login attempts",
+                        username, LOCK_MINUTES, attempts);
+            } else {
+                user.setFailedLoginAttempts(attempts);
+            }
+            userRepository.save(user);
+        });
+    }
+
+    @Override
+    @Transactional
+    public void recordLoginSuccess(String username) {
+        userRepository.findByUsername(username).ifPresent(user -> {
+            if (user.getFailedLoginAttempts() == 0 && user.getLockedUntil() == null) return;
+            user.setFailedLoginAttempts(0);
+            user.setLockedUntil(null);
+            userRepository.save(user);
+        });
     }
 
     private void deactivate(User user) {
