@@ -11,10 +11,12 @@ import com.kickoffsim.model.EntityType;
 import com.kickoffsim.model.LeagueFormat;
 import com.kickoffsim.service.ChangeRequestService;
 import com.kickoffsim.service.LeagueService;
+import com.kickoffsim.service.RoundRecapService;
 import com.kickoffsim.service.ScheduleService;
 import com.kickoffsim.service.TeamService;
 import com.kickoffsim.service.UserService;
 import com.kickoffsim.web.LiveMatchJsSupport;
+import com.kickoffsim.web.LogoGenerator;
 import com.kickoffsim.web.MatchFollowSupport;
 import com.kickoffsim.web.ResubmitSupport;
 import com.kickoffsim.web.ScheduleWindowSupport;
@@ -23,6 +25,7 @@ import com.kickoffsim.web.StandingsExportSupport;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
@@ -60,6 +63,19 @@ public class LeagueController {
     private final MatchFollowSupport matchFollowSupport;
     private final NotificationClient notificationClient;
     private final UserService userService;
+    @Autowired
+    private RoundRecapService roundRecapService;
+
+    @GetMapping("/{id}/logo")
+    @ResponseBody
+    public ResponseEntity<String> logo(@PathVariable UUID id) {
+        LeagueDto league = leagueService.findById(id);
+        String svg = LogoGenerator.generateLeagueLogo(league.getName(), id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.valueOf("image/svg+xml"))
+                .header("Cache-Control", "public, max-age=86400")
+                .body(svg);
+    }
 
     @GetMapping("/{id}")
     public String detail(@PathVariable UUID id, @RequestParam(required = false) Integer round,
@@ -113,6 +129,16 @@ public class LeagueController {
             model.addAttribute("availableRounds", availableRounds);
             model.addAttribute("selectedRound", selectedRound);
             model.addAttribute("roundMatches", roundMatches);
+            if (roundRecapService != null) {
+                model.addAttribute("roundRecap",
+                        roundRecapService.find(id, selectedRound, request.getLocale()).orElse(null));
+                model.addAttribute("roundRecapReady",
+                        roundRecapService.isRoundComplete(league, selectedRound));
+                model.addAttribute("seasonRecap",
+                        roundRecapService.findSeason(id, request.getLocale()).orElse(null));
+                model.addAttribute("seasonRecapReady",
+                        roundRecapService.isSeasonRecapReady(league));
+            }
             LocalDateTime liveThreshold = now.minusMinutes(46);
             model.addAttribute("now", now);
             model.addAttribute("liveThreshold", liveThreshold);
@@ -148,6 +174,43 @@ public class LeagueController {
                 ? request.getRequestURI()
                 : request.getRequestURI() + "?" + request.getQueryString());
         return "leagues/detail";
+    }
+
+    @PostMapping("/{id}/rounds/{round}/recap")
+    @PreAuthorize("hasRole('ADMIN')")
+    public String generateRoundRecap(@PathVariable UUID id,
+                                     @PathVariable int round,
+                                     @RequestParam(defaultValue = "false") boolean regenerate,
+                                     Locale locale,
+                                     RedirectAttributes redirectAttributes) {
+        try {
+            roundRecapService.generateAllLanguages(id, round, regenerate);
+            redirectAttributes.addFlashAttribute("statusMessage",
+                    regenerate ? "flash.recap.regenerated" : "flash.recap.generated");
+        } catch (InvalidLeagueOperationException ex) {
+            redirectAttributes.addFlashAttribute("errorMessage", "flash.recap.incomplete");
+        } catch (RuntimeException ex) {
+            redirectAttributes.addFlashAttribute("errorMessage", "flash.recap.failed");
+        }
+        return "redirect:/leagues/" + id + "?round=" + round + "#overview";
+    }
+
+    @PostMapping("/{id}/season-recap")
+    @PreAuthorize("hasRole('ADMIN')")
+    public String generateSeasonRecap(@PathVariable UUID id,
+                                      @RequestParam(defaultValue = "false") boolean regenerate,
+                                      Locale locale,
+                                      RedirectAttributes redirectAttributes) {
+        try {
+            roundRecapService.generateSeasonAllLanguages(id, regenerate);
+            redirectAttributes.addFlashAttribute("statusMessage",
+                    regenerate ? "flash.seasonrecap.regenerated" : "flash.seasonrecap.generated");
+        } catch (InvalidLeagueOperationException ex) {
+            redirectAttributes.addFlashAttribute("errorMessage", "flash.seasonrecap.incomplete");
+        } catch (RuntimeException ex) {
+            redirectAttributes.addFlashAttribute("errorMessage", "flash.seasonrecap.failed");
+        }
+        return "redirect:/leagues/" + id + "#overview";
     }
 
     @GetMapping("/{id}/standings-summary")
@@ -236,12 +299,12 @@ public class LeagueController {
         Optional<String> windowError = ScheduleWindowSupport.checkLastMatchTooLate(
                 scheduleDetail.getTeams().size(), form.getStartTime());
         if (windowError.isPresent()) {
-            redirectAttributes.addFlashAttribute("scheduleError", windowError.get());
+            redirectAttributes.addFlashAttribute("scheduleError", "schedule.time.toolate");
             return "redirect:/leagues/" + id;
         }
         try {
             scheduleService.generate(id, form.getStartDate(), form.getStartTime());
-            redirectAttributes.addFlashAttribute("statusMessage", "Schedule generated successfully.");
+            redirectAttributes.addFlashAttribute("statusMessage", "flash.schedule.generated");
         } catch (InvalidLeagueOperationException ex) {
             redirectAttributes.addFlashAttribute("scheduleError", ex.getMessage());
         }
@@ -271,9 +334,7 @@ public class LeagueController {
         var freeTeams = teamService.findAllFree();
         long eligibleCount = freeTeams.stream().filter(t -> t.getPlayerCount() >= 6).count();
         if (fromRequest == null && eligibleCount < 6) {
-            redirectAttributes.addFlashAttribute("warnMessage",
-                    "A league requires at least 6 teams with 6+ players. " +
-                    "You currently have " + eligibleCount + " eligible team(s). Create teams first.");
+            redirectAttributes.addFlashAttribute("warnMessage", "flash.league.notenoughteams");
             return "redirect:/teams/form";
         }
         LeagueDto leagueDto = fromRequest != null
@@ -291,12 +352,13 @@ public class LeagueController {
                           @RequestParam(required = false) UUID fromRequest,
                           Authentication authentication, RedirectAttributes redirectAttributes, Model model) {
         if (leagueDto.getName() == null || leagueDto.getName().isBlank()) {
-            bindingResult.rejectValue("name", "NotBlank", "League name is required.");
+            bindingResult.rejectValue("name", "validation.league.name.required");
         }
         if (leagueDto.getTeamIds() == null || leagueDto.getTeamIds().isEmpty()) {
             bindingResult.reject("league.teams.required", "Please select at least one team.");
         } else if (LeagueFormat.forTeamCount(leagueDto.getTeamIds().size()).isEmpty()) {
             bindingResult.reject("league.teams.invalid.count",
+                    new Object[]{leagueDto.getTeamIds().size()},
                     "Please select exactly 6, 8, 10, or 16 teams (selected: " + leagueDto.getTeamIds().size() + ").");
         }
         if (leagueDto.getScheduleStartTime() != null
@@ -340,7 +402,7 @@ public class LeagueController {
                         ? leagueDto.getScheduleStartTime() : LocalTime.of(11, 0);
                 try {
                     scheduleService.generate(newId, startDate, startTime);
-                    redirectAttributes.addFlashAttribute("statusMessage", "League created and schedule generated.");
+                    redirectAttributes.addFlashAttribute("statusMessage", "flash.league.createdwithschedule");
                 } catch (InvalidLeagueOperationException ex) {
                     redirectAttributes.addFlashAttribute("statusMessage", "League created. " + ex.getMessage());
                 }
@@ -349,7 +411,7 @@ public class LeagueController {
         }
 
         redirectAttributes.addFlashAttribute("statusMessage",
-                executed ? "League created." : "Submitted for admin approval.");
+                executed ? "flash.league.created" : "flash.common.submitted");
         return "redirect:/leagues";
     }
 
@@ -360,7 +422,7 @@ public class LeagueController {
             boolean executed = changeRequestService.submitOrExecute(
                     EntityType.LEAGUE, ChangeAction.DELETE, null, id, authentication);
             redirectAttributes.addFlashAttribute("statusMessage",
-                    executed ? "League deleted." : "Submitted for admin approval.");
+                    executed ? "flash.league.deleted" : "flash.common.submitted");
         } catch (InvalidLeagueOperationException ex) {
             redirectAttributes.addFlashAttribute("errorMessage", ex.getMessage());
         }
