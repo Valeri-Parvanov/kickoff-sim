@@ -1,5 +1,5 @@
-<!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+﻿<!DOCTYPE html>
+<html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -33,16 +33,33 @@
     <input type="hidden" th:field="*{format}"/>
     <input type="hidden" th:each="id, idStat : *{existingTeamIds}" th:field="*{existingTeamIds[__${idStat.index}__]}"/>
 
-    <div th:if="${#fields.hasGlobalErrors()}" style="margin-bottom:12px;">
-        <div class="error-message" th:each="err : ${#fields.globalErrors()}" th:text="${err}"></div>
-    </div>
+    <div th:replace="~{fragments/topbar :: errorDialog(${#fields.globalErrors()})}"></div>
 
     <div>
-        <label for="leagueName" th:text="#{leagues.wizard.leaguename}">League name</label>
-        <div class="input-row">
-            <input type="text" id="leagueName" th:field="*{leagueName}"/>
-            <button type="button" class="dice-btn" onclick="fillRandomLeagueName('leagueName')" th:title="#{leagues.form.randomname}" title="Generate random name">&#127922;</button>
+        <label th:text="#{leagues.wizard.leaguename}">League name</label>
+        <div class="league-name-split">
+            <div>
+                <label for="leagueNameFood" class="league-name-sublabel" th:text="#{leagues.form.namefood}">Food</label>
+                <div class="input-row">
+                    <input type="text" id="leagueNameFood"
+                           oninput="syncLeagueName('leagueNameFood','leagueNameType','leagueName')"/>
+                    <button type="button" class="dice-btn"
+                            onclick="fillRandomLeagueFood('leagueNameFood','leagueNameType','leagueName')"
+                            th:title="#{leagues.form.randomfood}" title="Random food">&#127922;</button>
+                </div>
+            </div>
+            <div>
+                <label for="leagueNameType" class="league-name-sublabel" th:text="#{leagues.form.nametype}">Type</label>
+                <div class="input-row">
+                    <input type="text" id="leagueNameType"
+                           oninput="syncLeagueName('leagueNameFood','leagueNameType','leagueName')"/>
+                    <button type="button" class="dice-btn"
+                            onclick="fillRandomLeagueType('leagueNameFood','leagueNameType','leagueName')"
+                            th:title="#{leagues.form.randomtype}" title="Random type">&#127922;</button>
+                </div>
+            </div>
         </div>
+        <input type="hidden" id="leagueName" th:field="*{leagueName}"/>
         <span style="color:red" th:if="${#fields.hasErrors('leagueName')}" th:errors="*{leagueName}"></span>
     </div>
 
@@ -158,6 +175,7 @@
 </form>
 </main>
 <script th:src="@{/js/random-names.js}"></script>
+<script>splitLeagueName('leagueNameFood', 'leagueNameType', 'leagueName');</script>
 <script>
 document.querySelectorAll('.wizard-team-block').forEach(function (block) {
     block.querySelectorAll('tbody tr.wizard-row-hidden').forEach(function (row) {
@@ -170,18 +188,33 @@ document.querySelectorAll('.wizard-team-block').forEach(function (block) {
     wizardUpdateSquadCount(block);
 });
 </script>
-<div id="lcModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:900;align-items:center;justify-content:center;">
-    <div style="background:#ffffff;border-radius:14px;padding:1.75rem 2rem;max-width:420px;width:92%;box-shadow:0 8px 40px rgba(0,0,0,0.3);color:#111;">
-        <h2 style="margin:0 0 1.1rem;font-size:1.15rem;font-weight:700;color:#111;" th:text="#{leagues.form.confirmtitle}">Confirm league creation</h2>
-        <table style="width:100%;border-collapse:collapse;font-size:0.93rem;margin-bottom:1.4rem;">
-            <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;" th:text="#{common.name}">Name</td><td id="lcmName" style="font-weight:600;color:#111;"></td></tr>
-            <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;" th:text="#{schedule.round1date}">Round 1 date</td><td id="lcmDate" style="font-weight:600;color:#111;"></td></tr>
-            <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;" th:text="#{leagues.form.firstkickoff}">First kick-off</td><td id="lcmTime" style="font-weight:600;color:#111;"></td></tr>
-            <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;" th:text="#{leagues.form.lastkickoff}">Last kick-off (every round)</td><td id="lcmLast" style="font-weight:600;color:#111;"></td></tr>
-        </table>
-        <div style="display:flex;gap:0.75rem;justify-content:flex-end;">
-            <button type="button" id="lcmCancel" style="margin:0;background:transparent;border:2px solid #ccc;color:#333;border-radius:999px;padding:0.55rem 1.2rem;font-weight:600;cursor:pointer;" th:text="#{common.cancel}">Cancel</button>
-            <button type="button" id="lcmConfirm" style="margin:0;" th:text="#{leagues.form.createleague}">Create league</button>
+<dialog id="preflightDialog" class="flash-dialog fd-error"
+        th:data-i18n-leaguename="#{wizard.pre.leaguename}"
+        th:data-i18n-teamname="#{wizard.pre.teamname}"
+        th:data-i18n-teamcity="#{wizard.pre.teamcity}"
+        th:data-i18n-squad="#{wizard.pre.squad}"
+        th:data-i18n-duplicate="#{wizard.pre.duplicate}">
+    <div class="flash-dialog-icon" aria-hidden="true"><span>&#10006;</span></div>
+    <h2 class="flash-dialog-title" th:text="#{wizard.pre.title}">Fix these before creating the league</h2>
+    <div class="flash-dialog-body" id="preflightList"></div>
+    <div class="flash-dialog-actions">
+        <button type="button" class="flash-dialog-ok" th:text="#{common.ok}">OK</button>
+    </div>
+</dialog>
+
+<div id="lcModal" class="lc-modal-backdrop">
+    <div class="lc-modal">
+        <h2 class="lc-modal-title" th:text="#{leagues.form.confirmtitle}">Confirm league creation</h2>
+        <dl class="lc-modal-rows">
+            <dt th:text="#{common.name}">Name</dt><dd id="lcmName"></dd>
+            <dt th:text="#{schedule.round1date}">Round 1 date</dt><dd id="lcmDate"></dd>
+            <dt th:text="#{leagues.form.firstkickoff}">First kick-off</dt><dd id="lcmTime"></dd>
+            <dt th:text="#{leagues.form.lastkickoff}">Last kick-off (every round)</dt><dd id="lcmLast"></dd>
+            <dt th:text="#{leagues.form.lastround}">Last round</dt><dd id="lcmLastRound"></dd>
+        </dl>
+        <div class="lc-modal-actions">
+            <button type="button" id="lcmCancel" class="btn-cancel" th:text="#{common.cancel}">Cancel</button>
+            <button type="button" id="lcmConfirm" th:text="#{leagues.form.createleague}">Create league</button>
         </div>
     </div>
 </div>
@@ -190,35 +223,221 @@ document.querySelectorAll('.wizard-team-block').forEach(function (block) {
     var form = document.querySelector('.card-form');
     if (!form) return;
     var modal = document.getElementById('lcModal');
-    var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    var fieldset = document.getElementById('scheduleFieldset');
+    function i18n(key, fallback) {
+        var v = fieldset ? fieldset.getAttribute('data-i18n-' + key) : null;
+        return v || fallback;
+    }
     function fmtDate(iso) {
         if (!iso) return '—';
-        var p = iso.split('-');
-        return parseInt(p[2]) + ' ' + months[parseInt(p[1])-1] + ' ' + p[0];
+        var d = new Date(iso + 'T00:00:00');
+        if (isNaN(d.getTime())) return '—';
+        return d.toLocaleDateString(document.getElementById('global-js-i18n').dataset.locale, { day: '2-digit', month: 'long', year: 'numeric' });
     }
+    var preflight = document.getElementById('preflightDialog');
+    function p(key, fallback) {
+        var v = preflight ? preflight.getAttribute('data-i18n-' + key) : null;
+        return v || fallback;
+    }
+    function subst(pattern, a, b) {
+        return String(pattern).replace('{0}', a === undefined ? '' : a)
+                              .replace('{1}', b === undefined ? '' : b);
+    }
+
+    function collectProblems() {
+        var problems = [];
+        var foodEl = document.getElementById('leagueNameFood');
+        var typeEl = document.getElementById('leagueNameType');
+        var food = (foodEl || {}).value || '';
+        var type = (typeEl || {}).value || '';
+        if (!food.trim() || !type.trim()) {
+            problems.push({
+                message: p('leaguename', 'Give the league both a name and a type.'),
+                target: !food.trim() ? foodEl : typeEl
+            });
+        }
+
+        var seen = {};
+        Array.prototype.forEach.call(document.querySelectorAll('.wizard-existing-chip'), function(chip) {
+            var raw = (chip.textContent || '').split('(')[0].trim().toLowerCase();
+            if (raw) seen[raw] = true;
+        });
+
+        Array.prototype.forEach.call(document.querySelectorAll('.wizard-team-block'), function(block) {
+            var summary = block.querySelector('.wizard-team-summary span');
+            var label = summary ? summary.textContent.replace(/\s+/g, ' ').trim() : '';
+            var nameEl = block.querySelector('input[id$=".name"]');
+            var cityEl = block.querySelector('input[id$=".city"]');
+            var name = nameEl ? nameEl.value.trim() : '';
+            var city = cityEl ? cityEl.value.trim() : '';
+
+            if (!name) {
+                problems.push({
+                    message: subst(p('teamname', 'Team {0}: enter a name.'), label),
+                    target: nameEl,
+                    block: block
+                });
+            }
+            if (!city) {
+                problems.push({
+                    message: subst(p('teamcity', 'Team {0}: enter a city.'), label),
+                    target: cityEl,
+                    block: block
+                });
+            }
+
+            if (name) {
+                var key = name.toLowerCase();
+                if (seen[key]) {
+                    problems.push({
+                        message: subst(p('duplicate', 'The name {0} is already used by another team.'), name),
+                        target: nameEl,
+                        block: block
+                    });
+                }
+                seen[key] = true;
+            }
+
+            var filled = 0;
+            var firstEmptyPlayerField = null;
+            Array.prototype.forEach.call(block.querySelectorAll('tbody tr:not(.wizard-row-hidden)'), function(tr) {
+                var f = tr.querySelector('.js-firstname');
+                var l = tr.querySelector('.js-lastname');
+                if ((f && f.value.trim()) || (l && l.value.trim())) {
+                    filled++;
+                } else if (!firstEmptyPlayerField) {
+                    firstEmptyPlayerField = f || l;
+                }
+            });
+            if (filled < 6) {
+                problems.push({
+                    message: subst(p('squad', 'Team {0}: fill in at least {1} players.'), label, 6),
+                    target: firstEmptyPlayerField,
+                    block: block
+                });
+            }
+        });
+
+        return problems;
+    }
+
+    var activeProblems = [];
+
+    function closePreflight() {
+        if (preflight.open && typeof preflight.close === 'function') {
+            preflight.close();
+        } else {
+            preflight.removeAttribute('open');
+        }
+    }
+
+    function focusProblem(problem) {
+        closePreflight();
+        if (problem.block) {
+            problem.block.open = true;
+        }
+        if (!problem.target) return;
+        var row = problem.target.closest('tr');
+        if (row) {
+            row.classList.remove('wizard-row-hidden');
+        }
+        window.setTimeout(function() {
+            problem.target.scrollIntoView({behavior: 'smooth', block: 'center'});
+            problem.target.focus({preventScroll: true});
+            problem.target.setAttribute('aria-invalid', 'true');
+            problem.target.style.outline = '3px solid var(--danger, #ff4d6d)';
+            problem.target.style.outlineOffset = '3px';
+            window.setTimeout(function() {
+                problem.target.style.outline = '';
+                problem.target.style.outlineOffset = '';
+            }, 2200);
+        }, 80);
+    }
+
+    function showPreflight(problems) {
+        activeProblems = problems;
+        var list = document.getElementById('preflightList');
+        list.textContent = '';
+        problems.forEach(function(problem) {
+            var row = document.createElement('p');
+            var link = document.createElement('button');
+            link.type = 'button';
+            link.textContent = '→ ' + problem.message;
+            link.style.display = 'block';
+            link.style.width = '100%';
+            link.style.padding = '0.45rem 0';
+            link.style.border = '0';
+            link.style.background = 'transparent';
+            link.style.color = 'inherit';
+            link.style.textAlign = 'left';
+            link.style.cursor = 'pointer';
+            link.style.font = 'inherit';
+            link.addEventListener('click', function() {
+                focusProblem(problem);
+            });
+            row.appendChild(link);
+            list.appendChild(row);
+        });
+        if (typeof preflight.showModal === 'function') {
+            preflight.showModal();
+        } else {
+            preflight.setAttribute('open', '');
+        }
+    }
+    if (preflight) {
+        preflight.querySelector('.flash-dialog-ok').addEventListener('click', function() {
+            if (activeProblems.length) {
+                focusProblem(activeProblems[0]);
+            } else {
+                closePreflight();
+            }
+        });
+        preflight.addEventListener('click', function(e) {
+            if (e.target === preflight) closePreflight();
+        });
+    }
+
     var confirmed = false;
     form.addEventListener('submit', function(e) {
         if (confirmed) return;
         e.preventDefault();
         if (window.showScheduleOverflowModalIfNeeded && window.showScheduleOverflowModalIfNeeded()) return;
+
+        var problems = collectProblems();
+        if (problems.length) {
+            showPreflight(problems);
+            return;
+        }
         document.getElementById('lcmName').textContent = (document.getElementById('leagueName').value || '').trim() || '—';
         document.getElementById('lcmDate').textContent = fmtDate((document.getElementById('scheduleStartDate').value || '').trim());
         var sel = document.getElementById('scheduleStartTimeSelect');
         var bannerLocal = document.getElementById('tzBannerLocal');
-        var localNote = bannerLocal && bannerLocal.textContent ? ' (' + bannerLocal.textContent + ' your local time)' : '';
-        document.getElementById('lcmTime').textContent = (sel ? sel.value + ' Sofia' : '—') + localNote;
+        var sofia = i18n('sofia', 'Sofia');
+        var localPattern = i18n('local', ' ({0} your local time)');
+        var localNote = bannerLocal && bannerLocal.textContent
+            ? localPattern.replace('{0}', bannerLocal.textContent)
+            : '';
+        document.getElementById('lcmTime').textContent = (sel ? sel.value + ' ' + sofia : '—') + localNote;
+
         var lastEl = document.getElementById('lcmLast');
         var info = window.getScheduleLastMatchInfo ? window.getScheduleLastMatchInfo() : null;
-        lastEl.textContent = info ? info.lastTime + ' Sofia' : '—';
-        modal.style.display = 'flex';
+        lastEl.textContent = info ? info.lastTime + ' ' + sofia : '—';
+
+        var lastRoundEl = document.getElementById('lcmLastRound');
+        var finale = window.getScheduleFinaleInfo ? window.getScheduleFinaleInfo() : null;
+        lastRoundEl.textContent = finale
+            ? fmtDate(finale.dateIso) + ' · ' + finale.time + ' ' + sofia
+            : '—';
+
+        modal.classList.add('open');
     });
     document.getElementById('lcmConfirm').addEventListener('click', function() {
         confirmed = true;
-        modal.style.display = 'none';
+        modal.classList.remove('open');
         form.submit();
     });
-    document.getElementById('lcmCancel').addEventListener('click', function() { modal.style.display = 'none'; });
-    modal.addEventListener('click', function(e) { if (e.target === modal) modal.style.display = 'none'; });
+    document.getElementById('lcmCancel').addEventListener('click', function() { modal.classList.remove('open'); });
+    modal.addEventListener('click', function(e) { if (e.target === modal) modal.classList.remove('open'); });
 })();
 </script>
 </body>

@@ -1,9 +1,15 @@
-<!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+﻿<!DOCTYPE html>
+<html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <body>
 
 <div th:fragment="picker(teamCount)">
-    <fieldset id="scheduleFieldset" th:attr="data-team-count=${teamCount != null ? teamCount : 0}"
+    <fieldset id="scheduleFieldset"
+              th:data-team-count="${teamCount != null ? teamCount : 0}"
+              th:data-i18n-rounds="#{schedule.info.rounds}"
+              th:data-i18n-cutoff="#{schedule.info.cutoff}"
+              th:data-i18n-local="#{schedule.info.local}"
+              th:data-i18n-overflow="#{schedule.overflow.body}"
+              th:data-i18n-sofia="#{schedule.sofia}"
               style="margin-top:16px;padding:12px;border:1px solid #ccc;border-radius:6px;">
         <legend style="font-weight:600;padding:0 6px;" th:text="#{schedule.start.title}">Schedule start</legend>
         <p style="font-size:0.85rem;color:#555;margin:0 0 10px;" th:text="#{schedule.start.desc}">
@@ -54,6 +60,18 @@
         var LATEST_MIN = 23 * 60 + 30;
         if (!hidden || !sel) return;
 
+        function i18n(key, fallback) {
+            var v = fieldset ? fieldset.getAttribute('data-i18n-' + key) : null;
+            return v || fallback;
+        }
+
+        function fmt(pattern) {
+            var args = Array.prototype.slice.call(arguments, 1);
+            return pattern.replace(/\{(\d+)\}/g, function(_, i) {
+                return args[i] !== undefined ? args[i] : '';
+            });
+        }
+
         function computeLastMatchInfo() {
             if (!fieldset) return null;
             var teamCount = parseInt(fieldset.getAttribute('data-team-count') || '0', 10);
@@ -68,13 +86,40 @@
         }
         window.getScheduleLastMatchInfo = computeLastMatchInfo;
 
+        var CYCLES_BY_TEAM_COUNT = { 6: 3, 8: 2, 10: 2, 16: 1 };
+
+        function computeFinaleInfo() {
+            var info = computeLastMatchInfo();
+            if (!info || !fieldset) return null;
+            var teamCount = parseInt(fieldset.getAttribute('data-team-count') || '0', 10);
+            var cycles = CYCLES_BY_TEAM_COUNT[teamCount];
+            if (!cycles) return null;
+
+            var totalRounds = (teamCount - 1) * cycles;
+            var startInput = document.getElementById('scheduleStartDate');
+            var startIso = (startInput && startInput.value) ? startInput.value : null;
+            var start = startIso ? new Date(startIso + 'T00:00:00') : new Date();
+            if (isNaN(start.getTime())) return null;
+
+            var finale = new Date(start.getTime());
+            finale.setDate(finale.getDate() + totalRounds - 1);
+
+            var iso = finale.getFullYear() + '-'
+                + String(finale.getMonth() + 1).padStart(2, '0') + '-'
+                + String(finale.getDate()).padStart(2, '0');
+
+            return { dateIso: iso, time: info.lastTime, totalRounds: totalRounds };
+        }
+        window.getScheduleFinaleInfo = computeFinaleInfo;
+
         var wasOverflowing = false;
         function showOverflowModal(info) {
             var modal = document.getElementById('scheduleOverflowModal');
             var text = document.getElementById('scheduleOverflowText');
             if (!modal || !text) return;
-            text.textContent = 'With ' + info.matchesPerRound + ' matches per round, 1 hour apart, the last match of every '
-                + 'round would kick off at ' + info.lastTime + ' Sofia time — after the 23:30 cutoff. Please pick an earlier kick-off time.';
+            text.textContent = fmt(i18n('overflow',
+                    'With {0} matches per round, 1 hour apart, the last match of every round would kick off at {1} Sofia time — after the 23:30 cutoff. Please pick an earlier kick-off time.'),
+                    info.matchesPerRound, info.lastTime);
             modal.style.display = 'flex';
         }
         function checkOverflowModal() {
@@ -152,10 +197,13 @@
             if (info && lastMatchLine) {
                 var lastParts = info.lastTime.split(':');
                 var lastSofiaMin = parseInt(lastParts[0], 10) * 60 + parseInt(lastParts[1], 10);
-                var lastLocalNote = showLocal ? ' (' + sofiaMinToLocalStr(lastSofiaMin) + ' your local time)' : '';
-                lastMatchLine.textContent = 'Every round has ' + info.matchesPerRound + ' match' + (info.matchesPerRound === 1 ? '' : 'es')
-                    + ', 1 hour apart — the last match of each round kicks off at ' + info.lastTime + ' Sofia time' + lastLocalNote
-                    + (info.overflow ? '. That is past the 23:30 cutoff — pick an earlier kick-off time.' : '.');
+                var lastLocalNote = showLocal
+                    ? fmt(i18n('local', ' ({0} your local time)'), sofiaMinToLocalStr(lastSofiaMin))
+                    : '';
+                lastMatchLine.textContent =
+                    fmt(i18n('rounds', 'Every round has {0} matches, 1 hour apart — the last match of each round kicks off at {1} Sofia time{2}.'),
+                        info.matchesPerRound, info.lastTime, lastLocalNote)
+                    + (info.overflow ? ' ' + i18n('cutoff', 'That is past the 23:30 cutoff — pick an earlier kick-off time.') : '');
                 lastMatchLine.style.color = info.overflow ? '#b91c1c' : '#78350f';
                 lastMatchLine.style.fontWeight = info.overflow ? '700' : '400';
                 lastMatchLine.style.display = 'block';
@@ -170,19 +218,29 @@
             updateInfoBox();
             checkOverflowModal();
         });
-        updateInfoBox();
-        wasOverflowing = !!(computeLastMatchInfo() && computeLastMatchInfo().overflow);
+        try {
+            updateInfoBox();
+            wasOverflowing = !!(computeLastMatchInfo() && computeLastMatchInfo().overflow);
+        } catch (e) {
+            if (window.console) console.error('schedule info box failed', e);
+        }
     })();
+    </script>
 
+    <script>
     (function() {
         var hiddenDate = document.getElementById('scheduleStartDate');
         var cal = document.getElementById('leagueCalendar');
         var label = document.getElementById('lcSelLabel');
         if (!cal || !hiddenDate) return;
 
-        var BG_MONTHS = ['January','February','March','April','May','June',
-                         'July','August','September','October','November','December'];
-        var BG_DAYS   = ['Mo','Tu','We','Th','Fr','Sa','Su'];
+        var locale = document.getElementById('global-js-i18n').dataset.locale;
+        var months = Array.from({length: 12}, function(_, month) {
+            return new Intl.DateTimeFormat(locale, {month: 'long'}).format(new Date(2024, month, 1));
+        });
+        var daysOfWeek = Array.from({length: 7}, function(_, day) {
+            return new Intl.DateTimeFormat(locale, {weekday: 'short'}).format(new Date(2024, 0, 1 + day));
+        });
 
         var now = new Date();
         var todayIso = now.getFullYear() + '-'
@@ -194,7 +252,10 @@
 
         function formatLabel(iso) {
             var p = iso.split('-');
-            return p[2] + ' ' + BG_MONTHS[parseInt(p[1])-1] + ' ' + p[0];
+            return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString(
+                locale,
+                {day: '2-digit', month: 'long', year: 'numeric'}
+            );
         }
 
         function render() {
@@ -206,10 +267,10 @@
 
             var h = '<div class="cal-nav">';
             h += '<button type="button" class="cal-btn cal-prev">&#8249;</button>';
-            h += '<span class="cal-month-title">' + BG_MONTHS[month-1] + ' ' + year + '</span>';
+            h += '<span class="cal-month-title">' + months[month-1] + ' ' + year + '</span>';
             h += '<button type="button" class="cal-btn cal-next">&#8250;</button>';
             h += '</div><div class="cal-grid">';
-            BG_DAYS.forEach(function(d) { h += '<div class="cal-dh">' + d + '</div>'; });
+            daysOfWeek.forEach(function(d) { h += '<div class="cal-dh">' + d + '</div>'; });
             for (var i = 0; i < dow; i++) h += '<div class="cal-cell cal-empty"></div>';
             for (var day = 1; day <= days; day++) {
                 var iso = year + '-' + String(month).padStart(2,'0') + '-' + String(day).padStart(2,'0');

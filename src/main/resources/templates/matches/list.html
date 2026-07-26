@@ -1,5 +1,5 @@
-<!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org"
+﻿<!DOCTYPE html>
+<html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
     <meta charset="UTF-8">
@@ -193,9 +193,13 @@
                 </div>
                 <div class="match-weather-chip" th:if="${weatherByMatchId.containsKey(match.id)}">
                     <span class="weather-icon">&#9925;</span>
-                    <span th:text="${#numbers.formatDecimal(weatherByMatchId.get(match.id).minTempC,1,1)} + '&#176; / ' + ${#numbers.formatDecimal(weatherByMatchId.get(match.id).maxTempC,1,1)} + '&#176;C'"></span>
-                    <span th:if="${weatherByMatchId.get(match.id).precipitationProbability != null}"
-                          th:text="'· ' + ${weatherByMatchId.get(match.id).precipitationProbability} + '%'"></span>
+                    <span class="wc-low" th:title="#{matches.weather.low}"
+                          th:text="'&#8595; ' + ${#numbers.formatDecimal(weatherByMatchId.get(match.id).minTempC,1,1)} + '&#176;'"></span>
+                    <span class="wc-high" th:title="#{matches.weather.high}"
+                          th:text="'&#8593; ' + ${#numbers.formatDecimal(weatherByMatchId.get(match.id).maxTempC,1,1)} + '&#176;C'"></span>
+                    <span class="wc-rain" th:if="${weatherByMatchId.get(match.id).precipitationProbability != null}"
+                          th:title="#{matches.weather.rain}"
+                          th:text="'&#9730; ' + ${weatherByMatchId.get(match.id).precipitationProbability} + '%'"></span>
                 </div>
             </div>
 
@@ -340,9 +344,13 @@
                     </div>
                     <div class="match-weather-chip" th:if="${weatherByMatchId.containsKey(match.id)}">
                         <span class="weather-icon">&#9925;</span>
-                        <span th:text="${#numbers.formatDecimal(weatherByMatchId.get(match.id).minTempC,1,1)} + '&#176; / ' + ${#numbers.formatDecimal(weatherByMatchId.get(match.id).maxTempC,1,1)} + '&#176;C'"></span>
-                        <span th:if="${weatherByMatchId.get(match.id).precipitationProbability != null}"
-                              th:text="'· ' + ${weatherByMatchId.get(match.id).precipitationProbability} + '%'"></span>
+                        <span class="wc-low" th:title="#{matches.weather.low}"
+                              th:text="'&#8595; ' + ${#numbers.formatDecimal(weatherByMatchId.get(match.id).minTempC,1,1)} + '&#176;'"></span>
+                        <span class="wc-high" th:title="#{matches.weather.high}"
+                              th:text="'&#8593; ' + ${#numbers.formatDecimal(weatherByMatchId.get(match.id).maxTempC,1,1)} + '&#176;C'"></span>
+                        <span class="wc-rain" th:if="${weatherByMatchId.get(match.id).precipitationProbability != null}"
+                              th:title="#{matches.weather.rain}"
+                              th:text="'&#9730; ' + ${weatherByMatchId.get(match.id).precipitationProbability} + '%'"></span>
                     </div>
                 </div>
             </th:block>
@@ -609,7 +617,7 @@ var CAL_LOCALE_TAG = CAL_LOCALE_TAGS[CAL_LOCALE] || 'en-US';
         if (authed) {
             starHtml = '<form action="/notifications/match/' + m.id + '/toggle" method="post" class="match-star-form">'
                 + '<button type="submit" class="match-star' + (m.followed ? ' followed' : '') + '"'
-                + ' title="' + (m.followed ? 'Stop following this match' : 'Follow this match') + '"'
+                + ' title="' + (m.followed ? document.getElementById('global-js-i18n').dataset.unfollow : document.getElementById('global-js-i18n').dataset.follow) + '"'
                 + ' aria-pressed="' + !!m.followed + '">'
                 + '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>'
                 + '</button></form>';
@@ -620,7 +628,9 @@ var CAL_LOCALE_TAG = CAL_LOCALE_TAGS[CAL_LOCALE] || 'en-US';
             metaInfo += '<a class="match-league-tag" href="/leagues/' + esc(m.leagueId) + '">' + esc(m.leagueName) + '</a>';
         }
         if (m.roundNumber != null) {
-            metaInfo += '<span class="match-round">Round ' + esc(m.roundNumber) + '</span>';
+            metaInfo += '<span class="match-round">'
+                + document.getElementById('global-js-i18n').dataset.round + ' '
+                + esc(m.roundNumber) + '</span>';
         }
 
         details.innerHTML =
@@ -646,7 +656,8 @@ var CAL_LOCALE_TAG = CAL_LOCALE_TAGS[CAL_LOCALE] || 'en-US';
                 '</div>' +
             '</summary>' +
             '<div class="match-card-expand">' +
-                '<p style="font-size:0.82rem;color:var(--muted);margin:0.4rem 0 0;text-align:center;">Match in progress.</p>' +
+                '<p style="font-size:0.82rem;color:var(--muted);margin:0.4rem 0 0;text-align:center;">'
+                    + document.getElementById('global-js-i18n').dataset.inProgress + '</p>' +
             '</div>';
 
         var timeEl = details.querySelector('[data-utc]');

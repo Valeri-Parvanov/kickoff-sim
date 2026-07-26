@@ -1,5 +1,5 @@
-<!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org"
+﻿<!DOCTYPE html>
+<html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
     <meta charset="UTF-8">
@@ -442,7 +442,8 @@
         if (!section) return null;
         var wrap = document.createElement('div');
         wrap.id = 'teamResultsWrap';
-        wrap.innerHTML = '<div class="ls-section-header ls-results-header">&#127955; Results</div>'
+        wrap.innerHTML = '<div class="ls-section-header ls-results-header">&#127955; '
+            + document.getElementById('global-js-i18n').dataset.results + '</div>'
             + '<div class="match-list" id="teamResultsList"></div>';
         section.insertBefore(wrap, section.firstChild);
         var noMatches = document.getElementById('teamNoMatches');
@@ -459,7 +460,7 @@
         if (authed) {
             starHtml = '<form action="/notifications/match/' + m.id + '/toggle" method="post" class="match-star-form">'
                 + '<button type="submit" class="match-star' + (m.followed ? ' followed' : '') + '"'
-                + ' title="' + (m.followed ? 'Stop following this match' : 'Follow this match') + '"'
+                + ' title="' + (m.followed ? document.getElementById('global-js-i18n').dataset.unfollow : document.getElementById('global-js-i18n').dataset.follow) + '"'
                 + ' aria-pressed="' + !!m.followed + '">'
                 + '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>'
                 + '</button></form>';
@@ -470,7 +471,9 @@
             metaInfo += '<a class="match-league-tag" href="/leagues/' + esc(m.leagueId) + '">' + esc(m.leagueName) + '</a>';
         }
         if (m.roundNumber != null) {
-            metaInfo += '<span class="match-round">Round ' + esc(m.roundNumber) + '</span>';
+            metaInfo += '<span class="match-round">'
+                + document.getElementById('global-js-i18n').dataset.round + ' '
+                + esc(m.roundNumber) + '</span>';
         }
 
         details.innerHTML =
@@ -504,7 +507,7 @@
             try {
                 var d = new Date(timeEl.dataset.utc);
                 if (!isNaN(d.getTime())) {
-                    timeEl.textContent = String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + d.getFullYear() + ' · ' + d.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+                    timeEl.textContent = String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + d.getFullYear() + ' · ' + d.toLocaleTimeString(document.getElementById('global-js-i18n').dataset.locale, {hour:'2-digit',minute:'2-digit'});
                 }
             } catch(e) {}
         }
@@ -614,22 +617,23 @@
 </script>
 <script>
 (function() {
+    var locale = document.getElementById('global-js-i18n').dataset.locale;
     document.querySelectorAll('[data-utc]').forEach(function(el) {
         try {
             var d = new Date(el.dataset.utc);
             if (isNaN(d.getTime())) return;
             var fmt = el.dataset.fmt;
             if (fmt === 'time') {
-                el.textContent = d.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+                el.textContent = d.toLocaleTimeString(locale, {hour:'2-digit',minute:'2-digit'});
             } else if (fmt === 'date') {
-                el.textContent = d.toLocaleDateString(undefined, {day:'2-digit',month:'short',year:'numeric'});
+                el.textContent = d.toLocaleDateString(locale, {day:'2-digit',month:'short',year:'numeric'});
             } else if (fmt === 'date-iso') {
                 el.textContent = String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + d.getFullYear();
             } else if (fmt === 'datetime-compact') {
-                el.textContent = String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + d.getFullYear() + ' · ' + d.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+                el.textContent = String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + d.getFullYear() + ' · ' + d.toLocaleTimeString(locale, {hour:'2-digit',minute:'2-digit'});
             } else {
-                el.textContent = d.toLocaleDateString(undefined, {day:'2-digit',month:'short',year:'numeric'})
-                    + ', ' + d.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+                el.textContent = d.toLocaleDateString(locale, {day:'2-digit',month:'short',year:'numeric'})
+                    + ', ' + d.toLocaleTimeString(locale, {hour:'2-digit',minute:'2-digit'});
             }
         } catch(e) {}
     });

@@ -155,6 +155,7 @@ function setupMatchPager(listId, pagerId, pageSize) {
 
     var totalPages = Math.ceil(items.length / pageSize);
     var current = 0;
+    var i18n = document.getElementById('global-js-i18n').dataset;
 
     function render() {
         items.forEach(function(el, i) {
@@ -166,7 +167,7 @@ function setupMatchPager(listId, pagerId, pageSize) {
 
         var prev = document.createElement(current > 0 ? 'button' : 'span');
         prev.className = 'notif-page-btn' + (current > 0 ? '' : ' disabled');
-        prev.textContent = '‹ Newer';
+        prev.textContent = '‹ ' + i18n.newer;
         if (current > 0) {
             prev.type = 'button';
             prev.addEventListener('click', function() { current--; render(); });
@@ -174,11 +175,14 @@ function setupMatchPager(listId, pagerId, pageSize) {
 
         var info = document.createElement('span');
         info.className = 'notif-page-info';
-        info.textContent = 'Page ' + (current + 1) + ' of ' + totalPages + ' · ' + items.length + ' total';
+        info.textContent = i18n.page
+            .replace('{0}', current + 1)
+            .replace('{1}', totalPages)
+            .replace('{2}', items.length);
 
         var next = document.createElement(current + 1 < totalPages ? 'button' : 'span');
         next.className = 'notif-page-btn' + (current + 1 < totalPages ? '' : ' disabled');
-        next.textContent = 'Older ›';
+        next.textContent = i18n.older + ' ›';
         if (current + 1 < totalPages) {
             next.type = 'button';
             next.addEventListener('click', function() { current++; render(); });

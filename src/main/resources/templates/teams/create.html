@@ -1,5 +1,5 @@
-<!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+﻿<!DOCTYPE html>
+<html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -30,9 +30,7 @@
 <form th:action="@{/teams(fromRequest=${fromRequest})}" th:object="${teamCreateForm}" method="post" class="card-form" style="max-width:760px">
     <input type="hidden" th:field="*{teamId}"/>
 
-    <div th:if="${#fields.hasGlobalErrors()}" style="color:red; margin-bottom:12px; font-weight:600">
-        <div th:each="err : ${#fields.globalErrors()}" th:text="${err}"></div>
-    </div>
+    <div th:replace="~{fragments/topbar :: errorDialog(${#fields.globalErrors()})}"></div>
 
     <div>
         <label for="name" th:text="#{common.name}">Name</label>

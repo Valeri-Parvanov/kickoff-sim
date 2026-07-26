@@ -1,5 +1,5 @@
-<!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org"
+﻿<!DOCTYPE html>
+<html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
     <meta charset="UTF-8">
@@ -106,11 +106,22 @@
 
     <div class="match-weather" th:if="${weatherForecast.isPresent()}">
         <span class="weather-icon">&#9925;</span>
-        <span class="weather-label" th:text="#{matches.weather.forecastfor} + ' ' + ${match.homeTeamCity} + ':'"></span>
-        <span class="weather-temp"
-              th:text="${#numbers.formatDecimal(weatherForecast.get().minTempC,1,1)} + '&#176; / ' + ${#numbers.formatDecimal(weatherForecast.get().maxTempC,1,1)} + '&#176;C'"></span>
-        <span class="weather-precip" th:if="${weatherForecast.get().precipitationProbability != null}"
-              th:text="#{matches.weather.rainchance} + ' ' + ${weatherForecast.get().precipitationProbability} + '%'"></span>
+        <span class="weather-label" th:text="#{matches.weather.forecastfor} + ' ' + ${match.homeTeamCity}"></span>
+        <span class="weather-metric weather-metric-low">
+            <span class="weather-metric-label" th:text="#{matches.weather.low}">Low</span>
+            <span class="weather-temp"
+                  th:text="${#numbers.formatDecimal(weatherForecast.get().minTempC,1,1)} + '&#176;C'"></span>
+        </span>
+        <span class="weather-metric weather-metric-high">
+            <span class="weather-metric-label" th:text="#{matches.weather.high}">High</span>
+            <span class="weather-temp"
+                  th:text="${#numbers.formatDecimal(weatherForecast.get().maxTempC,1,1)} + '&#176;C'"></span>
+        </span>
+        <span class="weather-metric" th:if="${weatherForecast.get().precipitationProbability != null}">
+            <span class="weather-metric-label" th:text="#{matches.weather.rain}">Rain</span>
+            <span class="weather-temp"
+                  th:text="${weatherForecast.get().precipitationProbability} + '%'"></span>
+        </span>
     </div>
     <div class="match-weather match-weather-unavailable"
          th:if="${weatherForecast.isEmpty() and match.playedAt.isAfter(now)}">
@@ -122,18 +133,19 @@
 </main>
 <script>
 (function() {
+    var locale = document.getElementById('global-js-i18n').dataset.locale;
     document.querySelectorAll('[data-utc]').forEach(function(el) {
         try {
             var d = new Date(el.dataset.utc);
             if (isNaN(d.getTime())) return;
             var fmt = el.dataset.fmt;
             if (fmt === 'time') {
-                el.textContent = d.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+                el.textContent = d.toLocaleTimeString(locale, {hour:'2-digit',minute:'2-digit'});
             } else if (fmt === 'date') {
-                el.textContent = d.toLocaleDateString(undefined, {day:'2-digit',month:'short',year:'numeric'});
+                el.textContent = d.toLocaleDateString(locale, {day:'2-digit',month:'short',year:'numeric'});
             } else {
-                el.textContent = d.toLocaleDateString(undefined, {day:'2-digit',month:'short',year:'numeric'})
-                    + ', ' + d.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+                el.textContent = d.toLocaleDateString(locale, {day:'2-digit',month:'short',year:'numeric'})
+                    + ', ' + d.toLocaleTimeString(locale, {hour:'2-digit',minute:'2-digit'});
             }
         } catch(e) {}
     });

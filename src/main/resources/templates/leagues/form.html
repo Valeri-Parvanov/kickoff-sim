@@ -1,5 +1,5 @@
 ﻿<!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -20,9 +20,7 @@
       th:object="${leagueDto}" method="post"
       class="card-form league-create-form">
 
-    <div th:if="${#fields.hasGlobalErrors()}" style="margin-bottom:12px;">
-        <div class="error-message" th:each="err : ${#fields.globalErrors()}" th:text="${err}"></div>
-    </div>
+    <div th:replace="~{fragments/topbar :: errorDialog(${#fields.globalErrors()})}"></div>
 
     <div th:if="${eligibleCount >= 6}" class="league-ready-banner" style="margin-bottom:20px;">
         <div class="league-ready-icon">&#127942;</div>
@@ -48,11 +46,30 @@
     </div>
 
     <div>
-        <label for="name" th:text="#{common.name}">Name</label>
-        <div class="input-row">
-            <input type="text" id="name" th:field="*{name}"/>
-            <button type="button" class="dice-btn" onclick="fillRandomLeagueName('name')" th:title="#{leagues.form.randomname}" title="Generate random name">&#127922;</button>
+        <label th:text="#{common.name}">Name</label>
+        <div class="league-name-split">
+            <div>
+                <label for="nameFood" class="league-name-sublabel" th:text="#{leagues.form.namefood}">Food</label>
+                <div class="input-row">
+                    <input type="text" id="nameFood"
+                           oninput="syncLeagueName('nameFood','nameType','name')"/>
+                    <button type="button" class="dice-btn"
+                            onclick="fillRandomLeagueFood('nameFood','nameType','name')"
+                            th:title="#{leagues.form.randomfood}" title="Random food">&#127922;</button>
+                </div>
+            </div>
+            <div>
+                <label for="nameType" class="league-name-sublabel" th:text="#{leagues.form.nametype}">Type</label>
+                <div class="input-row">
+                    <input type="text" id="nameType"
+                           oninput="syncLeagueName('nameFood','nameType','name')"/>
+                    <button type="button" class="dice-btn"
+                            onclick="fillRandomLeagueType('nameFood','nameType','name')"
+                            th:title="#{leagues.form.randomtype}" title="Random type">&#127922;</button>
+                </div>
+            </div>
         </div>
+        <input type="hidden" id="name" th:field="*{name}"/>
         <span style="color:red" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></span>
     </div>
 
@@ -91,6 +108,7 @@
 <p><a th:href="@{/leagues}" class="back-link" th:text="'&#8592; ' + #{leagues.backtoleagues}">&#8592; Back to leagues</a></p>
 </main>
 <script th:src="@{/js/random-names.js}"></script>
+<script>splitLeagueName('nameFood', 'nameType', 'name');</script>
 <script>
 (function() {
     var checkboxes = Array.from(document.querySelectorAll('input[name="teamIds"]'));
@@ -101,18 +119,19 @@
     checkboxes.forEach(function(cb) { cb.addEventListener('change', update); });
 })();
 </script>
-<div id="lcModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:900;align-items:center;justify-content:center;">
-    <div style="background:#ffffff;border-radius:14px;padding:1.75rem 2rem;max-width:420px;width:92%;box-shadow:0 8px 40px rgba(0,0,0,0.3);color:#111;">
-        <h2 style="margin:0 0 1.1rem;font-size:1.15rem;font-weight:700;color:#111;" th:text="#{leagues.form.confirmtitle}">Confirm league creation</h2>
-        <table style="width:100%;border-collapse:collapse;font-size:0.93rem;margin-bottom:1.4rem;">
-            <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;" th:text="#{common.name}">Name</td><td id="lcmName" style="font-weight:600;color:#111;"></td></tr>
-            <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;" th:text="#{schedule.round1date}">Round 1 date</td><td id="lcmDate" style="font-weight:600;color:#111;"></td></tr>
-            <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;" th:text="#{leagues.form.firstkickoff}">First kick-off</td><td id="lcmTime" style="font-weight:600;color:#111;"></td></tr>
-            <tr><td style="color:#666;padding:0.35rem 0.8rem 0.35rem 0;white-space:nowrap;" th:text="#{leagues.form.lastkickoff}">Last kick-off (every round)</td><td id="lcmLast" style="font-weight:600;color:#111;"></td></tr>
-        </table>
-        <div style="display:flex;gap:0.75rem;justify-content:flex-end;">
-            <button type="button" id="lcmCancel" style="margin:0;background:transparent;border:2px solid #ccc;color:#333;border-radius:999px;padding:0.55rem 1.2rem;font-weight:600;cursor:pointer;" th:text="#{common.cancel}">Cancel</button>
-            <button type="button" id="lcmConfirm" style="margin:0;" th:text="#{leagues.form.createleague}">Create league</button>
+<div id="lcModal" class="lc-modal-backdrop">
+    <div class="lc-modal">
+        <h2 class="lc-modal-title" th:text="#{leagues.form.confirmtitle}">Confirm league creation</h2>
+        <dl class="lc-modal-rows">
+            <dt th:text="#{common.name}">Name</dt><dd id="lcmName"></dd>
+            <dt th:text="#{schedule.round1date}">Round 1 date</dt><dd id="lcmDate"></dd>
+            <dt th:text="#{leagues.form.firstkickoff}">First match</dt><dd id="lcmTime"></dd>
+            <dt th:text="#{leagues.form.lastkickoff}">Last match of each round</dt><dd id="lcmLast"></dd>
+            <dt th:text="#{leagues.form.lastround}">Last round</dt><dd id="lcmLastRound"></dd>
+        </dl>
+        <div class="lc-modal-actions">
+            <button type="button" id="lcmCancel" class="btn-cancel" th:text="#{common.cancel}">Cancel</button>
+            <button type="button" id="lcmConfirm" th:text="#{leagues.form.createleague}">Create league</button>
         </div>
     </div>
 </div>
@@ -121,11 +140,16 @@
     var form = document.querySelector('.card-form');
     if (!form || form.querySelector('input[name="_method"]')) return;
     var modal = document.getElementById('lcModal');
-    var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    var fieldset = document.getElementById('scheduleFieldset');
+    function i18n(key, fallback) {
+        var v = fieldset ? fieldset.getAttribute('data-i18n-' + key) : null;
+        return v || fallback;
+    }
     function fmtDate(iso) {
         if (!iso) return '—';
-        var p = iso.split('-');
-        return parseInt(p[2]) + ' ' + months[parseInt(p[1])-1] + ' ' + p[0];
+        var d = new Date(iso + 'T00:00:00');
+        if (isNaN(d.getTime())) return '—';
+        return d.toLocaleDateString(document.getElementById('global-js-i18n').dataset.locale, { day: '2-digit', month: 'long', year: 'numeric' });
     }
     var confirmed = false;
     form.addEventListener('submit', function(e) {
@@ -136,20 +160,32 @@
         document.getElementById('lcmDate').textContent = fmtDate((document.getElementById('scheduleStartDate').value || '').trim());
         var sel = document.getElementById('scheduleStartTimeSelect');
         var bannerLocal = document.getElementById('tzBannerLocal');
-        var localNote = bannerLocal && bannerLocal.textContent ? ' (' + bannerLocal.textContent + ' your local time)' : '';
-        document.getElementById('lcmTime').textContent = (sel ? sel.value + ' Sofia' : '—') + localNote;
+        var sofia = i18n('sofia', 'Sofia');
+        var localPattern = i18n('local', ' ({0} your local time)');
+        var localNote = bannerLocal && bannerLocal.textContent
+            ? localPattern.replace('{0}', bannerLocal.textContent)
+            : '';
+        document.getElementById('lcmTime').textContent = (sel ? sel.value + ' ' + sofia : '—') + localNote;
+
         var lastEl = document.getElementById('lcmLast');
         var info = window.getScheduleLastMatchInfo ? window.getScheduleLastMatchInfo() : null;
-        lastEl.textContent = info ? info.lastTime + ' Sofia' : '—';
-        modal.style.display = 'flex';
+        lastEl.textContent = info ? info.lastTime + ' ' + sofia : '—';
+
+        var lastRoundEl = document.getElementById('lcmLastRound');
+        var finale = window.getScheduleFinaleInfo ? window.getScheduleFinaleInfo() : null;
+        lastRoundEl.textContent = finale
+            ? fmtDate(finale.dateIso) + ' · ' + finale.time + ' ' + sofia
+            : '—';
+
+        modal.classList.add('open');
     });
     document.getElementById('lcmConfirm').addEventListener('click', function() {
         confirmed = true;
-        modal.style.display = 'none';
+        modal.classList.remove('open');
         form.submit();
     });
-    document.getElementById('lcmCancel').addEventListener('click', function() { modal.style.display = 'none'; });
-    modal.addEventListener('click', function(e) { if (e.target === modal) modal.style.display = 'none'; });
+    document.getElementById('lcmCancel').addEventListener('click', function() { modal.classList.remove('open'); });
+    modal.addEventListener('click', function(e) { if (e.target === modal) modal.classList.remove('open'); });
 })();
 </script>
 </body>

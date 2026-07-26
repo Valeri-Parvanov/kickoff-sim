@@ -1,5 +1,5 @@
-<!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+﻿<!DOCTYPE html>
+<html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -22,9 +22,7 @@
         Clear a row's name to remove that player.</span></p>
 
     <form th:action="@{/teams/{id}/squad(id=${team.id})}" th:object="${squadForm}" method="post">
-        <div th:if="${#fields.hasGlobalErrors()}">
-            <div class="error-message" th:each="err : ${#fields.globalErrors()}" th:text="${err}"></div>
-        </div>
+        <div th:replace="~{fragments/topbar :: errorDialog(${#fields.globalErrors()})}"></div>
 
         <div class="wizard-team-block">
             <div class="wizard-team-summary">
@@ -107,9 +105,7 @@
 
     <div th:if="${remaining > 0}">
         <form th:action="@{/teams/{id}/squad(id=${team.id})}" th:object="${squadForm}" method="post">
-            <div th:if="${#fields.hasGlobalErrors()}">
-                <div class="error-message" th:each="err : ${#fields.globalErrors()}" th:text="${err}"></div>
-            </div>
+            <div th:replace="~{fragments/topbar :: errorDialog(${#fields.globalErrors()})}"></div>
 
             <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem">
                 <button type="button" class="btn-add" onclick="randomizeAllSquad()" th:text="'&#127922; ' + #{teams.squad.randomizeall}">&#127922; Randomize all</button>
@@ -152,7 +148,8 @@
                               th:errors="*{rows[__${stat.index}__].lastName}"></span>
                     </td>
                     <td>
-                        <button type="button" class="dice-btn" onclick="randomizeRow(this)" title="Random player">&#127922;</button>
+                        <button type="button" class="dice-btn" onclick="randomizeRow(this)"
+                                th:title="#{teams.squad.randomplayer}" title="Random player">&#127922;</button>
                     </td>
                 </tr>
                 </tbody>

@@ -1,5 +1,5 @@
-<!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org"
+﻿<!DOCTYPE html>
+<html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
     <meta charset="UTF-8">
@@ -17,28 +17,48 @@
             padding: 2.5rem 1.5rem 2rem;
             gap: 2rem;
         }
-        .home-brand {
+        .home-identity {
             display: flex;
+            flex-direction: column;
             align-items: center;
-            justify-content: center;
-            gap: 0.6rem;
-            font-family: 'Poppins', sans-serif;
-            font-size: 2.6rem;
-            font-weight: 800;
-            color: var(--fg);
-            letter-spacing: -0.5px;
         }
-        .home-brand-ball {
-            font-size: 2.4rem;
-            line-height: 1;
+        .ks-logo {
+            width: 104px;
+            height: auto;
+            display: block;
+        }
+        .home-brand {
+            font-family: 'Poppins', sans-serif;
+            font-size: 3rem;
+            font-weight: 800;
+            line-height: 1.05;
+            letter-spacing: -0.02em;
+            margin: 1.1rem 0 0;
+            text-align: center;
+        }
+        .home-brand-kick { color: var(--heading); }
+        .home-brand-sim {
+            background: linear-gradient(135deg, var(--gold-bright), var(--gold));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin-left: 0.35rem;
+        }
+        .home-brand-rule {
+            display: block;
+            width: 84px;
+            height: 4px;
+            border-radius: 999px;
+            margin: 1.15rem 0 1.35rem;
+            background: linear-gradient(90deg, transparent, var(--gold), transparent);
         }
         .home-tagline {
-            font-size: 1.05rem;
-            color: var(--muted);
+            font-size: 1.02rem;
+            color: var(--muted-text);
             text-align: center;
-            max-width: 480px;
-            margin: -1rem auto 0;
-            line-height: 1.6;
+            max-width: 460px;
+            margin: 0 auto;
+            line-height: 1.65;
         }
         .home-cta {
             display: flex;
@@ -61,8 +81,8 @@
         }
         .btn-hero-secondary {
             background: transparent;
-            color: var(--fg);
-            border: 2px solid var(--border, #ddd);
+            color: var(--text);
+            border: 2px solid var(--border-soft);
         }
         .home-features {
             display: grid;
@@ -75,12 +95,12 @@
             .home-brand { font-size: 2rem; }
         }
         .home-feature {
-            border: 1px solid var(--border, #e5e7eb);
+            border: 1px solid var(--border-soft);
             border-radius: 10px;
             padding: 1.2rem 1rem;
             text-align: center;
             text-decoration: none;
-            color: var(--fg);
+            color: var(--text);
             transition: box-shadow 0.15s, transform 0.15s;
         }
         .home-feature:hover {
@@ -98,18 +118,18 @@
         }
         .home-feature-desc {
             font-size: 0.82rem;
-            color: var(--muted);
+            color: var(--muted-text);
             line-height: 1.5;
         }
         .home-divider {
             width: 100%;
             border: none;
-            border-top: 1px solid var(--border, #e5e7eb);
+            border-top: 1px solid var(--border-soft);
             margin: 0;
         }
         .home-auth-row {
             font-size: 0.9rem;
-            color: var(--muted);
+            color: var(--muted-text);
             text-align: center;
         }
         .home-auth-row a {
@@ -125,7 +145,7 @@
             padding: 0.65rem 1.1rem;
             font-size: 0.9rem;
             font-weight: 500;
-            color: var(--fg);
+            color: var(--text);
             text-align: center;
             width: 100%;
         }
@@ -137,11 +157,12 @@
 <main class="page" style="padding-top:0;">
     <div class="home-hero">
 
-        <div>
-            <div class="home-brand">
-                <span class="home-brand-ball">&#9917;</span>
-                Kickoff Sim
-            </div>
+        <div class="home-identity">
+            <div th:replace="~{fragments/topbar :: brandLogo}"></div>
+            <h1 class="home-brand">
+                <span class="home-brand-kick">Kickoff</span><span class="home-brand-sim">Sim</span>
+            </h1>
+            <span class="home-brand-rule" aria-hidden="true"></span>
             <p class="home-tagline" th:text="#{home.tagline}">
                 Simulate football leagues with live scoring, goal-by-goal timelines, and real-time standings.
             </p>
