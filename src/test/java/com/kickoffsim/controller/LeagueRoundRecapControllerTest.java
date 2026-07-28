@@ -27,7 +27,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -92,7 +91,7 @@ class LeagueRoundRecapControllerTest {
                         .with(user("admin").roles("ADMIN"))
                         .with(csrf()))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/leagues/" + id + "?round=2#overview"))
+                .andExpect(redirectedUrl("/leagues/" + id + "?round=2&tab=overview#overview"))
                 .andExpect(flash().attribute("statusMessage", "flash.recap.generated"));
 
         verify(roundRecapService).generateAllLanguages(id, 2, false);
@@ -177,7 +176,7 @@ class LeagueRoundRecapControllerTest {
                         .with(user("admin").roles("ADMIN"))
                         .with(csrf()))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/leagues/" + id + "#overview"))
+                .andExpect(redirectedUrl("/leagues/" + id + "?tab=overview#overview"))
                 .andExpect(flash().attribute("statusMessage", "flash.seasonrecap.generated"));
 
         verify(roundRecapService).generateSeasonAllLanguages(id, false);
@@ -283,6 +282,54 @@ class LeagueRoundRecapControllerTest {
                 .andExpect(model().attribute("roundRecap", recap))
                 .andExpect(model().attribute("seasonRecap", recap))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("English recap")));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void incompleteRoundKeepsRecapButtonClickable() throws Exception {
+        UUID id = UUID.randomUUID();
+        LeagueDetailView league = league(id);
+        when(leagueService.findDetail(id)).thenReturn(league);
+        when(roundRecapService.find(id, 1, Locale.ENGLISH)).thenReturn(Optional.empty());
+        when(roundRecapService.isRoundComplete(league, 1)).thenReturn(false);
+        when(roundRecapService.findSeason(id, Locale.ENGLISH)).thenReturn(Optional.empty());
+        when(roundRecapService.isSeasonRecapReady(league)).thenReturn(true);
+        when(matchFollowSupport.subscribedMatchIds(any())).thenReturn(Set.of());
+
+        mockMvc.perform(get("/leagues/{id}", id)
+                        .param("round", "1")
+                        .with(user("admin").roles("ADMIN"))
+                        .locale(Locale.ENGLISH))
+                .andExpect(status().isOk())
+                .andExpect(model().attribute("roundRecapReady", false))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "/leagues/" + id + "/rounds/1/recap")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("disabled=\"disabled\""))));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void unfinishedSeasonKeepsSeasonRecapButtonClickable() throws Exception {
+        UUID id = UUID.randomUUID();
+        LeagueDetailView league = league(id);
+        when(leagueService.findDetail(id)).thenReturn(league);
+        when(roundRecapService.find(id, 1, Locale.ENGLISH)).thenReturn(Optional.empty());
+        when(roundRecapService.isRoundComplete(league, 1)).thenReturn(false);
+        when(roundRecapService.findSeason(id, Locale.ENGLISH)).thenReturn(Optional.empty());
+        when(roundRecapService.isSeasonRecapReady(league)).thenReturn(false);
+        when(matchFollowSupport.subscribedMatchIds(any())).thenReturn(Set.of());
+
+        mockMvc.perform(get("/leagues/{id}", id)
+                        .param("round", "1")
+                        .with(user("admin").roles("ADMIN"))
+                        .locale(Locale.ENGLISH))
+                .andExpect(status().isOk())
+                .andExpect(model().attribute("seasonRecapReady", false))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "/leagues/" + id + "/season-recap")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("disabled=\"disabled\""))));
     }
 
     private LeagueDetailView league(UUID id) {

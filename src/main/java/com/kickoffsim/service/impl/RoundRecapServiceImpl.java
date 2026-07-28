@@ -2,6 +2,7 @@ package com.kickoffsim.service.impl;
 
 import com.kickoffsim.dto.*;
 import com.kickoffsim.exception.InvalidLeagueOperationException;
+import com.kickoffsim.model.Half;
 import com.kickoffsim.model.RoundRecap;
 import com.kickoffsim.repository.RoundRecapRepository;
 import com.kickoffsim.repository.LeagueRepository;
@@ -175,7 +176,7 @@ public class RoundRecapServiceImpl implements RoundRecapService {
             standings.add(new RoundRecapStandingData(
                     i + 1, teamLabel(row.getTeamName(), row.getTeamCity()), row.getPlayed(),
                     row.getWins(), row.getDraws(), row.getLosses(), row.getGoalsFor(),
-                    row.getGoalsAgainst(), row.getGoalDiff(), row.getPoints()));
+                    row.getGoalsAgainst(), row.getGoalDiff(), row.getPoints(), row.isChampion()));
         }
         return new RoundRecapPromptData(
                 league.getName(), roundNumber, localeTag, LANGUAGES.get(localeTag), matchData, standings);
@@ -188,9 +189,11 @@ public class RoundRecapServiceImpl implements RoundRecapService {
                             ? teamLabel(match.getHomeTeamName(), match.getHomeTeamCity())
                             : teamLabel(match.getAwayTeamName(), match.getAwayTeamCity());
                     String minute = goal.getMinute() == null ? "minute not recorded" : "minute " + goal.getMinute();
+                    String half = goal.getHalf() == null ? ""
+                            : ", " + (goal.getHalf() == Half.SECOND ? "second half" : "first half");
                     String assistant = goal.getAssistantName() == null ? "" : ", assist " + goal.getAssistantName();
                     String type = goal.isOwnGoal() ? ", own goal" : goal.isPenalty() ? ", penalty" : "";
-                    return "%s, %s, %s%s%s".formatted(team, goal.getScorerName(), minute, assistant, type);
+                    return "%s, %s, %s%s%s%s".formatted(team, goal.getScorerName(), minute, half, assistant, type);
                 })
                 .toList() : List.of();
         return new RoundRecapMatchData(

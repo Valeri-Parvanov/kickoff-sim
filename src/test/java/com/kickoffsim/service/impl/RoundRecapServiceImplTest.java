@@ -26,7 +26,6 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -74,7 +73,7 @@ class RoundRecapServiceImplTest {
         verify(aiClient).generate(prompt.capture());
         assertThat(prompt.getValue().languageName()).isEqualTo("Bulgarian");
         assertThat(prompt.getValue().matches().get(0).goals())
-                .containsExactly("Alpha (Sofia), Alex Ace, minute 12, assist Andy Aid, penalty");
+                .containsExactly("Alpha (Sofia), Alex Ace, minute 12, first half, assist Andy Aid, penalty");
         assertThat(prompt.getValue().standings().get(0).position()).isEqualTo(1);
     }
 
@@ -272,7 +271,47 @@ class RoundRecapServiceImplTest {
         ArgumentCaptor<RoundRecapPromptData> captor = ArgumentCaptor.forClass(RoundRecapPromptData.class);
         verify(aiClient).generate(captor.capture());
         assertThat(captor.getValue().matches().get(0).goals())
-                .containsExactly("Alpha, Alex Ace, minute not recorded, own goal");
+                .containsExactly("Alpha, Alex Ace, minute not recorded, first half, own goal");
+    }
+
+    @Test
+    void promptMarksSecondHalfGoals() {
+        LeagueDetailView league = completedLeague();
+        MatchDto match = league.getMatches().get(0);
+        match.getGoalTimeline().get(0).setHalf(Half.SECOND);
+        when(recapRepository.findByLeagueIdAndRoundNumberAndLocaleTag(leagueId, 1, "en"))
+                .thenReturn(Optional.empty());
+        when(leagueService.findDetail(leagueId)).thenReturn(league);
+        when(leagueRepository.getReferenceById(leagueId)).thenReturn(new League());
+        when(aiClient.generate(any())).thenReturn("Recap");
+        when(recapRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.generate(leagueId, 1, Locale.ENGLISH, false);
+
+        ArgumentCaptor<RoundRecapPromptData> captor = ArgumentCaptor.forClass(RoundRecapPromptData.class);
+        verify(aiClient).generate(captor.capture());
+        assertThat(captor.getValue().matches().get(0).goals())
+                .containsExactly("Alpha (Sofia), Alex Ace, minute 12, second half, assist Andy Aid, penalty");
+    }
+
+    @Test
+    void promptOmitsTheHalfWhenItIsNotRecorded() {
+        LeagueDetailView league = completedLeague();
+        MatchDto match = league.getMatches().get(0);
+        match.getGoalTimeline().get(0).setHalf(null);
+        when(recapRepository.findByLeagueIdAndRoundNumberAndLocaleTag(leagueId, 1, "en"))
+                .thenReturn(Optional.empty());
+        when(leagueService.findDetail(leagueId)).thenReturn(league);
+        when(leagueRepository.getReferenceById(leagueId)).thenReturn(new League());
+        when(aiClient.generate(any())).thenReturn("Recap");
+        when(recapRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.generate(leagueId, 1, Locale.ENGLISH, false);
+
+        ArgumentCaptor<RoundRecapPromptData> captor = ArgumentCaptor.forClass(RoundRecapPromptData.class);
+        verify(aiClient).generate(captor.capture());
+        assertThat(captor.getValue().matches().get(0).goals())
+                .containsExactly("Alpha (Sofia), Alex Ace, minute 12, assist Andy Aid, penalty");
     }
 
     @Test

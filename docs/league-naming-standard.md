@@ -1,6 +1,6 @@
 # League Naming Standard — Kickoff Sim
 
-The vocabulary that `randomLeagueName()` draws from, and the rules that decide what may
+The vocabulary used by the league-name generators, and the rules that decide what may
 enter it. A name is not just text: `LeagueLogoThemes.match()` resolves it to a logo motif
 by case-insensitive substring, so naming and artwork are one system.
 
@@ -18,8 +18,8 @@ league name = food + tournament type
 `random-names.js` holds `LEAGUE_FOODS`, where each food carries **its own curated list of
 allowed types**:
 
-```js
-{ food: "Shopska", types: ["Shield", "Showdown", "Cup", "Derby"] }
+```json
+{ "food": "Shopska", "types": ["Shield", "Showdown", "Cup", "Derby"] }
 ```
 
 The types are curated per food rather than drawn from one global pool. That is the whole

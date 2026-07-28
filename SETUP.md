@@ -2,12 +2,12 @@
 
 Kickoff Sim is two applications plus two optional external dependencies:
 
-| Component | Port | Required? |
-|---|---|---|
-| `kickoff-sim` (this repo, main web app) | 8080 | yes |
-| `kickoff-notifications` (REST microservice, sibling repo at `../kickoff-notifications`) | 8081 | yes for follow/feed/toasts |
-| MySQL 8 on the host | 3306 | yes |
-| Ollama (local AI runtime) | 11434 | only for the AI round/season recaps |
+| Component                                                                               | Port  | Required?                           |
+|-----------------------------------------------------------------------------------------|-------|-------------------------------------|
+| `kickoff-sim` (this repo, main web app)                                                 | 8080  | yes                                 |
+| `kickoff-notifications` (REST microservice, sibling repo at `../kickoff-notifications`) | 8081  | yes for follow/feed/toasts          |
+| MySQL 8 on the host                                                                     | 3306  | yes                                 |
+| Ollama (local AI runtime)                                                               | 11434 | only for the AI round/season recaps |
 
 Both applications use **separate databases** on the same MySQL instance: `kickoff_sim` and
 `kickoff_notifications`. Both are created automatically on first connect.
@@ -42,7 +42,7 @@ machine's MySQL** via `host.docker.internal`.
    docker-compose up -d --build
    ```
    `--build` forces a fresh image build from the current source — always use it after pulling
-   new changes, otherwise Docker may reuse an old cached image and you'll see outdated behavior.
+   new changes; otherwise, Docker may reuse an old cached image, resulting in outdated behavior.
 3. Open `http://localhost:8080`, register a user (the first one becomes `ADMIN`), and log in.
 4. To stop: `docker-compose down`.
 
@@ -61,16 +61,16 @@ Different "Project Structure" between machines is almost always one of these set
 check all of them:
 
 - **File → Project Structure → Project**
-  - SDK: **17** (or any 17.x JDK)
-  - Language level: **17**
+    - SDK: **17** (or any 17.x JDK)
+    - Language level: **17**
 - **File → Project Structure → Modules → kickoff-sim**
-  - Language level: inherit from project (17)
+    - Language level: inherit from project (17)
 - **Settings → Build, Execution, Deployment → Build Tools → Maven → Runner**
-  - JRE: matches the project SDK (17)
+    - JRE: matches the project SDK (17)
 - **Settings → Build, Execution, Deployment → Compiler → Annotation Processors**
-  - **Enable annotation processing** must be checked — required for Lombok
-    (`@Getter`/`@Setter`/`@RequiredArgsConstructor`). If unchecked, the project won't compile in
-    the IDE even though Maven builds fine on the command line.
+    - **Enable annotation processing** must be checked — required for Lombok
+      (`@Getter`/`@Setter`/`@RequiredArgsConstructor`). If unchecked, the project won't compile in
+      the IDE even though Maven builds fine on the command line.
 
 If IntelliJ still shows red/unresolved symbols after this, do **Maven panel → Reload All Maven
 Projects** (the circular-arrows icon).
@@ -136,10 +136,10 @@ ollama run gemma3:4b "Say hello"
 
 ### Configuration
 
-| Property | Environment variable | Default |
-|---|---|---|
-| `kickoffsim.ollama.base-url` | `OLLAMA_BASE_URL` | `http://localhost:11434` |
-| `kickoffsim.ollama.model` | `OLLAMA_MODEL` | `gemma3:4b` |
+| Property                     | Environment variable | Default                  |
+|------------------------------|----------------------|--------------------------|
+| `kickoffsim.ollama.base-url` | `OLLAMA_BASE_URL`    | `http://localhost:11434` |
+| `kickoffsim.ollama.model`    | `OLLAMA_MODEL`       | `gemma3:4b`              |
 
 A larger model produces better prose at the cost of generation time — pull it and set
 `OLLAMA_MODEL` to its tag.

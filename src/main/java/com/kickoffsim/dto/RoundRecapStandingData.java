@@ -10,5 +10,6 @@ public record RoundRecapStandingData(
         int goalsFor,
         int goalsAgainst,
         int goalDifference,
-        int points) {
+        int points,
+        boolean champion) {
 }
