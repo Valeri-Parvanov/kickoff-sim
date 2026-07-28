@@ -19,6 +19,7 @@ import com.kickoffsim.service.TeamService;
 import com.kickoffsim.service.UserService;
 import com.kickoffsim.web.MatchFollowSupport;
 import com.kickoffsim.web.SseEmitterRegistry;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -35,6 +36,9 @@ import org.springframework.ui.Model;
 import org.springframework.web.servlet.mvc.support.RedirectAttributesModelMap;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -43,6 +47,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -61,6 +66,50 @@ class NotificationControllerTest {
     @Mock private SseEmitterRegistry sseEmitterRegistry;
 
     @InjectMocks private NotificationController controller;
+
+    @BeforeEach
+    void stubBatchTeamLookup() {
+        when(teamService.findAllByIds(any())).thenAnswer(invocation -> {
+            Collection<UUID> ids = invocation.getArgument(0);
+            List<TeamDto> teams = new ArrayList<>();
+            for (UUID id : ids) {
+                try {
+                    TeamDto team = teamService.findById(id);
+                    if (team != null) {
+                        teams.add(team);
+                    }
+                } catch (RuntimeException ignored) {
+                }
+            }
+            return teams;
+        });
+    }
+
+    private void stubWindow(MatchDto... matches) {
+        when(matchService.findInWindow(any(), any(), org.mockito.ArgumentMatchers.anyBoolean()))
+                .thenReturn(List.of(matches));
+        when(matchService.findFollowedInWindow(any(), any(), any(), any(),
+                org.mockito.ArgumentMatchers.anyBoolean()))
+                .thenAnswer(invocation -> {
+                    Collection<UUID> teamIds = invocation.getArgument(2);
+                    Collection<UUID> matchIds = invocation.getArgument(3);
+                    return Arrays.stream(matches)
+                            .filter(match -> teamIds.contains(match.getHomeTeamId())
+                                    || teamIds.contains(match.getAwayTeamId())
+                                    || matchIds.contains(match.getId()))
+                            .toList();
+                });
+    }
+
+    private void stubLeagueCard(UUID leagueId, String name) {
+        com.kickoffsim.dto.LeagueDto dto = new com.kickoffsim.dto.LeagueDto();
+        dto.setId(leagueId);
+        dto.setName(name);
+        dto.setTeamCount(1);
+        dto.setTotalMatches(3);
+        dto.setPlayedMatches(2);
+        when(leagueService.findById(leagueId)).thenReturn(dto);
+    }
 
     @Test
     void stream_authenticated_registersAndReturnsEmitter() {
@@ -161,6 +210,25 @@ class NotificationControllerTest {
     }
 
     @Test
+    void feedPage_followedTeamMissingFromBatchLookup_isDroppedAsStale() {
+        UUID userId = UUID.randomUUID();
+        UUID teamId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+
+        SubscriptionDto teamSub = new SubscriptionDto();
+        teamSub.setId(UUID.randomUUID());
+        teamSub.setEntityType("TEAM");
+        teamSub.setEntityId(teamId);
+        when(notificationClient.getSubscriptions(userId)).thenReturn(List.of(teamSub));
+        doReturn(List.of()).when(teamService).findAllByIds(any());
+
+        Model model = new ExtendedModelMap();
+        assertThat(controller.feedPage(auth, model)).isEqualTo("feed");
+        assertThat((List<?>) model.getAttribute("teamViews")).isEmpty();
+        verify(notificationClient).unsubscribe(teamSub.getId());
+    }
+
+    @Test
     void feedLiveSummary_teamWithoutLeague_notAddedToLeagueIds() {
         UUID userId = UUID.randomUUID();
         Authentication auth = authFor("alice", userId);
@@ -181,7 +249,7 @@ class NotificationControllerTest {
     }
 
     @Test
-    void feedLiveSummary_leagueSub_addsLeagueIdDirectly() {
+    void feedLiveSummary_leagueSubAlone_yieldsNoMatchesAndNoLeagueLookup() {
         UUID userId = UUID.randomUUID();
         Authentication auth = authFor("alice", userId);
         UUID leagueId = UUID.randomUUID();
@@ -189,15 +257,12 @@ class NotificationControllerTest {
         leagueSub.setEntityType("LEAGUE");
         leagueSub.setEntityId(leagueId);
         when(notificationClient.getSubscriptions(userId)).thenReturn(List.of(leagueSub));
-        MatchDto live = feedMatch(UUID.randomUUID(), LocalDateTime.now().minusMinutes(5));
-        LeagueDetailView league = org.mockito.Mockito.mock(LeagueDetailView.class);
-        when(league.getMatches()).thenReturn(List.of(live));
-        when(leagueService.findDetail(leagueId)).thenReturn(league);
+        stubWindow(feedMatch(UUID.randomUUID(), LocalDateTime.now().minusMinutes(5)));
 
         Map<String, Object> result = controller.feedLiveSummary(auth);
 
-        verify(leagueService).findDetail(leagueId);
         assertThat((List<?>) result.get("matches")).isEmpty();
+        verify(leagueService, never()).findDetail(any());
     }
 
     @Test
@@ -248,9 +313,7 @@ class NotificationControllerTest {
 
         MatchDto match = feedMatch(UUID.randomUUID(), LocalDateTime.now().minusMinutes(5));
         match.setId(matchId);
-        LeagueDetailView league = org.mockito.Mockito.mock(LeagueDetailView.class);
-        when(league.getMatches()).thenReturn(List.of(match));
-        when(leagueService.findDetail(leagueId)).thenReturn(league);
+        stubWindow(match);
 
         Map<String, Object> result = controller.feedLiveSummary(auth);
 
@@ -279,9 +342,7 @@ class NotificationControllerTest {
         when(teamService.findById(teamId)).thenReturn(team);
 
         MatchDto liveAwayMatch = otherMatch(teamId, LocalDateTime.now().minusMinutes(10), false);
-        LeagueDetailView league = org.mockito.Mockito.mock(LeagueDetailView.class);
-        when(league.getMatches()).thenReturn(List.of(liveAwayMatch));
-        when(leagueService.findDetail(leagueId)).thenReturn(league);
+        stubWindow(liveAwayMatch);
 
         Map<String, Object> result = controller.feedLiveSummary(auth);
 
@@ -325,18 +386,14 @@ class NotificationControllerTest {
         MatchDto tooOldLeagueMatch = feedMatch(teamId, LocalDateTime.now().minusDays(1));
         MatchDto unrelatedLiveMatch = feedMatch(UUID.randomUUID(), LocalDateTime.now().minusMinutes(8));
 
-        LeagueDetailView league = org.mockito.Mockito.mock(LeagueDetailView.class);
-        when(league.getMatches()).thenReturn(
-                List.of(liveTeamMatch, futureLeagueMatch, tooOldLeagueMatch, unrelatedLiveMatch));
-        when(leagueService.findDetail(leagueId)).thenReturn(league);
-
         MatchDto starredLiveMatch = new MatchDto();
         starredLiveMatch.setId(starredMatchId);
         starredLiveMatch.setHomeTeamId(UUID.randomUUID());
         starredLiveMatch.setAwayTeamId(UUID.randomUUID());
         starredLiveMatch.setPlayedAt(LocalDateTime.now().minusMinutes(5));
         starredLiveMatch.setLeagueId(null);
-        when(matchService.findById(starredMatchId)).thenReturn(starredLiveMatch);
+
+        stubWindow(liveTeamMatch, futureLeagueMatch, tooOldLeagueMatch, unrelatedLiveMatch, starredLiveMatch);
 
         Map<String, Object> result = controller.feedLiveSummary(auth);
 
@@ -654,9 +711,9 @@ class NotificationControllerTest {
         live.getGoalTimeline().add(liveGoal(5, Half.FIRST, 1, 0));
         MatchDto upcoming = feedMatch(teamId, LocalDateTime.now().plusDays(1));
         MatchDto recent = feedMatch(teamId, LocalDateTime.now().minusDays(2));
-        when(league.getMatches()).thenReturn(List.of(live, upcoming, recent));
         when(leagueService.findDetail(leagueId)).thenReturn(league);
-        when(matchFollowSupport.subscribedMatchIds(auth)).thenReturn(Set.of());
+        stubLeagueCard(leagueId, "Premier");
+        stubWindow(live, upcoming, recent);
 
         Model model = new ExtendedModelMap();
         assertThat(controller.feedPage(auth, model)).isEqualTo("feed");
@@ -727,12 +784,8 @@ class NotificationControllerTest {
 
         MatchDto match = feedMatch(UUID.randomUUID(), LocalDateTime.now().plusDays(1));
         match.setId(matchId);
-        LeagueDetailView league = org.mockito.Mockito.mock(LeagueDetailView.class);
-        when(league.getName()).thenReturn("Premier");
-        when(league.getStandings()).thenReturn(List.of());
-        when(league.getTeams()).thenReturn(List.of());
-        when(league.getMatches()).thenReturn(List.of(match));
-        when(leagueService.findDetail(leagueId)).thenReturn(league);
+        stubLeagueCard(leagueId, "Premier");
+        stubWindow(match);
         when(matchFollowSupport.subscribedMatchIds(auth)).thenReturn(Set.of(matchId));
 
         Model model = new ExtendedModelMap();
@@ -759,7 +812,7 @@ class NotificationControllerTest {
         starredUpcoming.setHomeTeamId(UUID.randomUUID());
         starredUpcoming.setAwayTeamId(UUID.randomUUID());
         starredUpcoming.setPlayedAt(LocalDateTime.now().plusDays(1));
-        when(matchService.findById(matchId)).thenReturn(starredUpcoming);
+        stubWindow(starredUpcoming);
         when(matchFollowSupport.subscribedMatchIds(auth)).thenReturn(Set.of(matchId));
 
         Model model = new ExtendedModelMap();
@@ -785,7 +838,7 @@ class NotificationControllerTest {
         starredRecent.setHomeTeamId(UUID.randomUUID());
         starredRecent.setAwayTeamId(UUID.randomUUID());
         starredRecent.setPlayedAt(LocalDateTime.now().minusDays(2));
-        when(matchService.findById(matchId)).thenReturn(starredRecent);
+        stubWindow(starredRecent);
         when(matchFollowSupport.subscribedMatchIds(auth)).thenReturn(Set.of(matchId));
 
         Model model = new ExtendedModelMap();
@@ -795,21 +848,122 @@ class NotificationControllerTest {
     }
 
     @Test
-    void feedPage_leagueLookupFails_usesFallbackView() {
+    void feedPage_leagueLookupFails_hidesCardButKeepsSubscription() {
         UUID userId = UUID.randomUUID();
         UUID leagueId = UUID.randomUUID();
+        UUID subscriptionId = UUID.randomUUID();
         Authentication auth = authFor("alice", userId);
         SubscriptionDto sub = new SubscriptionDto();
-        sub.setId(UUID.randomUUID());
+        sub.setId(subscriptionId);
         sub.setEntityType("LEAGUE");
         sub.setEntityId(leagueId);
         when(notificationClient.getSubscriptions(userId)).thenReturn(List.of(sub));
-        when(leagueService.findDetail(leagueId)).thenThrow(new RuntimeException("gone"));
+        when(leagueService.findById(leagueId)).thenThrow(new RuntimeException("gone"));
+        when(matchFollowSupport.subscribedMatchIds(auth)).thenReturn(Set.of());
+        Model model = new ExtendedModelMap();
+
+        assertThat(controller.feedPage(auth, model)).isEqualTo("feed");
+        assertThat((List<?>) model.getAttribute("leagueViews")).isEmpty();
+        verify(notificationClient, never()).unsubscribe(subscriptionId);
+    }
+
+    @Test
+    void feedPage_followedTeamWithoutLeague_isListedWithoutALeagueLookup() {
+        UUID userId = UUID.randomUUID();
+        UUID teamId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+        SubscriptionDto teamSub = new SubscriptionDto();
+        teamSub.setId(UUID.randomUUID());
+        teamSub.setEntityType("TEAM");
+        teamSub.setEntityId(teamId);
+        when(notificationClient.getSubscriptions(userId)).thenReturn(List.of(teamSub));
+        TeamDto team = new TeamDto();
+        team.setId(teamId);
+        team.setName("Domati");
+        team.setCity("Sofia");
+        team.setLeagueId(null);
+        when(teamService.findById(teamId)).thenReturn(team);
+        when(matchFollowSupport.subscribedMatchIds(auth)).thenReturn(Set.of());
+        Model model = new ExtendedModelMap();
+
+        assertThat(controller.feedPage(auth, model)).isEqualTo("feed");
+        assertThat((List<?>) model.getAttribute("teamViews")).hasSize(1);
+        verify(leagueService, never()).findDetail(any());
+    }
+
+    @Test
+    void feedPage_oneDeletedAndOneLiveLeague_keepsOnlyTheLiveOne() {
+        UUID userId = UUID.randomUUID();
+        UUID deletedLeagueId = UUID.randomUUID();
+        UUID liveLeagueId = UUID.randomUUID();
+        UUID deletedSubId = UUID.randomUUID();
+        UUID liveSubId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+
+        SubscriptionDto deleted = new SubscriptionDto();
+        deleted.setId(deletedSubId);
+        deleted.setEntityType("LEAGUE");
+        deleted.setEntityId(deletedLeagueId);
+
+        SubscriptionDto live = new SubscriptionDto();
+        live.setId(liveSubId);
+        live.setEntityType("LEAGUE");
+        live.setEntityId(liveLeagueId);
+
+        when(notificationClient.getSubscriptions(userId)).thenReturn(List.of(deleted, live));
+        when(leagueService.findById(deletedLeagueId))
+                .thenThrow(new com.kickoffsim.exception.EntityNotFoundException("deleted"));
+        stubLeagueCard(liveLeagueId, "Banitsa Cup");
         when(matchFollowSupport.subscribedMatchIds(auth)).thenReturn(Set.of());
         Model model = new ExtendedModelMap();
 
         assertThat(controller.feedPage(auth, model)).isEqualTo("feed");
         assertThat((List<?>) model.getAttribute("leagueViews")).hasSize(1);
+        verify(notificationClient).unsubscribe(deletedSubId);
+        verify(notificationClient, never()).unsubscribe(liveSubId);
+    }
+
+    @Test
+    void feedPage_unsubscribeFails_stillRendersTheFeed() {
+        UUID userId = UUID.randomUUID();
+        UUID leagueId = UUID.randomUUID();
+        UUID subscriptionId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+        SubscriptionDto sub = new SubscriptionDto();
+        sub.setId(subscriptionId);
+        sub.setEntityType("LEAGUE");
+        sub.setEntityId(leagueId);
+        when(notificationClient.getSubscriptions(userId)).thenReturn(List.of(sub));
+        when(leagueService.findById(leagueId))
+                .thenThrow(new com.kickoffsim.exception.EntityNotFoundException("deleted"));
+        doThrow(new IllegalStateException("service down"))
+                .when(notificationClient).unsubscribe(subscriptionId);
+        when(matchFollowSupport.subscribedMatchIds(auth)).thenReturn(Set.of());
+        Model model = new ExtendedModelMap();
+
+        assertThat(controller.feedPage(auth, model)).isEqualTo("feed");
+        assertThat((List<?>) model.getAttribute("leagueViews")).isEmpty();
+    }
+
+    @Test
+    void feedPage_deletedLeague_dropsTheSubscription() {
+        UUID userId = UUID.randomUUID();
+        UUID leagueId = UUID.randomUUID();
+        UUID subscriptionId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+        SubscriptionDto sub = new SubscriptionDto();
+        sub.setId(subscriptionId);
+        sub.setEntityType("LEAGUE");
+        sub.setEntityId(leagueId);
+        when(notificationClient.getSubscriptions(userId)).thenReturn(List.of(sub));
+        when(leagueService.findById(leagueId))
+                .thenThrow(new com.kickoffsim.exception.EntityNotFoundException("deleted"));
+        when(matchFollowSupport.subscribedMatchIds(auth)).thenReturn(Set.of());
+        Model model = new ExtendedModelMap();
+
+        assertThat(controller.feedPage(auth, model)).isEqualTo("feed");
+        assertThat((List<?>) model.getAttribute("leagueViews")).isEmpty();
+        verify(notificationClient).unsubscribe(subscriptionId);
     }
 
     @Test
@@ -829,7 +983,7 @@ class NotificationControllerTest {
         starredLive.setHomeTeamId(UUID.randomUUID());
         starredLive.setAwayTeamId(UUID.randomUUID());
         starredLive.setPlayedAt(LocalDateTime.now().minusMinutes(10));
-        when(matchService.findById(matchId)).thenReturn(starredLive);
+        stubWindow(starredLive);
         when(matchFollowSupport.subscribedMatchIds(auth)).thenReturn(Set.of(matchId));
 
         Model model = new ExtendedModelMap();
@@ -1033,16 +1187,18 @@ class NotificationControllerTest {
         when(league.getTeams()).thenReturn(List.of(team));
         MatchDto live = feedMatch(teamId, LocalDateTime.now().minusMinutes(30));
         live.getGoalTimeline().add(new GoalDto());
-        when(league.getMatches()).thenReturn(List.of(live));
         when(leagueService.findDetail(leagueId)).thenReturn(league);
+        stubWindow(live);
         when(matchFollowSupport.subscribedMatchIds(auth)).thenReturn(Set.of());
 
         Model model = new ExtendedModelMap();
         assertThat(controller.feedPage(auth, model)).isEqualTo("feed");
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> liveMatchesForJs = (List<Map<String, Object>>) model.getAttribute("liveMatchesForJs");
+        org.junit.jupiter.api.Assertions.assertNotNull(liveMatchesForJs);
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> goals = (List<Map<String, Object>>) liveMatchesForJs.get(0).get("goals");
+        org.junit.jupiter.api.Assertions.assertNotNull(goals);
         assertThat(goals.get(0).get("minute")).isEqualTo(0);
         assertThat(goals.get(0).get("half")).isEqualTo("FIRST");
         assertThat(goals.get(0).get("rh")).isEqualTo(0);
@@ -1086,6 +1242,8 @@ class NotificationControllerTest {
         when(league.getMatches()).thenReturn(List.of(liveHome, liveAway, liveNeither,
                 upcomingHome, upcomingAway, upcomingNeither, recentHome, recentAway, recentNeither, tooOld));
         when(leagueService.findDetail(leagueId)).thenReturn(league);
+        stubWindow(liveHome, liveAway, liveNeither,
+                upcomingHome, upcomingAway, upcomingNeither, recentHome, recentAway, recentNeither, tooOld);
         when(matchFollowSupport.subscribedMatchIds(auth)).thenReturn(Set.of());
 
         Model model = new ExtendedModelMap();
@@ -1097,6 +1255,7 @@ class NotificationControllerTest {
         @SuppressWarnings("unchecked")
         List<NotificationController.SubscriptionView> teamViews =
                 (List<NotificationController.SubscriptionView>) model.getAttribute("teamViews");
+        org.junit.jupiter.api.Assertions.assertNotNull(teamViews);
         assertThat(teamViews.get(0).remainingMatches()).isEqualTo(2);
     }
 

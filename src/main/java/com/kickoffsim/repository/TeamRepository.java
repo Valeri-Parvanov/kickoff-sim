@@ -2,6 +2,7 @@ package com.kickoffsim.repository;
 
 import com.kickoffsim.model.League;
 import com.kickoffsim.model.Team;
+import org.jspecify.annotations.NonNull;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -10,16 +11,20 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Collection;
 import java.util.UUID;
 
 public interface TeamRepository extends JpaRepository<Team, UUID> {
 
     @Override
     @EntityGraph(attributePaths = "league")
-    List<Team> findAll(Sort sort);
+    @NonNull List<Team> findAll(@NonNull Sort sort);
 
     @EntityGraph(attributePaths = "league")
     List<Team> findAllByLeague(League league);
+
+    @EntityGraph(attributePaths = "league")
+    List<Team> findAllByIdIn(Collection<UUID> ids);
 
     boolean existsByName(String name);
 

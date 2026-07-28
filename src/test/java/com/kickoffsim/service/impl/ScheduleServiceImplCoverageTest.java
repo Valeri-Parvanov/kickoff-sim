@@ -44,6 +44,7 @@ class ScheduleServiceImplCoverageTest {
     @Mock private PlayerRepository playerRepository;
     @Mock private GoalRepository goalRepository;
     @Mock private NotificationClient notificationClient;
+    @Mock private org.springframework.cache.CacheManager cacheManager;
 
     @InjectMocks private ScheduleServiceImpl service;
 
@@ -206,7 +207,6 @@ class ScheduleServiceImplCoverageTest {
         match.setAwayTeam(away);
         match.setPlayedAt(LocalDateTime.now().minusMinutes(10));
 
-        // 10 minutes have elapsed since kickoff: a goal at minute 8 has already happened.
         Goal pastGoal = new Goal();
         pastGoal.setId(UUID.randomUUID());
         pastGoal.setMatch(match);
@@ -214,7 +214,6 @@ class ScheduleServiceImplCoverageTest {
         pastGoal.setHalf(Half.FIRST);
         pastGoal.setMinute(8);
 
-        // A goal at minute 15 is still 4 minutes in the future and must not be spoiled yet.
         Goal futureGoal = new Goal();
         futureGoal.setId(UUID.randomUUID());
         futureGoal.setMatch(match);

@@ -6,6 +6,8 @@ import com.kickoffsim.dto.MatchDto;
 import org.springframework.data.domain.Sort;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -40,4 +42,15 @@ public interface MatchService {
     List<MatchDto> findByDate(LocalDate date);
 
     List<String> findAllMatchUtcIsos();
+
+    List<MatchDto> findInWindow(LocalDateTime from, LocalDateTime to, boolean includeGoals);
+
+    List<MatchDto> findFollowedInWindow(
+            LocalDateTime from,
+            LocalDateTime to,
+            Collection<UUID> teamIds,
+            Collection<UUID> matchIds,
+            boolean includeGoals);
+
+    List<LocalDateTime> findPlayedAtTimes(UUID leagueId, UUID teamId);
 }

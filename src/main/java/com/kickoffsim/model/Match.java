@@ -14,7 +14,11 @@ import java.util.UUID;
 @Getter
 @Setter
 @Entity
-@Table(name = "matches", indexes = @Index(columnList = "playedAt"))
+@Table(name = "matches", indexes = {
+        @Index(name = "idx_matches_played_at", columnList = "played_at"),
+        @Index(name = "idx_matches_home_played_at", columnList = "home_team_id, played_at"),
+        @Index(name = "idx_matches_away_played_at", columnList = "away_team_id, played_at")
+})
 public class Match {
 
     @Id
@@ -36,7 +40,7 @@ public class Match {
     private Integer awayScore;
 
     @NotNull
-    @Column(nullable = false)
+    @Column(name = "played_at", nullable = false)
     private LocalDateTime playedAt;
 
     private Integer roundNumber;

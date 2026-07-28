@@ -2,6 +2,7 @@ package com.kickoffsim.repository;
 
 import com.kickoffsim.model.Player;
 import com.kickoffsim.model.Team;
+import org.jspecify.annotations.NonNull;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -17,7 +18,7 @@ public interface PlayerRepository extends JpaRepository<Player, UUID> {
 
     @Override
     @EntityGraph(attributePaths = "team")
-    List<Player> findAll(Sort sort);
+    @NonNull List<Player> findAll(@NonNull Sort sort);
 
     @EntityGraph(attributePaths = "team")
     List<Player> findAllByTeam(Team team);

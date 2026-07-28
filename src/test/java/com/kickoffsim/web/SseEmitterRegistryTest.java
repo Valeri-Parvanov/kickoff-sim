@@ -20,6 +20,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 class SseEmitterRegistryTest {
@@ -59,8 +60,6 @@ class SseEmitterRegistryTest {
     @Test
     @SuppressWarnings("unchecked")
     void push_userHasEmptyEmitterList_isNoOp() throws Exception {
-        // Simulates the narrow race window in register() between the list being
-        // created and the emitter actually being added to it.
         UUID userId = UUID.randomUUID();
         Field field = SseEmitterRegistry.class.getDeclaredField("emittersByUser");
         field.setAccessible(true);
@@ -111,7 +110,6 @@ class SseEmitterRegistryTest {
 
         assertThatCode(() -> spyRegistry.push(List.of(userId), "hi", "GOAL")).doesNotThrowAnyException();
 
-        // emitter removed after failure - a second push shouldn't try to send again
         spyRegistry.push(List.of(userId), "hi again", "GOAL");
         verify(mockEmitter, org.mockito.Mockito.times(1)).send(any(SseEmitter.SseEventBuilder.class));
     }
@@ -131,7 +129,6 @@ class SseEmitterRegistryTest {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     void onCompletion_removesEmitter() throws IOException {
         SseEmitterRegistry spyRegistry = spy(new SseEmitterRegistry());
         SseEmitter mockEmitter = mock(SseEmitter.class);
@@ -149,7 +146,6 @@ class SseEmitterRegistryTest {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     void onCompletion_calledTwice_secondCallIsNoOp() {
         SseEmitterRegistry spyRegistry = spy(new SseEmitterRegistry());
         SseEmitter mockEmitter = mock(SseEmitter.class);
@@ -166,7 +162,6 @@ class SseEmitterRegistryTest {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     void onTimeout_removesEmitter() throws IOException {
         SseEmitterRegistry spyRegistry = spy(new SseEmitterRegistry());
         SseEmitter mockEmitter = mock(SseEmitter.class);
@@ -219,6 +214,25 @@ class SseEmitterRegistryTest {
         spyRegistry.push(List.of(userId), "hi", "GOAL");
         verify(mockEmitterA, never()).send(any(SseEmitter.SseEventBuilder.class));
         verify(mockEmitterB).send(any(SseEmitter.SseEventBuilder.class));
+    }
+
+    @Test
+    void push_completeAlsoFails_stillDropsEmitterWithoutPropagating() throws IOException {
+        SseEmitterRegistry spyRegistry = spy(new SseEmitterRegistry());
+        SseEmitter mockEmitter = mock(SseEmitter.class);
+        doReturn(mockEmitter).when(spyRegistry).createEmitter();
+        doThrow(new IllegalStateException("broken pipe"))
+                .when(mockEmitter).send(any(SseEmitter.SseEventBuilder.class));
+        doThrow(new IllegalStateException("already completed")).when(mockEmitter).complete();
+
+        UUID userId = UUID.randomUUID();
+        spyRegistry.register(userId);
+
+        spyRegistry.push(List.of(userId), "hi", "GOAL");
+
+        verify(mockEmitter).complete();
+        spyRegistry.push(List.of(userId), "again", "GOAL");
+        verify(mockEmitter, times(1)).send(any(SseEmitter.SseEventBuilder.class));
     }
 
     @Test

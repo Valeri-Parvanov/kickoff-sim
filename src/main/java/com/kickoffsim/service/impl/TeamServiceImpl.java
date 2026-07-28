@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -102,6 +103,16 @@ public class TeamServiceImpl implements TeamService {
     @Override
     public TeamDto findById(UUID id) {
         return toDto(getTeamOrThrow(id));
+    }
+
+    @Override
+    public List<TeamDto> findAllByIds(Collection<UUID> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return teamRepository.findAllByIdIn(ids).stream()
+                .map(team -> toDto(team, 0))
+                .toList();
     }
 
     @Override

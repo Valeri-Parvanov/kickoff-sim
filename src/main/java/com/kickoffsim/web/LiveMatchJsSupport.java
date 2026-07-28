@@ -4,6 +4,7 @@ import com.kickoffsim.dto.MatchDto;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -30,12 +31,14 @@ public final class LiveMatchJsSupport {
                         "rh", g.getRunningHomeScore() != null ? g.getRunningHomeScore() : 0,
                         "ra", g.getRunningAwayScore() != null ? g.getRunningAwayScore() : 0))
                 .toList();
-        return Map.<String, Object>of(
+        return Map.of(
                 "id", match.getId().toString(),
                 "homeTeamId", match.getHomeTeamId().toString(),
                 "awayTeamId", match.getAwayTeamId().toString(),
                 "elapsedMin", Duration.between(match.getPlayedAt(), now).toMinutes(),
                 "elapsedSec", Duration.between(match.getPlayedAt(), now).getSeconds(),
+                "playedAtEpochMs", match.getPlayedAt()
+                        .atZone(ZoneId.of("Europe/Sofia")).toInstant().toEpochMilli(),
                 "goals", goals);
     }
 

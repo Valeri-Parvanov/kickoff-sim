@@ -25,7 +25,6 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
 import org.springframework.ui.ExtendedModelMap;
 import org.springframework.ui.Model;
@@ -46,6 +45,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -70,6 +70,15 @@ class MatchControllerTest {
 
     private final Authentication auth = mock(Authentication.class);
 
+    private void stubMatches(List<MatchDto> matches) {
+        when(matchService.findInWindow(any(), any(), anyBoolean())).thenReturn(matches);
+        when(matchService.findPlayedAtTimes(any(), any()))
+                .thenReturn(matches.stream()
+                        .map(MatchDto::getPlayedAt)
+                        .sorted()
+                        .toList());
+    }
+
     private MatchDto matchWithTeams() {
         MatchDto m = new MatchDto();
         m.setId(UUID.randomUUID());
@@ -93,9 +102,8 @@ class MatchControllerTest {
     void list_noFilters_returnsView() {
         when(viewerZone.resolve(any())).thenReturn(ZoneId.of("Europe/Sofia"));
         when(viewerZone.today(any())).thenReturn(LocalDate.now());
-        when(matchService.findAll(any(Sort.class))).thenReturn(List.of());
-        when(matchService.findAllMatchUtcIsos()).thenReturn(List.of());
-        when(leagueService.findAll()).thenReturn(List.of());
+        stubMatches(List.of());
+        when(leagueService.findAllOptions()).thenReturn(List.of());
         when(matchFollowSupport.subscribedMatchIds(any())).thenReturn(Set.of());
         HttpServletRequest request = mock(HttpServletRequest.class);
         when(request.getQueryString()).thenReturn(null);
@@ -125,9 +133,8 @@ class MatchControllerTest {
         g.setRunningAwayScore(0);
         live.getGoalTimeline().add(g);
 
-        when(matchService.findAll(any(Sort.class))).thenReturn(List.of(live));
-        when(matchService.findAllMatchUtcIsos()).thenReturn(List.of());
-        when(leagueService.findAll()).thenReturn(List.of());
+        stubMatches(List.of(live));
+        when(leagueService.findAllOptions()).thenReturn(List.of());
         when(matchFollowSupport.subscribedMatchIds(any())).thenReturn(Set.of());
         HttpServletRequest request = mock(HttpServletRequest.class);
         when(request.getQueryString()).thenReturn(null);
@@ -165,9 +172,8 @@ class MatchControllerTest {
         live.setPlayedAt(LocalDateTime.now().minusMinutes(20));
         live.getGoalTimeline().add(new GoalDto());
 
-        when(matchService.findAll(any(Sort.class))).thenReturn(List.of(live));
-        when(matchService.findAllMatchUtcIsos()).thenReturn(List.of());
-        when(leagueService.findAll()).thenReturn(List.of());
+        stubMatches(List.of(live));
+        when(leagueService.findAllOptions()).thenReturn(List.of());
         when(matchFollowSupport.subscribedMatchIds(any())).thenReturn(Set.of());
         HttpServletRequest request = mock(HttpServletRequest.class);
         when(request.getQueryString()).thenReturn(null);
@@ -177,8 +183,10 @@ class MatchControllerTest {
         assertThat(controller.list(null, null, null, auth, request, model)).isEqualTo("matches/list");
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> liveMatchesForJs = (List<Map<String, Object>>) model.getAttribute("liveMatchesForJs");
+        org.junit.jupiter.api.Assertions.assertNotNull(liveMatchesForJs);
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> goals = (List<Map<String, Object>>) liveMatchesForJs.get(0).get("goals");
+        org.junit.jupiter.api.Assertions.assertNotNull(goals);
         assertThat(goals.get(0).get("minute")).isEqualTo(0);
         assertThat(goals.get(0).get("half")).isEqualTo("FIRST");
         assertThat(goals.get(0).get("rh")).isEqualTo(0);
@@ -364,9 +372,8 @@ class MatchControllerTest {
         live.setPlayedAt(LocalDateTime.now().minusMinutes(30));
         MatchDto upcoming = matchWithTeams();
         upcoming.setPlayedAt(LocalDateTime.now().plusHours(1));
-        when(matchService.findAll(any(Sort.class))).thenReturn(List.of(past, live, upcoming));
-        when(matchService.findAllMatchUtcIsos()).thenReturn(List.of());
-        when(leagueService.findAll()).thenReturn(List.of());
+        stubMatches(List.of(past, live, upcoming));
+        when(leagueService.findAllOptions()).thenReturn(List.of());
         when(matchFollowSupport.subscribedMatchIds(any())).thenReturn(Set.of());
         HttpServletRequest request = mock(HttpServletRequest.class);
         when(request.getQueryString()).thenReturn(null);
@@ -378,29 +385,102 @@ class MatchControllerTest {
     }
 
     @Test
-    void list_withDateFilter_upcomingMatchWithForecast_populatesWeatherByMatchId() {
+    void weather_returnsForecastAtKickoffHour() {
+        MatchDto match = matchWithTeams();
+        match.setHomeTeamCity("Sofia");
+        match.setPlayedAt(LocalDateTime.now().plusHours(1));
+        WeatherForecastDto forecast = new WeatherForecastDto(match.getPlayedAt(), 20.5, 30);
+        when(matchService.findById(match.getId())).thenReturn(match);
+        when(weatherService.forecastFor(eq("Sofia"), any())).thenReturn(Optional.of(forecast));
+
+        Map<String, Object> body = controller.weather(match.getId());
+
+        assertThat(body).containsEntry("city", "Sofia");
+        assertThat(body).containsEntry("tempC", 20.5);
+        assertThat(body).containsEntry("precipitationProbability", 30);
+    }
+
+    @Test
+    void weather_returnsEmptyBody_whenForecastUnavailable() {
+        MatchDto match = matchWithTeams();
+        match.setHomeTeamCity("Sofia");
+        match.setPlayedAt(LocalDateTime.now().plusHours(1));
+        when(matchService.findById(match.getId())).thenReturn(match);
+        when(weatherService.forecastFor(eq("Sofia"), any())).thenReturn(Optional.empty());
+
+        assertThat(controller.weather(match.getId())).isEmpty();
+    }
+
+    @Test
+    void list_withLeagueFilter_sortsUpcomingSoonestFirst() {
+        UUID leagueId = UUID.randomUUID();
         when(viewerZone.resolve(any())).thenReturn(ZoneId.of("Europe/Sofia"));
         when(viewerZone.today(any())).thenReturn(LocalDate.now());
         when(viewerZone.dateOf(any(), any())).thenReturn(LocalDate.now());
-        MatchDto upcoming = matchWithTeams();
-        upcoming.setHomeTeamCity("Sofia");
-        upcoming.setPlayedAt(LocalDateTime.now().plusHours(1));
-        WeatherForecastDto forecast = new WeatherForecastDto(LocalDate.now(), 20.0, 10.0, 30);
-        when(weatherService.forecastFor(eq("Sofia"), any())).thenReturn(Optional.of(forecast));
-        when(matchService.findAll(any(Sort.class))).thenReturn(List.of(upcoming));
-        when(matchService.findAllMatchUtcIsos()).thenReturn(List.of());
-        when(leagueService.findAll()).thenReturn(List.of());
+        MatchDto later = matchWithTeams();
+        later.setLeagueId(leagueId);
+        later.setPlayedAt(LocalDateTime.now().plusHours(5));
+        MatchDto sooner = matchWithTeams();
+        sooner.setLeagueId(leagueId);
+        sooner.setPlayedAt(LocalDateTime.now().plusHours(1));
+        stubMatches(List.of(later, sooner));
+        when(leagueService.findAllOptions()).thenReturn(List.of());
         when(matchFollowSupport.subscribedMatchIds(any())).thenReturn(Set.of());
         HttpServletRequest request = mock(HttpServletRequest.class);
         when(request.getQueryString()).thenReturn(null);
         when(request.getRequestURI()).thenReturn("/matches");
         Model model = new ExtendedModelMap();
 
-        assertThat(controller.list(null, LocalDate.now(), null, auth, request, model)).isEqualTo("matches/list");
+        assertThat(controller.list(leagueId, null, null, auth, request, model)).isEqualTo("matches/list");
         @SuppressWarnings("unchecked")
-        Map<UUID, WeatherForecastDto> weatherByMatchId =
-                (Map<UUID, WeatherForecastDto>) model.getAttribute("weatherByMatchId");
-        assertThat(weatherByMatchId).containsEntry(upcoming.getId(), forecast);
+        List<MatchDto> upcoming = (List<MatchDto>) model.getAttribute("upcomingMatches");
+        assertThat(upcoming).containsExactly(sooner, later);
+    }
+
+    @Test
+    void list_withLeagueFilter_excludesMatchesFromOtherLeagues() {
+        UUID leagueId = UUID.randomUUID();
+        when(viewerZone.resolve(any())).thenReturn(ZoneId.of("Europe/Sofia"));
+        when(viewerZone.today(any())).thenReturn(LocalDate.now());
+        when(viewerZone.dateOf(any(), any())).thenReturn(LocalDate.now());
+        MatchDto inLeague = matchWithTeams();
+        inLeague.setLeagueId(leagueId);
+        inLeague.setPlayedAt(LocalDateTime.now().plusHours(1));
+        MatchDto otherLeague = matchWithTeams();
+        otherLeague.setLeagueId(UUID.randomUUID());
+        otherLeague.setPlayedAt(LocalDateTime.now().plusHours(2));
+        stubMatches(List.of(inLeague, otherLeague));
+        when(leagueService.findAllOptions()).thenReturn(List.of());
+        when(matchFollowSupport.subscribedMatchIds(any())).thenReturn(Set.of());
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getQueryString()).thenReturn(null);
+        when(request.getRequestURI()).thenReturn("/matches");
+        Model model = new ExtendedModelMap();
+
+        assertThat(controller.list(leagueId, null, null, auth, request, model)).isEqualTo("matches/list");
+        @SuppressWarnings("unchecked")
+        List<MatchDto> upcoming = (List<MatchDto>) model.getAttribute("upcomingMatches");
+        assertThat(upcoming).containsExactly(inLeague);
+    }
+
+    @Test
+    void liveSummary_leagueFilter_excludesMatchesFromOtherLeagues() {
+        UUID leagueId = UUID.randomUUID();
+        MatchDto inLeague = matchWithTeams();
+        inLeague.setLeagueId(leagueId);
+        inLeague.setPlayedAt(LocalDateTime.now().minusMinutes(10));
+        MatchDto otherLeague = matchWithTeams();
+        otherLeague.setLeagueId(UUID.randomUUID());
+        otherLeague.setPlayedAt(LocalDateTime.now().minusMinutes(12));
+        stubMatches(List.of(inLeague, otherLeague));
+        when(matchFollowSupport.subscribedMatchIds(auth)).thenReturn(Set.of());
+
+        Map<String, Object> result = controller.liveSummary(leagueId, null, auth);
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> matches = (List<Map<String, Object>>) result.get("matches");
+        assertThat(matches).hasSize(1);
+        assertThat(matches.get(0).get("id")).isEqualTo(inLeague.getId().toString());
     }
 
     @Test
@@ -412,8 +492,9 @@ class MatchControllerTest {
         when(viewerZone.dateOf(any(), any())).thenReturn(LocalDate.now());
         MatchDto m = matchWithTeams();
         m.setHomeTeamId(teamId);
-        when(matchService.findByLeague(leagueId)).thenReturn(List.of(m));
-        when(leagueService.findAll()).thenReturn(List.of());
+        m.setLeagueId(leagueId);
+        stubMatches(List.of(m));
+        when(leagueService.findAllOptions()).thenReturn(List.of());
         when(matchFollowSupport.subscribedMatchIds(any())).thenReturn(Set.of());
         TeamDto t = new TeamDto();
         t.setId(teamId);
@@ -587,8 +668,10 @@ class MatchControllerTest {
         assertThat(controller.detail(id, model)).isEqualTo("matches/detail");
         @SuppressWarnings("unchecked")
         Map<String, Object> live = (Map<String, Object>) model.getAttribute("liveMatchForJs");
+        org.junit.jupiter.api.Assertions.assertNotNull(live);
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> goals = (List<Map<String, Object>>) live.get("goals");
+        org.junit.jupiter.api.Assertions.assertNotNull(goals);
         assertThat(goals.get(0).get("minute")).isEqualTo(0);
         assertThat(goals.get(0).get("half")).isEqualTo("FIRST");
         assertThat(goals.get(0).get("rh")).isEqualTo(0);
@@ -614,8 +697,10 @@ class MatchControllerTest {
         MatchDto mNeither = matchWithTeams();
         mNeither.setPlayedAt(LocalDateTime.now().plusDays(12));
 
-        when(matchService.findAll(any(Sort.class))).thenReturn(List.of(mHome, mAway, mNeither));
-        when(leagueService.findAll()).thenReturn(List.of());
+        stubMatches(List.of(mHome, mAway, mNeither));
+        when(matchService.findPlayedAtTimes(null, team))
+                .thenReturn(List.of(mHome.getPlayedAt(), mAway.getPlayedAt()));
+        when(leagueService.findAllOptions()).thenReturn(List.of());
         when(matchFollowSupport.subscribedMatchIds(any())).thenReturn(Set.of());
         TeamDto t = new TeamDto();
         t.setId(team);
@@ -631,15 +716,15 @@ class MatchControllerTest {
     }
 
     @Test
-    void list_teamOnlyFilter_noCityNoLeague_computesUtcIsosFromFiltered() {
+    void list_teamOnlyFilter_noCityNoLeague_computesCalendarDatesFromFiltered() {
         UUID team = UUID.randomUUID();
         when(viewerZone.resolve(any())).thenReturn(ZoneId.of("Europe/Sofia"));
         when(viewerZone.today(any())).thenReturn(LocalDate.now());
         when(viewerZone.dateOf(any(), any())).thenReturn(LocalDate.now());
         MatchDto m = matchWithTeams();
         m.setHomeTeamId(team);
-        when(matchService.findAll(any(Sort.class))).thenReturn(List.of(m));
-        when(leagueService.findAll()).thenReturn(List.of());
+        stubMatches(List.of(m));
+        when(leagueService.findAllOptions()).thenReturn(List.of());
         when(matchFollowSupport.subscribedMatchIds(any())).thenReturn(Set.of());
         TeamDto t = new TeamDto();
         t.setId(team);
@@ -655,7 +740,7 @@ class MatchControllerTest {
         assertThat(controller.list(null, null, team, auth, request, model)).isEqualTo("matches/list");
         assertThat(model.getAttribute("selectedTeamName")).isEqualTo("NoCity");
         assertThat(model.getAttribute("teamStandings")).isNull();
-        assertThat((List<?>) model.getAttribute("allMatchUtcIsos")).hasSize(1);
+        assertThat((List<?>) model.getAttribute("matchDateStrings")).hasSize(1);
     }
 
     @Test
@@ -674,10 +759,8 @@ class MatchControllerTest {
         MatchDto pastOtherDay = matchWithTeams();
         pastOtherDay.setPlayedAt(LocalDateTime.now().minusDays(3));
 
-        when(matchService.findAll(any(Sort.class)))
-                .thenReturn(List.of(longAgoToday, liveNow, future, pastOtherDay));
-        when(matchService.findAllMatchUtcIsos()).thenReturn(List.of());
-        when(leagueService.findAll()).thenReturn(List.of());
+        stubMatches(List.of(longAgoToday, liveNow, future, pastOtherDay));
+        when(leagueService.findAllOptions()).thenReturn(List.of());
         when(matchFollowSupport.subscribedMatchIds(any())).thenReturn(Set.of());
         HttpServletRequest request = mock(HttpServletRequest.class);
         when(request.getQueryString()).thenReturn(null);
@@ -715,10 +798,8 @@ class MatchControllerTest {
         MatchDto otherDay = matchWithTeams();
         otherDay.setPlayedAt(anchor.minusDays(5));
 
-        when(matchService.findAll(any(Sort.class)))
-                .thenReturn(List.of(live, recent1, recent2, upcoming1, upcoming2, otherDay));
-        when(matchService.findAllMatchUtcIsos()).thenReturn(List.of());
-        when(leagueService.findAll()).thenReturn(List.of());
+        stubMatches(List.of(live, recent1, recent2, upcoming1, upcoming2, otherDay));
+        when(leagueService.findAllOptions()).thenReturn(List.of());
         when(matchFollowSupport.subscribedMatchIds(any())).thenReturn(Set.of());
         HttpServletRequest request = mock(HttpServletRequest.class);
         when(request.getQueryString()).thenReturn(null);
@@ -863,6 +944,7 @@ class MatchControllerTest {
 
         assertThat(controller.editGoalForm(id, goalId, model)).isEqualTo("matches/goals/edit");
         GoalEventDto form = (GoalEventDto) model.getAttribute("goalEventDto");
+        org.junit.jupiter.api.Assertions.assertNotNull(form);
         assertThat(form.getMinute()).isNull();
     }
 
@@ -880,12 +962,13 @@ class MatchControllerTest {
 
         assertThat(controller.editGoalForm(id, goalId, model)).isEqualTo("matches/goals/edit");
         GoalEventDto form = (GoalEventDto) model.getAttribute("goalEventDto");
+        org.junit.jupiter.api.Assertions.assertNotNull(form);
         assertThat(form.getMinute()).isNull();
     }
 
     @Test
     void liveSummary_noFilters_noLiveMatches_returnsEmpty() {
-        when(matchService.findAll(any(Sort.class))).thenReturn(List.of());
+        stubMatches(List.of());
         when(matchFollowSupport.subscribedMatchIds(auth)).thenReturn(Set.of());
 
         Map<String, Object> result = controller.liveSummary(null, null, auth);
@@ -907,7 +990,7 @@ class MatchControllerTest {
         live.setHomeTeamCity("HCity");
         live.setAwayTeamName("Away");
         live.setAwayTeamCity("ACity");
-        when(matchService.findByLeague(leagueId)).thenReturn(List.of(live));
+        stubMatches(List.of(live));
         when(matchFollowSupport.subscribedMatchIds(auth)).thenReturn(Set.of(live.getId()));
 
         Map<String, Object> result = controller.liveSummary(leagueId, null, auth);
@@ -940,8 +1023,7 @@ class MatchControllerTest {
         future.setHomeTeamId(team);
         future.setPlayedAt(LocalDateTime.now().plusHours(1));
 
-        when(matchService.findAll(any(Sort.class)))
-                .thenReturn(List.of(liveHome, liveAway, notTeam, tooOld, future));
+        stubMatches(List.of(liveHome, liveAway, notTeam, tooOld, future));
         when(matchFollowSupport.subscribedMatchIds(auth)).thenReturn(Set.of());
 
         Map<String, Object> result = controller.liveSummary(null, team, auth);
@@ -957,7 +1039,7 @@ class MatchControllerTest {
         MatchDto live = matchWithTeams();
         live.setPlayedAt(LocalDateTime.now().minusMinutes(10));
         live.setLeagueId(null);
-        when(matchService.findAll(any(Sort.class))).thenReturn(List.of(live));
+        stubMatches(List.of(live));
         when(matchFollowSupport.subscribedMatchIds(auth)).thenReturn(Set.of());
 
         Map<String, Object> result = controller.liveSummary(null, null, auth);
@@ -983,6 +1065,7 @@ class MatchControllerTest {
 
         assertThat(controller.editGoalForm(id, goalId, model)).isEqualTo("matches/goals/edit");
         GoalEventDto form = (GoalEventDto) model.getAttribute("goalEventDto");
+        org.junit.jupiter.api.Assertions.assertNotNull(form);
         assertThat(form.getMinute()).isEqualTo(30);
     }
 }

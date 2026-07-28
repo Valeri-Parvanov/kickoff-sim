@@ -11,6 +11,8 @@ public interface LeagueService {
 
     List<LeagueDto> findAll();
 
+    List<LeagueDto> findAllOptions();
+
     List<LeagueDto> findAll(Sort sort);
 
     LeagueDto findById(UUID id);

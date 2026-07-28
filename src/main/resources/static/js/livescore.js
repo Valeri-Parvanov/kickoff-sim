@@ -1,6 +1,9 @@
 var PAGE_LOAD_TIME = Date.now();
 
 function elapsedMinutesNow(lm) {
+    if (lm.playedAtEpochMs != null) {
+        return ((Date.now() - lm.playedAtEpochMs) / 1000) / 60;
+    }
     var baseSec = (lm.elapsedSec != null) ? lm.elapsedSec : lm.elapsedMin * 60;
     var capturedAt = lm.capturedAt != null ? lm.capturedAt : PAGE_LOAD_TIME;
     return (baseSec + (Date.now() - capturedAt) / 1000) / 60;
@@ -94,8 +97,8 @@ function updateLiveMinutes() {
             if (minEl.textContent !== state.displayMin) minEl.textContent = state.displayMin;
             var hsEl = el.querySelector('.ls-h');
             var asEl = el.querySelector('.ls-a');
-            if (hsEl && hsEl.textContent != state.homeScore) hsEl.textContent = state.homeScore;
-            if (asEl && asEl.textContent != state.awayScore) asEl.textContent = state.awayScore;
+            if (hsEl && hsEl.textContent !== String(state.homeScore)) hsEl.textContent = state.homeScore;
+            if (asEl && asEl.textContent !== String(state.awayScore)) asEl.textContent = state.awayScore;
             updateScoringDots(el, realMinFloat * 60, lm.goals);
 
             var details = el.closest('details');
@@ -176,9 +179,9 @@ function setupMatchPager(listId, pagerId, pageSize) {
         var info = document.createElement('span');
         info.className = 'notif-page-info';
         info.textContent = i18n.page
-            .replace('{0}', current + 1)
-            .replace('{1}', totalPages)
-            .replace('{2}', items.length);
+            .replace('{0}', String(current + 1))
+            .replace('{1}', String(totalPages))
+            .replace('{2}', String(items.length));
 
         var next = document.createElement(current + 1 < totalPages ? 'button' : 'span');
         next.className = 'notif-page-btn' + (current + 1 < totalPages ? '' : ' disabled');

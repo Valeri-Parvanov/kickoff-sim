@@ -9,7 +9,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @Entity
-@Table(name = "goals")
+@Table(name = "goals", indexes = @Index(name = "idx_goals_match_id", columnList = "match_id"))
 public class Goal {
 
     @Id

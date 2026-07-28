@@ -15,7 +15,6 @@ import com.kickoffsim.web.ViewerZone;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -35,11 +34,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 @Controller
 @RequiredArgsConstructor
 @RequestMapping("/matches")
 public class MatchController {
+
+    private static final int UPCOMING_HORIZON_DAYS = 7;
 
     private final MatchService matchService;
     private final TeamService teamService;
@@ -64,8 +66,23 @@ public class MatchController {
             model.addAttribute("liveMatchForJs", LiveMatchJsSupport.toJsEntry(match, now));
         }
         model.addAttribute("weatherForecast",
-                weatherService.forecastFor(match.getHomeTeamCity(), match.getPlayedAt().toLocalDate()));
+                weatherService.forecastFor(match.getHomeTeamCity(), match.getPlayedAt()));
         return "matches/detail";
+    }
+
+    @GetMapping("/{id}/weather")
+    @ResponseBody
+    public Map<String, Object> weather(@PathVariable UUID id) {
+        MatchDto match = matchService.findById(id);
+        return weatherService.forecastFor(match.getHomeTeamCity(), match.getPlayedAt())
+                .map(w -> {
+                    Map<String, Object> body = new LinkedHashMap<>();
+                    body.put("city", match.getHomeTeamCity());
+                    body.put("tempC", w.getTempC());
+                    body.put("precipitationProbability", w.getPrecipitationProbability());
+                    return body;
+                })
+                .orElseGet(Map::of);
     }
 
     @GetMapping
@@ -83,58 +100,51 @@ public class MatchController {
         List<MatchDto> dateMatches = null;
         List<MatchDto> recentMatches = List.of();
         List<MatchDto> upcomingMatches = List.of();
-        LocalDate selectedDate = date;
 
-        List<MatchDto> allFiltered = league != null
-                ? matchService.findByLeague(league)
-                : matchService.findAll(Sort.by(Sort.Direction.ASC, "playedAt"));
-        if (team != null) {
-            final UUID t = team;
-            allFiltered = allFiltered.stream()
-                    .filter(m -> t.equals(m.getHomeTeamId()) || t.equals(m.getAwayTeamId()))
-                    .toList();
-        }
+        List<LocalDateTime> playedAtTimes = matchService.findPlayedAtTimes(league, team);
 
-        List<LocalDate> matchDates = allFiltered.stream()
-                .map(m -> viewerZone.dateOf(m.getPlayedAt(), vz))
+        List<LocalDate> matchDates = playedAtTimes.stream()
+                .map(t -> viewerZone.dateOf(t, vz))
                 .distinct()
                 .sorted()
                 .toList();
 
+        Predicate<MatchDto> selected = m ->
+                (league == null || league.equals(m.getLeagueId()))
+                        && (team == null
+                        || team.equals(m.getHomeTeamId()) || team.equals(m.getAwayTeamId()));
+
         if (date != null) {
             final LocalDate d = date;
             dateMatches = MatchStatusSupport.sortByStatus(
-                    allFiltered.stream()
+                    matchService.findInWindow(
+                                    d.minusDays(1).atStartOfDay(), d.plusDays(2).atStartOfDay(), true).stream()
+                            .filter(selected)
                             .filter(m -> viewerZone.dateOf(m.getPlayedAt(), vz).equals(d))
                             .toList(),
                     now, liveThreshold);
         } else {
-            recentMatches = allFiltered.stream()
+            recentMatches = matchService.findInWindow(
+                            today.minusDays(1).atStartOfDay(), now.plusSeconds(1), true).stream()
+                    .filter(selected)
                     .filter(m -> !m.getPlayedAt().isAfter(now)
                             && viewerZone.dateOf(m.getPlayedAt(), vz).equals(today))
                     .sorted(Comparator.comparing(MatchDto::getPlayedAt).reversed())
                     .toList();
-            upcomingMatches = allFiltered.stream()
+            upcomingMatches = matchService
+                    .findInWindow(now, now.plusDays(UPCOMING_HORIZON_DAYS), false).stream()
+                    .filter(selected)
                     .filter(m -> m.getPlayedAt().isAfter(now))
+                    .sorted(Comparator.comparing(MatchDto::getPlayedAt))
                     .toList();
         }
 
         List<String> matchDateStrings = matchDates.stream().map(LocalDate::toString).toList();
 
-        Map<UUID, WeatherForecastDto> weatherByMatchId = new LinkedHashMap<>();
-        if (dateMatches != null) {
-            for (MatchDto m : dateMatches) {
-                if (!m.getPlayedAt().isAfter(now)) continue;
-                weatherService.forecastFor(m.getHomeTeamCity(), m.getPlayedAt().toLocalDate())
-                        .ifPresent(w -> weatherByMatchId.put(m.getId(), w));
-            }
-        }
-
         model.addAttribute("upcomingMatches", upcomingMatches);
         model.addAttribute("recentMatches", recentMatches);
         model.addAttribute("dateMatches", dateMatches);
-        model.addAttribute("weatherByMatchId", weatherByMatchId);
-        model.addAttribute("leagues", leagueService.findAll());
+        model.addAttribute("leagues", leagueService.findAllOptions());
         model.addAttribute("matchDates", matchDates);
         model.addAttribute("matchDateStrings", matchDateStrings);
         if (!matchDates.isEmpty()) {
@@ -142,7 +152,7 @@ public class MatchController {
             model.addAttribute("lastMatchDate", matchDates.get(matchDates.size() - 1));
         }
         model.addAttribute("selectedLeague", league);
-        model.addAttribute("selectedDate", selectedDate);
+        model.addAttribute("selectedDate", date);
         model.addAttribute("selectedTeam", team);
         if (team != null) {
             TeamDto t = teamService.findById(team);
@@ -172,23 +182,14 @@ public class MatchController {
         model.addAttribute("liveThreshold", liveThreshold);
         model.addAttribute("today", today);
         model.addAttribute("todayStr", today.toString());
-        model.addAttribute("selectedDateStr", selectedDate != null ? selectedDate.toString() : "");
-        if (selectedDate != null) {
+        model.addAttribute("selectedDateStr", date != null ? date.toString() : "");
+        if (date != null) {
             model.addAttribute("selectedDateUtcNoon",
-                    selectedDate.atTime(12, 0)
+                    date.atTime(12, 0)
                             .atZone(ZoneId.of("Europe/Sofia"))
                             .toInstant()
                             .toString());
         }
-        List<String> allMatchUtcIsos;
-        if (league == null && team == null) {
-            allMatchUtcIsos = matchService.findAllMatchUtcIsos();
-        } else {
-            allMatchUtcIsos = allFiltered.stream()
-                    .map(m -> m.getPlayedAt().atZone(ZoneId.of("Europe/Sofia")).toInstant().toString())
-                    .toList();
-        }
-        model.addAttribute("allMatchUtcIsos", allMatchUtcIsos);
         model.addAttribute("subscribedMatchIds", matchFollowSupport.subscribedMatchIds(authentication));
         model.addAttribute("currentUrl", request.getQueryString() == null
                 ? request.getRequestURI()
@@ -204,17 +205,10 @@ public class MatchController {
         LocalDateTime now = LocalDateTime.now(clock);
         LocalDateTime liveThreshold = now.minusMinutes(46);
 
-        List<MatchDto> allFiltered = league != null
-                ? matchService.findByLeague(league)
-                : matchService.findAll(Sort.by(Sort.Direction.ASC, "playedAt"));
-        if (team != null) {
-            final UUID t = team;
-            allFiltered = allFiltered.stream()
-                    .filter(m -> t.equals(m.getHomeTeamId()) || t.equals(m.getAwayTeamId()))
-                    .toList();
-        }
-
-        List<MatchDto> live = allFiltered.stream()
+        List<MatchDto> live = matchService.findInWindow(liveThreshold, now, true).stream()
+                .filter(m -> (league == null || league.equals(m.getLeagueId()))
+                        && (team == null
+                        || team.equals(m.getHomeTeamId()) || team.equals(m.getAwayTeamId())))
                 .filter(m -> m.getPlayedAt().isBefore(now) && m.getPlayedAt().isAfter(liveThreshold))
                 .sorted(Comparator.comparing(MatchDto::getPlayedAt))
                 .toList();

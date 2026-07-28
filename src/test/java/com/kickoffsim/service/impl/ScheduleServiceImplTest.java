@@ -50,6 +50,7 @@ class ScheduleServiceImplTest {
     @Mock private PlayerRepository playerRepository;
     @Mock private GoalRepository goalRepository;
     @Mock private NotificationClient notificationClient;
+    @Mock private org.springframework.cache.CacheManager cacheManager;
 
     @InjectMocks
     private ScheduleServiceImpl scheduleService;
@@ -156,7 +157,6 @@ class ScheduleServiceImplTest {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
     void generate_leagueAndTeamFollowers_autoSubscribesToRelevantMatchesOnly() {
         UUID id = UUID.randomUUID();
         League league = leagueWith(id, 6);
@@ -314,6 +314,41 @@ class ScheduleServiceImplTest {
 
         verify(matchRepository, never()).save(any());
         verify(goalRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void simulatePastMatches_noCandidates_leavesLeagueCacheAlone() {
+        when(matchRepository.findGoallessBefore(any())).thenReturn(List.of());
+
+        scheduleService.simulatePastMatches();
+
+        verify(cacheManager, never()).getCache(any());
+    }
+
+    @Test
+    void simulatePastMatches_withCandidate_clearsLeagueCache() {
+        Match match = new Match();
+        match.setId(UUID.randomUUID());
+        Team home = new Team();
+        home.setId(UUID.randomUUID());
+        home.setName("Home");
+        Team away = new Team();
+        away.setId(UUID.randomUUID());
+        away.setName("Away");
+        match.setHomeTeam(home);
+        match.setAwayTeam(away);
+        match.setHomeScore(0);
+        match.setAwayScore(0);
+
+        when(matchRepository.findGoallessBefore(any())).thenReturn(List.of(match));
+        when(playerRepository.findAllByTeam(any())).thenReturn(List.of());
+        when(matchRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        org.springframework.cache.Cache leagues = org.mockito.Mockito.mock(org.springframework.cache.Cache.class);
+        when(cacheManager.getCache("leagues")).thenReturn(leagues);
+
+        scheduleService.simulatePastMatches();
+
+        verify(leagues).clear();
     }
 
     @Test

@@ -57,6 +57,19 @@ public class LeagueServiceImpl implements LeagueService {
     }
 
     @Override
+    @Cacheable("leagues")
+    public List<LeagueDto> findAllOptions() {
+        return leagueRepository.findAllOptions().stream()
+                .map(option -> {
+                    LeagueDto dto = new LeagueDto();
+                    dto.setId(option.getId());
+                    dto.setName(option.getName());
+                    return dto;
+                })
+                .toList();
+    }
+
+    @Override
     public List<LeagueDto> findAll(Sort sort) {
         return leagueRepository.findAll(sort).stream()
                 .map(this::toDto)

@@ -10,7 +10,6 @@ import com.kickoffsim.exception.InvalidLeagueOperationException;
 import com.kickoffsim.model.Half;
 import com.kickoffsim.model.League;
 import com.kickoffsim.model.LeagueFormat;
-import com.kickoffsim.model.Match;
 import com.kickoffsim.model.Team;
 import com.kickoffsim.repository.LeagueRepository;
 import com.kickoffsim.repository.MatchRepository;
@@ -36,6 +35,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -167,7 +167,7 @@ class LeagueServiceImplCoverageTest {
         Team t = team("A");
         League league = leagueWith(t);
         when(leagueRepository.findByIdWithTeams(id)).thenReturn(java.util.Optional.of(league));
-        when(matchRepository.findAllByHomeTeamOrAwayTeam(t, t)).thenReturn(List.<Match>of());
+        when(matchRepository.findAllByHomeTeamOrAwayTeam(t, t)).thenReturn(List.of());
 
         service.delete(id);
 
@@ -590,7 +590,7 @@ class LeagueServiceImplCoverageTest {
         League league = leagueWith(t);
         when(leagueRepository.findFinishedBefore(any())).thenReturn(List.of(league));
         when(leagueRepository.findByIdWithTeams(league.getId())).thenReturn(java.util.Optional.of(league));
-        when(matchRepository.findAllByHomeTeamOrAwayTeam(t, t)).thenReturn(List.<Match>of());
+        when(matchRepository.findAllByHomeTeamOrAwayTeam(t, t)).thenReturn(List.of());
 
         int count = service.deleteFinishedOlderThan(90);
 
@@ -603,5 +603,37 @@ class LeagueServiceImplCoverageTest {
         when(leagueRepository.findFinishedBefore(any())).thenReturn(List.of());
 
         assertThat(service.deleteFinishedOlderThan(90)).isZero();
+    }
+
+    @Test
+    void findAllOptions_mapsIdAndNameOnly() {
+        UUID first = UUID.randomUUID();
+        UUID second = UUID.randomUUID();
+        List<LeagueRepository.LeagueOption> options =
+                List.of(option(first, "Alpha Cup"), option(second, "Beta Cup"));
+        when(leagueRepository.findAllOptions()).thenReturn(options);
+
+        List<LeagueDto> result = service.findAllOptions();
+
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).getId()).isEqualTo(first);
+        assertThat(result.get(0).getName()).isEqualTo("Alpha Cup");
+        assertThat(result.get(1).getName()).isEqualTo("Beta Cup");
+        verifyNoInteractions(matchService);
+    }
+
+    @Test
+    void findAllOptions_noLeagues_returnsEmpty() {
+        when(leagueRepository.findAllOptions()).thenReturn(List.of());
+
+        assertThat(service.findAllOptions()).isEmpty();
+    }
+
+    private LeagueRepository.LeagueOption option(UUID id, String name) {
+        LeagueRepository.LeagueOption option =
+                org.mockito.Mockito.mock(LeagueRepository.LeagueOption.class);
+        org.mockito.Mockito.doReturn(id).when(option).getId();
+        org.mockito.Mockito.doReturn(name).when(option).getName();
+        return option;
     }
 }

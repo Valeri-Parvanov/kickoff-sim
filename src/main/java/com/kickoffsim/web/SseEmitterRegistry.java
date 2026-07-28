@@ -4,7 +4,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -24,7 +23,10 @@ public class SseEmitterRegistry {
         List<SseEmitter> emitters = emittersByUser.computeIfAbsent(userId, k -> new CopyOnWriteArrayList<>());
         emitters.add(emitter);
         emitter.onCompletion(() -> remove(userId, emitter));
-        emitter.onTimeout(() -> remove(userId, emitter));
+        emitter.onTimeout(() -> {
+            remove(userId, emitter);
+            emitter.complete();
+        });
         emitter.onError(e -> remove(userId, emitter));
         return emitter;
     }
@@ -43,9 +45,13 @@ public class SseEmitterRegistry {
                     emitter.send(SseEmitter.event()
                             .name("toast")
                             .data(Map.of("message", message, "type", type)));
-                } catch (IOException | IllegalStateException e) {
-                    log.warn("Failed to push SSE event to user {}: {}", userId, e.getMessage());
+                } catch (Exception e) {
+                    log.debug("Dropping disconnected SSE emitter for user {}: {}", userId, e.getMessage());
                     remove(userId, emitter);
+                    try {
+                        emitter.complete();
+                    } catch (Exception ignored) {
+                    }
                 }
             }
         }

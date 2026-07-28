@@ -23,8 +23,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -184,7 +186,7 @@ public class MatchServiceImpl implements MatchService {
                     .formatted(scorer.getFirstName(), scorer.getLastName()));
         }
 
-        boolean creditedToHome = goal.isOwnGoal() ? !scorerIsHome : scorerIsHome;
+        boolean creditedToHome = goal.isOwnGoal() != scorerIsHome;
         validateGoalCountLimit(match, creditedToHome, goalId);
 
         Player assistant = goal.isOwnGoal() ? null : resolveAssistant(dto.getAssistantId(), scorer);
@@ -287,11 +289,23 @@ public class MatchServiceImpl implements MatchService {
             throw new InvalidMatchException("Home team and away team must be different");
         }
 
-        match.setHomeTeam(getTeamOrThrow(matchDto.getHomeTeamId()));
-        match.setAwayTeam(getTeamOrThrow(matchDto.getAwayTeamId()));
+        Team homeTeam = getTeamOrThrow(matchDto.getHomeTeamId());
+        Team awayTeam = getTeamOrThrow(matchDto.getAwayTeamId());
+        requireSameLeague(homeTeam, awayTeam);
+
+        match.setHomeTeam(homeTeam);
+        match.setAwayTeam(awayTeam);
         match.setPlayedAt(matchDto.getPlayedAt());
         match.setHomeScore(matchDto.getHomeScore() != null ? matchDto.getHomeScore() : 0);
         match.setAwayScore(matchDto.getAwayScore() != null ? matchDto.getAwayScore() : 0);
+    }
+
+    private void requireSameLeague(Team homeTeam, Team awayTeam) {
+        League homeLeague = homeTeam.getLeague();
+        League awayLeague = awayTeam.getLeague();
+        if (homeLeague != null && awayLeague != null && !homeLeague.getId().equals(awayLeague.getId())) {
+            throw new InvalidMatchException("Both teams must be in the same league");
+        }
     }
 
     @Override
@@ -318,7 +332,52 @@ public class MatchServiceImpl implements MatchService {
                 .toList();
     }
 
+    @Override
+    public List<MatchDto> findInWindow(LocalDateTime from, LocalDateTime to, boolean includeGoals) {
+        List<Match> matches = includeGoals
+                ? matchRepository.findByDateRange(from, to)
+                : matchRepository.findByDateRangeWithoutGoals(from, to);
+        return matches.stream()
+                .map(match -> toDto(match, includeGoals))
+                .toList();
+    }
+
+    @Override
+    public List<MatchDto> findFollowedInWindow(
+            LocalDateTime from,
+            LocalDateTime to,
+            Collection<UUID> teamIds,
+            Collection<UUID> matchIds,
+            boolean includeGoals) {
+        if (teamIds.isEmpty() && matchIds.isEmpty()) {
+            return List.of();
+        }
+        Collection<UUID> safeTeamIds = teamIds.isEmpty() ? Set.of(new UUID(0L, 0L)) : teamIds;
+        Collection<UUID> safeMatchIds = matchIds.isEmpty() ? Set.of(new UUID(0L, 0L)) : matchIds;
+        List<Match> matches = includeGoals
+                ? matchRepository.findFollowedByDateRange(from, to, safeTeamIds, safeMatchIds)
+                : matchRepository.findFollowedByDateRangeWithoutGoals(from, to, safeTeamIds, safeMatchIds);
+        return matches.stream()
+                .map(match -> toDto(match, includeGoals))
+                .toList();
+    }
+
+    @Override
+    public List<LocalDateTime> findPlayedAtTimes(UUID leagueId, UUID teamId) {
+        if (teamId != null) {
+            return matchRepository.findPlayedAtTimesByTeamId(teamId);
+        }
+        if (leagueId != null) {
+            return matchRepository.findPlayedAtTimesByLeagueId(leagueId);
+        }
+        return matchRepository.findAllPlayedAtTimes();
+    }
+
     private MatchDto toDto(Match match) {
+        return toDto(match, true);
+    }
+
+    private MatchDto toDto(Match match, boolean includeGoals) {
         MatchDto matchDto = new MatchDto();
         matchDto.setId(match.getId());
         matchDto.setHomeTeamId(match.getHomeTeam().getId());
@@ -336,6 +395,10 @@ public class MatchServiceImpl implements MatchService {
             matchDto.setLeagueName(match.getHomeTeam().getLeague().getName());
         }
 
+        if (!includeGoals) {
+            return matchDto;
+        }
+
         UUID homeTeamId = match.getHomeTeam().getId();
 
         List<GoalDto> sorted = match.getGoals().stream()
@@ -350,7 +413,7 @@ public class MatchServiceImpl implements MatchService {
         Half currentHalf = null;
         for (GoalDto dto : sorted) {
             boolean scorerIsHome = homeTeamId.equals(dto.getTeamId());
-            boolean isHome = dto.isOwnGoal() ? !scorerIsHome : scorerIsHome;
+            boolean isHome = dto.isOwnGoal() != scorerIsHome;
             dto.setHomeGoal(isHome);
 
             if (!dto.getHalf().equals(currentHalf)) {

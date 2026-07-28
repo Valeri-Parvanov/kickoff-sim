@@ -5,6 +5,7 @@ import com.kickoffsim.client.NotifyRequest;
 import com.kickoffsim.client.SubscriptionDto;
 import com.kickoffsim.client.SubscriptionRequest;
 import com.kickoffsim.dto.LeagueDetailView;
+import com.kickoffsim.dto.LeagueDto;
 import com.kickoffsim.dto.MatchDto;
 import com.kickoffsim.dto.TeamDto;
 import com.kickoffsim.service.LeagueService;
@@ -13,7 +14,7 @@ import com.kickoffsim.service.TeamService;
 import com.kickoffsim.security.SecurityConfig;
 import com.kickoffsim.service.UserService;
 import com.kickoffsim.web.LiveMatchJsSupport;
-import com.kickoffsim.web.MatchFollowSupport;
+import com.kickoffsim.exception.EntityNotFoundException;
 import com.kickoffsim.web.MatchStatusSupport;
 import com.kickoffsim.web.SseEmitterRegistry;
 import com.kickoffsim.web.StandingsSupport;
@@ -36,7 +37,6 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.Comparator;
 
 @Controller
 @RequiredArgsConstructor
@@ -48,7 +48,6 @@ public class NotificationController {
     private final TeamService teamService;
     private final LeagueService leagueService;
     private final MatchService matchService;
-    private final MatchFollowSupport matchFollowSupport;
     private final SseEmitterRegistry sseEmitterRegistry;
 
     public record SubscriptionView(
@@ -71,69 +70,61 @@ public class NotificationController {
 
             List<SubscriptionView> teamViews = new ArrayList<>();
             List<SubscriptionView> leagueViews = new ArrayList<>();
-            Set<UUID> leagueIds = new LinkedHashSet<>();
+
+            Set<UUID> staleSubscriptionIds = new LinkedHashSet<>();
+            Set<UUID> followedTeamIds = entityIdsOfType(subs, "TEAM");
+            Map<UUID, TeamDto> teamsById = teamService.findAllByIds(followedTeamIds).stream()
+                    .collect(Collectors.toMap(TeamDto::getId, team -> team));
+            Map<UUID, LeagueDetailView> leagueDetailsById = new HashMap<>();
 
             for (SubscriptionDto s : subs) {
-                SubscriptionView v = buildView(s);
+                SubscriptionView v;
+                try {
+                    v = buildView(s, teamsById, leagueDetailsById);
+                } catch (EntityNotFoundException e) {
+                    staleSubscriptionIds.add(s.getId());
+                    continue;
+                } catch (Exception e) {
+                    log.warn("Could not enrich subscription {}: {}", s.getId(), e.getMessage());
+                    continue;
+                }
+                if (v == null) {
+                    continue;
+                }
                 if ("TEAM".equals(s.getEntityType())) {
                     teamViews.add(v);
-                    if (v.leagueId() != null) leagueIds.add(v.leagueId());
-                } else if ("LEAGUE".equals(s.getEntityType())) {
+                } else {
                     leagueViews.add(v);
-                    leagueIds.add(s.getEntityId());
                 }
             }
 
-            Set<UUID> followedTeamIds = subs.stream()
-                    .filter(s -> "TEAM".equals(s.getEntityType()))
-                    .map(SubscriptionDto::getEntityId)
-                    .collect(Collectors.toCollection(LinkedHashSet::new));
-
-            Set<UUID> followedMatchIds = subs.stream()
-                    .filter(s -> "MATCH".equals(s.getEntityType()))
-                    .map(SubscriptionDto::getEntityId)
-                    .collect(Collectors.toCollection(LinkedHashSet::new));
-
-            Map<UUID, MatchDto> matchMap = new LinkedHashMap<>();
-            for (UUID leagueId : leagueIds) {
-                try {
-                    leagueService.findDetail(leagueId).getMatches()
-                            .forEach(m -> matchMap.put(m.getId(), m));
-                } catch (Exception ignored) {}
+            dropStaleSubscriptions(staleSubscriptionIds);
+            if (!staleSubscriptionIds.isEmpty()) {
+                subs = subs.stream()
+                        .filter(s -> !staleSubscriptionIds.contains(s.getId()))
+                        .toList();
             }
-            for (UUID matchId : followedMatchIds) {
-                if (matchMap.containsKey(matchId)) continue;
-                try {
-                    MatchDto m = matchService.findById(matchId);
-                    matchMap.put(m.getId(), m);
-                } catch (Exception ignored) {}
-            }
+
+            FollowedIds followed = followedIds(subs);
 
             LocalDateTime now = LocalDateTime.now();
             LocalDateTime cutoff = now.minusDays(14);
             LocalDateTime liveThreshold = now.minusMinutes(90);
 
-            List<MatchDto> live = matchMap.values().stream()
-                    .filter(m -> !m.getPlayedAt().isAfter(now) && m.getPlayedAt().isAfter(liveThreshold))
-                    .filter(m -> followedTeamIds.contains(m.getHomeTeamId())
-                            || followedTeamIds.contains(m.getAwayTeamId())
-                            || followedMatchIds.contains(m.getId()))
-                    .sorted(Comparator.comparing(MatchDto::getPlayedAt))
-                    .toList();
+            List<MatchDto> pastWindow = matchService.findFollowedInWindow(
+                    cutoff, now, followed.teamIds(), followed.matchIds(), true);
+            List<MatchDto> futureWindow = matchService.findFollowedInWindow(
+                    now, FAR_FUTURE, followed.teamIds(), followed.matchIds(), false);
 
-            List<MatchDto> upcoming = matchMap.values().stream()
+            List<MatchDto> live = liveMatches(pastWindow, followed, now, liveThreshold);
+
+            List<MatchDto> upcoming = futureWindow.stream()
                     .filter(m -> m.getPlayedAt().isAfter(now))
-                    .filter(m -> followedTeamIds.contains(m.getHomeTeamId())
-                            || followedTeamIds.contains(m.getAwayTeamId())
-                            || followedMatchIds.contains(m.getId()))
                     .sorted(Comparator.comparing(MatchDto::getPlayedAt))
                     .toList();
 
-            List<MatchDto> recent = matchMap.values().stream()
+            List<MatchDto> recent = pastWindow.stream()
                     .filter(m -> !m.getPlayedAt().isAfter(liveThreshold) && m.getPlayedAt().isAfter(cutoff))
-                    .filter(m -> followedTeamIds.contains(m.getHomeTeamId())
-                            || followedTeamIds.contains(m.getAwayTeamId())
-                            || followedMatchIds.contains(m.getId()))
                     .sorted(Comparator.comparing(MatchDto::getPlayedAt).reversed())
                     .toList();
 
@@ -150,7 +141,7 @@ public class NotificationController {
             model.addAttribute("now", now);
             model.addAttribute("liveThreshold", liveThreshold);
             model.addAttribute("currentUrl", "/feed");
-            model.addAttribute("subscribedMatchIds", matchFollowSupport.subscribedMatchIds(authentication));
+            model.addAttribute("subscribedMatchIds", followed.matchIds());
         } catch (Exception e) {
             log.warn("Could not load feed: {}", e.getMessage());
             model.addAttribute("teamViews", List.of());
@@ -177,50 +168,13 @@ public class NotificationController {
             UUID userId = userService.findByUsername(authentication.getName()).getId();
             List<SubscriptionDto> subs = notificationClient.getSubscriptions(userId);
 
-            Set<UUID> leagueIds = new LinkedHashSet<>();
-            for (SubscriptionDto s : subs) {
-                if ("TEAM".equals(s.getEntityType())) {
-                    try {
-                        TeamDto t = teamService.findById(s.getEntityId());
-                        if (t.getLeagueId() != null) leagueIds.add(t.getLeagueId());
-                    } catch (Exception ignored) {}
-                } else if ("LEAGUE".equals(s.getEntityType())) {
-                    leagueIds.add(s.getEntityId());
-                }
-            }
-
-            Set<UUID> followedTeamIds = subs.stream()
-                    .filter(s -> "TEAM".equals(s.getEntityType()))
-                    .map(SubscriptionDto::getEntityId)
-                    .collect(Collectors.toCollection(LinkedHashSet::new));
-            Set<UUID> followedMatchIds = subs.stream()
-                    .filter(s -> "MATCH".equals(s.getEntityType()))
-                    .map(SubscriptionDto::getEntityId)
-                    .collect(Collectors.toCollection(LinkedHashSet::new));
-
-            Map<UUID, MatchDto> matchMap = new LinkedHashMap<>();
-            for (UUID leagueId : leagueIds) {
-                try {
-                    leagueService.findDetail(leagueId).getMatches().forEach(m -> matchMap.put(m.getId(), m));
-                } catch (Exception ignored) {}
-            }
-            for (UUID matchId : followedMatchIds) {
-                if (matchMap.containsKey(matchId)) continue;
-                try {
-                    matchMap.put(matchId, matchService.findById(matchId));
-                } catch (Exception ignored) {}
-            }
+            FollowedIds followed = followedIds(subs);
 
             LocalDateTime now = LocalDateTime.now();
             LocalDateTime liveThreshold = now.minusMinutes(90);
 
-            List<MatchDto> live = matchMap.values().stream()
-                    .filter(m -> !m.getPlayedAt().isAfter(now) && m.getPlayedAt().isAfter(liveThreshold))
-                    .filter(m -> followedTeamIds.contains(m.getHomeTeamId())
-                            || followedTeamIds.contains(m.getAwayTeamId())
-                            || followedMatchIds.contains(m.getId()))
-                    .sorted(Comparator.comparing(MatchDto::getPlayedAt))
-                    .toList();
+            List<MatchDto> live = liveMatches(
+                    matchService.findInWindow(liveThreshold, now, true), followed, now, liveThreshold);
 
             List<Map<String, Object>> matches = live.stream()
                     .map(m -> {
@@ -233,7 +187,7 @@ public class NotificationController {
                         entry.put("leagueName", m.getLeagueName());
                         entry.put("roundNumber", m.getRoundNumber());
                         entry.put("playedAtUtcIso", m.getPlayedAtUtcIso());
-                        entry.put("followed", followedMatchIds.contains(m.getId()));
+                        entry.put("followed", followed.matchIds().contains(m.getId()));
                         return entry;
                     })
                     .toList();
@@ -243,6 +197,8 @@ public class NotificationController {
             return Map.of("matches", List.of());
         }
     }
+
+    private static final LocalDateTime FAR_FUTURE = LocalDateTime.of(9999, 12, 31, 23, 59);
 
     private static final Set<String> TOASTABLE_TYPES =
             Set.of("GOAL", "MATCH_KICKOFF", "MATCH_HALFTIME", "MATCH_SECONDHALF", "MATCH_FULLTIME");
@@ -399,35 +355,76 @@ public class NotificationController {
         }
     }
 
-    private SubscriptionView buildView(SubscriptionDto s) {
-        try {
-            if ("TEAM".equals(s.getEntityType())) {
-                TeamDto team = teamService.findById(s.getEntityId());
-                String name = team.getName() + (team.getCity() != null ? " (" + team.getCity() + ")" : "");
-                if (team.getLeagueId() == null) {
-                    return new SubscriptionView(s.getId(), "TEAM", s.getEntityId(), name, null, null, null, 0, 0);
-                }
-                LeagueDetailView league = leagueService.findDetail(team.getLeagueId());
-                Integer position = StandingsSupport.positionOf(league.getStandings(), s.getEntityId());
-                LocalDateTime now = LocalDateTime.now();
-                long remaining = league.getMatches().stream()
-                        .filter(m -> m.getPlayedAt().isAfter(now))
-                        .filter(m -> s.getEntityId().equals(m.getHomeTeamId()) || s.getEntityId().equals(m.getAwayTeamId()))
-                        .count();
-                return new SubscriptionView(s.getId(), "TEAM", s.getEntityId(), name,
-                        league.getName(), team.getLeagueId(), position, remaining, 0);
-            } else if ("LEAGUE".equals(s.getEntityType())) {
-                LeagueDetailView league = leagueService.findDetail(s.getEntityId());
-                LocalDateTime now = LocalDateTime.now();
-                long remaining = league.getMatches().stream()
-                        .filter(m -> m.getPlayedAt().isAfter(now)).count();
-                return new SubscriptionView(s.getId(), "LEAGUE", s.getEntityId(), league.getName(),
-                        null, null, null, remaining, league.getTeams().size());
+    private SubscriptionView buildView(
+            SubscriptionDto s,
+            Map<UUID, TeamDto> teamsById,
+            Map<UUID, LeagueDetailView> leagueDetailsById) {
+        if ("TEAM".equals(s.getEntityType())) {
+            TeamDto team = teamsById.get(s.getEntityId());
+            if (team == null) {
+                throw new EntityNotFoundException("Team not found");
             }
-        } catch (Exception e) {
-            log.warn("Could not enrich subscription {}: {}", s.getId(), e.getMessage());
+            String name = team.getName() + (team.getCity() != null ? " (" + team.getCity() + ")" : "");
+            if (team.getLeagueId() == null) {
+                return new SubscriptionView(s.getId(), "TEAM", s.getEntityId(), name, null, null, null, 0, 0);
+            }
+            LeagueDetailView league = leagueDetailsById.computeIfAbsent(
+                    team.getLeagueId(), leagueService::findDetail);
+            Integer position = StandingsSupport.positionOf(league.getStandings(), s.getEntityId());
+            LocalDateTime now = LocalDateTime.now();
+            long remaining = league.getMatches().stream()
+                    .filter(m -> m.getPlayedAt().isAfter(now))
+                    .filter(m -> s.getEntityId().equals(m.getHomeTeamId()) || s.getEntityId().equals(m.getAwayTeamId()))
+                    .count();
+            return new SubscriptionView(s.getId(), "TEAM", s.getEntityId(), name,
+                    league.getName(), team.getLeagueId(), position, remaining, 0);
         }
-        return new SubscriptionView(s.getId(), s.getEntityType(), s.getEntityId(),
-                s.getEntityId().toString(), null, null, null, 0, 0);
+        if ("LEAGUE".equals(s.getEntityType())) {
+            LeagueDto league = leagueService.findById(s.getEntityId());
+            long remaining = league.getTotalMatches() - league.getPlayedMatches();
+            return new SubscriptionView(s.getId(), "LEAGUE", s.getEntityId(), league.getName(),
+                    null, null, null, remaining, league.getTeamCount());
+        }
+        return null;
+    }
+
+    private record FollowedIds(Set<UUID> teamIds, Set<UUID> matchIds) {
+    }
+
+    private FollowedIds followedIds(List<SubscriptionDto> subs) {
+        return new FollowedIds(entityIdsOfType(subs, "TEAM"), entityIdsOfType(subs, "MATCH"));
+    }
+
+    private Set<UUID> entityIdsOfType(List<SubscriptionDto> subs, String entityType) {
+        return subs.stream()
+                .filter(s -> entityType.equals(s.getEntityType()))
+                .map(SubscriptionDto::getEntityId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private boolean isFollowed(MatchDto match, FollowedIds followed) {
+        return followed.teamIds().contains(match.getHomeTeamId())
+                || followed.teamIds().contains(match.getAwayTeamId())
+                || followed.matchIds().contains(match.getId());
+    }
+
+    private List<MatchDto> liveMatches(Collection<MatchDto> matches, FollowedIds followed,
+                                       LocalDateTime now, LocalDateTime liveThreshold) {
+        return matches.stream()
+                .filter(m -> !m.getPlayedAt().isAfter(now) && m.getPlayedAt().isAfter(liveThreshold))
+                .filter(m -> isFollowed(m, followed))
+                .sorted(Comparator.comparing(MatchDto::getPlayedAt))
+                .toList();
+    }
+
+    private void dropStaleSubscriptions(Set<UUID> staleSubscriptionIds) {
+        for (UUID subscriptionId : staleSubscriptionIds) {
+            try {
+                notificationClient.unsubscribe(subscriptionId);
+                log.info("Removed subscription {} because the followed entity no longer exists", subscriptionId);
+            } catch (Exception e) {
+                log.warn("Could not remove stale subscription {}: {}", subscriptionId, e.getMessage());
+            }
+        }
     }
 }

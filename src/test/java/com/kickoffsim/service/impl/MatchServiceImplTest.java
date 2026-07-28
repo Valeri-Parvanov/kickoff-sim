@@ -5,6 +5,7 @@ import com.kickoffsim.dto.GoalEventDto;
 import com.kickoffsim.dto.MatchDto;
 import com.kickoffsim.exception.EntityNotFoundException;
 import com.kickoffsim.exception.InvalidGoalException;
+import com.kickoffsim.exception.InvalidMatchException;
 import com.kickoffsim.model.Goal;
 import com.kickoffsim.model.Half;
 import com.kickoffsim.model.League;
@@ -29,6 +30,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import java.util.List;
@@ -36,6 +38,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -758,6 +761,168 @@ class MatchServiceImplTest {
 
         assertThat(result.getGoalTimeline()).isEmpty();
         assertThat(result.getHomeHalfScore()).isNull();
+    }
+
+    @Test
+    void create_teamsInDifferentLeagues_throwsInvalidMatchException() {
+        homeTeam.setLeague(league("Premier"));
+        awayTeam.setLeague(league("Second"));
+
+        when(teamRepository.findById(homeTeamId)).thenReturn(Optional.of(homeTeam));
+        when(teamRepository.findById(awayTeamId)).thenReturn(Optional.of(awayTeam));
+
+        MatchDto dto = new MatchDto();
+        dto.setHomeTeamId(homeTeamId);
+        dto.setAwayTeamId(awayTeamId);
+        dto.setPlayedAt(LocalDateTime.now().minusDays(1));
+
+        assertThatThrownBy(() -> matchService.create(dto))
+                .isInstanceOf(InvalidMatchException.class)
+                .hasMessageContaining("same league");
+
+        verify(matchRepository, never()).save(any());
+    }
+
+    @Test
+    void create_teamsInSameLeague_savesMatch() {
+        League premier = league("Premier");
+        homeTeam.setLeague(premier);
+        awayTeam.setLeague(premier);
+
+        when(teamRepository.findById(homeTeamId)).thenReturn(Optional.of(homeTeam));
+        when(teamRepository.findById(awayTeamId)).thenReturn(Optional.of(awayTeam));
+        when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        MatchDto dto = new MatchDto();
+        dto.setHomeTeamId(homeTeamId);
+        dto.setAwayTeamId(awayTeamId);
+        dto.setPlayedAt(LocalDateTime.now().minusDays(1));
+
+        MatchDto result = matchService.create(dto);
+
+        assertThat(result.getHomeTeamId()).isEqualTo(homeTeamId);
+        assertThat(result.getAwayTeamId()).isEqualTo(awayTeamId);
+    }
+
+    @Test
+    void create_awayTeamWithoutLeague_savesMatch() {
+        homeTeam.setLeague(league("Premier"));
+
+        when(teamRepository.findById(homeTeamId)).thenReturn(Optional.of(homeTeam));
+        when(teamRepository.findById(awayTeamId)).thenReturn(Optional.of(awayTeam));
+        when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        MatchDto dto = new MatchDto();
+        dto.setHomeTeamId(homeTeamId);
+        dto.setAwayTeamId(awayTeamId);
+        dto.setPlayedAt(LocalDateTime.now().minusDays(1));
+
+        MatchDto result = matchService.create(dto);
+
+        assertThat(result.getAwayTeamId()).isEqualTo(awayTeamId);
+    }
+
+    @Test
+    void findInWindow_withGoals_usesFullGraphAndBuildsTimeline() {
+        LocalDateTime from = LocalDateTime.now().minusHours(1);
+        LocalDateTime to = LocalDateTime.now();
+        when(matchRepository.findByDateRange(from, to)).thenReturn(List.of(match));
+
+        List<MatchDto> result = matchService.findInWindow(from, to, true);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getGoalTimeline()).hasSize(match.getGoals().size());
+        verify(matchRepository, never()).findByDateRangeWithoutGoals(any(), any());
+    }
+
+    @Test
+    void findInWindow_withoutGoals_skipsTimelineAndGoalQuery() {
+        LocalDateTime from = LocalDateTime.now();
+        LocalDateTime to = from.plusDays(1);
+        when(matchRepository.findByDateRangeWithoutGoals(from, to)).thenReturn(List.of(match));
+
+        List<MatchDto> result = matchService.findInWindow(from, to, false);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getGoalTimeline()).isEmpty();
+        assertThat(result.get(0).getHomeTeamName()).isEqualTo(match.getHomeTeam().getName());
+        verify(matchRepository, never()).findByDateRange(any(), any());
+    }
+
+    @Test
+    void findFollowedInWindow_noFollows_returnsEmptyWithoutQuerying() {
+        LocalDateTime from = LocalDateTime.now().minusHours(1);
+        LocalDateTime to = LocalDateTime.now();
+
+        List<MatchDto> result = matchService.findFollowedInWindow(from, to, Set.of(), Set.of(), true);
+
+        assertThat(result).isEmpty();
+        verify(matchRepository, never()).findFollowedByDateRange(any(), any(), any(), any());
+        verify(matchRepository, never()).findFollowedByDateRangeWithoutGoals(any(), any(), any(), any());
+    }
+
+    @Test
+    void findFollowedInWindow_followedTeamsWithGoals_usesFullGraph() {
+        LocalDateTime from = LocalDateTime.now().minusHours(1);
+        LocalDateTime to = LocalDateTime.now();
+        Set<UUID> teamIds = Set.of(match.getHomeTeam().getId());
+        when(matchRepository.findFollowedByDateRange(eq(from), eq(to), eq(teamIds), any()))
+                .thenReturn(List.of(match));
+
+        List<MatchDto> result = matchService.findFollowedInWindow(from, to, teamIds, Set.of(), true);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getGoalTimeline()).hasSize(match.getGoals().size());
+    }
+
+    @Test
+    void findFollowedInWindow_followedMatchesWithoutGoals_skipsTheTimeline() {
+        LocalDateTime from = LocalDateTime.now().minusHours(1);
+        LocalDateTime to = LocalDateTime.now();
+        Set<UUID> matchIds = Set.of(match.getId());
+        when(matchRepository.findFollowedByDateRangeWithoutGoals(eq(from), eq(to), any(), eq(matchIds)))
+                .thenReturn(List.of(match));
+
+        List<MatchDto> result = matchService.findFollowedInWindow(from, to, Set.of(), matchIds, false);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getGoalTimeline()).isEmpty();
+        verify(matchRepository, never()).findFollowedByDateRange(any(), any(), any(), any());
+    }
+
+    @Test
+    void findPlayedAtTimes_noFilters_usesAllTimes() {
+        List<LocalDateTime> times = List.of(LocalDateTime.now());
+        when(matchRepository.findAllPlayedAtTimes()).thenReturn(times);
+
+        assertThat(matchService.findPlayedAtTimes(null, null)).isEqualTo(times);
+    }
+
+    @Test
+    void findPlayedAtTimes_leagueFilter_usesLeagueQuery() {
+        UUID leagueId = UUID.randomUUID();
+        List<LocalDateTime> times = List.of(LocalDateTime.now());
+        when(matchRepository.findPlayedAtTimesByLeagueId(leagueId)).thenReturn(times);
+
+        assertThat(matchService.findPlayedAtTimes(leagueId, null)).isEqualTo(times);
+        verify(matchRepository, never()).findAllPlayedAtTimes();
+    }
+
+    @Test
+    void findPlayedAtTimes_teamFilter_takesPrecedenceOverLeague() {
+        UUID teamId = UUID.randomUUID();
+        List<LocalDateTime> times = List.of(LocalDateTime.now());
+        when(matchRepository.findPlayedAtTimesByTeamId(teamId)).thenReturn(times);
+
+        assertThat(matchService.findPlayedAtTimes(UUID.randomUUID(), teamId)).isEqualTo(times);
+        verify(matchRepository, never()).findPlayedAtTimesByLeagueId(any());
+    }
+
+    private League league(String name) {
+        League league = new League();
+        league.setId(UUID.randomUUID());
+        league.setName(name);
+        return league;
     }
 
     private Goal goalWithScorer(Player scorer) {

@@ -3,6 +3,7 @@ package com.kickoffsim.service;
 import com.kickoffsim.dto.TeamDto;
 import org.springframework.data.domain.Sort;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -23,6 +24,8 @@ public interface TeamService {
     boolean existsByNameAndCity(String name, String city);
 
     TeamDto findById(UUID id);
+
+    List<TeamDto> findAllByIds(Collection<UUID> ids);
 
     TeamDto create(TeamDto teamDto);
 

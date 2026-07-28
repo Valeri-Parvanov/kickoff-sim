@@ -26,6 +26,7 @@ import org.springframework.data.domain.Sort;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -225,6 +226,29 @@ class TeamServiceImplTest {
 
         assertThat(result.getName()).isEqualTo("Alpha");
         assertThat(result.getCity()).isEqualTo("Sofia");
+    }
+
+    @Test
+    void findAllByIds_emptyIds_returnsEmptyWithoutQuerying() {
+        assertThat(teamService.findAllByIds(Set.of())).isEmpty();
+
+        verify(teamRepository, never()).findAllByIdIn(any());
+    }
+
+    @Test
+    void findAllByIds_mapsEveryTeamFound() {
+        UUID id = UUID.randomUUID();
+        Team team = new Team();
+        team.setId(id);
+        team.setName("Alpha");
+        team.setCity("Sofia");
+        when(teamRepository.findAllByIdIn(Set.of(id))).thenReturn(List.of(team));
+
+        List<TeamDto> result = teamService.findAllByIds(Set.of(id));
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getName()).isEqualTo("Alpha");
+        assertThat(result.get(0).getCity()).isEqualTo("Sofia");
     }
 
     @Test

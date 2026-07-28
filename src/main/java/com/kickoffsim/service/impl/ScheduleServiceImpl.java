@@ -14,7 +14,8 @@ import com.kickoffsim.repository.PlayerRepository;
 import com.kickoffsim.service.ScheduleService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,6 +48,7 @@ public class ScheduleServiceImpl implements ScheduleService {
     private final PlayerRepository playerRepository;
     private final GoalRepository goalRepository;
     private final NotificationClient notificationClient;
+    private final CacheManager cacheManager;
 
     @Override
     @Transactional(noRollbackFor = InvalidLeagueOperationException.class)
@@ -193,7 +195,6 @@ public class ScheduleServiceImpl implements ScheduleService {
 
     @Override
     @Transactional
-    @CacheEvict(value = "leagues", allEntries = true)
     public void simulatePastMatches() {
         LocalDateTime to = LocalDateTime.now().minusMinutes(50);
         List<Match> candidates = matchRepository.findGoallessBefore(to);
@@ -227,7 +228,15 @@ public class ScheduleServiceImpl implements ScheduleService {
             goalRepository.saveAll(allNewGoals);
         }
         if (count > 0) {
+            evictLeagueCache();
             log.info("Auto-simulated {} match result(s)", count);
+        }
+    }
+
+    private void evictLeagueCache() {
+        Cache leagues = cacheManager.getCache("leagues");
+        if (leagues != null) {
+            leagues.clear();
         }
     }
 
@@ -371,7 +380,7 @@ public class ScheduleServiceImpl implements ScheduleService {
 
     private boolean benefitsHome(Goal goal, Match match) {
         boolean scorerIsHome = goal.getScorer().getTeam().getId().equals(match.getHomeTeam().getId());
-        return goal.isOwnGoal() ? !scorerIsHome : scorerIsHome;
+        return goal.isOwnGoal() != scorerIsHome;
     }
 
     private void broadcast(Match match, String message, String type) {

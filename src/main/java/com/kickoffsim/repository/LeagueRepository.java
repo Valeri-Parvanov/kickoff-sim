@@ -12,6 +12,14 @@ import java.util.UUID;
 
 public interface LeagueRepository extends JpaRepository<League, UUID> {
 
+    @Query("SELECT l.id AS id, l.name AS name FROM League l ORDER BY l.name ASC")
+    List<LeagueOption> findAllOptions();
+
+    interface LeagueOption {
+        UUID getId();
+        String getName();
+    }
+
     @Query("SELECT l FROM League l LEFT JOIN FETCH l.teams WHERE l.id = :id")
     Optional<League> findByIdWithTeams(@Param("id") UUID id);
 

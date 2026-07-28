@@ -68,6 +68,20 @@ class LiveMatchJsSupportTest {
         assertThat(entry.get("awayTeamId")).isEqualTo(match.getAwayTeamId().toString());
         assertThat(entry.get("elapsedMin")).isEqualTo(3L);
         assertThat(entry.get("elapsedSec")).isEqualTo(180L);
+        assertThat(entry.get("playedAtEpochMs")).isEqualTo(
+                match.getPlayedAt().atZone(java.time.ZoneId.of("Europe/Sofia")).toInstant().toEpochMilli());
+    }
+
+    @Test
+    void toJsEntry_kickoffAnchorIsIndependentOfRenderTime() {
+        MatchDto match = match(List.of());
+
+        Object early = LiveMatchJsSupport.toJsEntry(match, match.getPlayedAt().plusMinutes(1))
+                .get("playedAtEpochMs");
+        Object late = LiveMatchJsSupport.toJsEntry(match, match.getPlayedAt().plusMinutes(9))
+                .get("playedAtEpochMs");
+
+        assertThat(early).isEqualTo(late);
     }
 
     @Test
