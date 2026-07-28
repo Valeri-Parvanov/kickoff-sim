@@ -10,7 +10,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -54,10 +53,12 @@ class WeatherPrefetchSchedulerTest {
         scheduler.prefetchUpcomingWeather();
 
         ArgumentCaptor<String> cityCaptor = ArgumentCaptor.forClass(String.class);
-        ArgumentCaptor<LocalDate> dateCaptor = ArgumentCaptor.forClass(LocalDate.class);
+        ArgumentCaptor<LocalDateTime> dateCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
         verify(weatherService, times(2)).forecastFor(cityCaptor.capture(), dateCaptor.capture());
         assertThat(cityCaptor.getAllValues()).containsExactlyInAnyOrder("Sofia", "Plovdiv");
-        assertThat(dateCaptor.getAllValues()).containsOnly(day.toLocalDate());
+        assertThat(dateCaptor.getAllValues())
+                .extracting(LocalDateTime::toLocalDate)
+                .containsOnly(day.toLocalDate());
     }
 
     @Test

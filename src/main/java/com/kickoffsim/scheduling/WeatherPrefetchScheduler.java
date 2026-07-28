@@ -37,7 +37,7 @@ public class WeatherPrefetchScheduler {
             }
         }
 
-        cityDates.forEach(cd -> weatherService.forecastFor(cd.city(), cd.date()));
+        cityDates.forEach(cd -> weatherService.forecastFor(cd.city(), cd.date().atStartOfDay()));
         log.info("Prefetched weather for {} city/date combination(s)", cityDates.size());
     }
 

@@ -2,20 +2,18 @@ package com.kickoffsim.dto;
 
 import lombok.Getter;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Getter
 public class WeatherForecastDto {
 
-    private final LocalDate date;
-    private final Double maxTempC;
-    private final Double minTempC;
+    private final LocalDateTime time;
+    private final Double tempC;
     private final Integer precipitationProbability;
 
-    public WeatherForecastDto(LocalDate date, Double maxTempC, Double minTempC, Integer precipitationProbability) {
-        this.date = date;
-        this.maxTempC = maxTempC;
-        this.minTempC = minTempC;
+    public WeatherForecastDto(LocalDateTime time, Double tempC, Integer precipitationProbability) {
+        this.time = time;
+        this.tempC = tempC;
         this.precipitationProbability = precipitationProbability;
     }
 }

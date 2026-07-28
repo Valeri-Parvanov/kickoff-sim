@@ -1,6 +1,5 @@
 ﻿<!DOCTYPE html>
-<html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org"
-      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -107,15 +106,10 @@
     <div class="match-weather" th:if="${weatherForecast.isPresent()}">
         <span class="weather-icon">&#9925;</span>
         <span class="weather-label" th:text="#{matches.weather.forecastfor} + ' ' + ${match.homeTeamCity}"></span>
-        <span class="weather-metric weather-metric-low">
-            <span class="weather-metric-label" th:text="#{matches.weather.low}">Low</span>
-            <span class="weather-temp"
-                  th:text="${#numbers.formatDecimal(weatherForecast.get().minTempC,1,1)} + '&#176;C'"></span>
-        </span>
         <span class="weather-metric weather-metric-high">
-            <span class="weather-metric-label" th:text="#{matches.weather.high}">High</span>
+            <span class="weather-metric-label" th:text="#{matches.weather.attime}">At kick-off</span>
             <span class="weather-temp"
-                  th:text="${#numbers.formatDecimal(weatherForecast.get().maxTempC,1,1)} + '&#176;C'"></span>
+                  th:text="${#numbers.formatDecimal(weatherForecast.get().tempC,1,1)} + '&#176;C'"></span>
         </span>
         <span class="weather-metric" th:if="${weatherForecast.get().precipitationProbability != null}">
             <span class="weather-metric-label" th:text="#{matches.weather.rain}">Rain</span>
@@ -192,8 +186,13 @@ function updateLive() {
     if (!_LIVE) return;
     var el = document.querySelector('[data-match-id="' + _LIVE.id + '"]');
     if (!el) return;
-    var baseSec = (_LIVE.elapsedSec != null) ? _LIVE.elapsedSec : _LIVE.elapsedMin * 60;
-    var elapsedSec = baseSec + (Date.now() - PAGE_LOAD_TIME) / 1000;
+    var elapsedSec;
+    if (_LIVE.playedAtEpochMs != null) {
+        elapsedSec = (Date.now() - _LIVE.playedAtEpochMs) / 1000;
+    } else {
+        var baseSec = (_LIVE.elapsedSec != null) ? _LIVE.elapsedSec : _LIVE.elapsedMin * 60;
+        elapsedSec = baseSec + (Date.now() - PAGE_LOAD_TIME) / 1000;
+    }
     var st = getLiveState(elapsedSec, _LIVE.goals);
     var hEl = el.querySelector('.ls-h'), aEl = el.querySelector('.ls-a'), mEl = el.querySelector('.live-minute');
     if (hEl) hEl.textContent = st.homeScore;
