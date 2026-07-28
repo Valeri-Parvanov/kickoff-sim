@@ -64,6 +64,8 @@
 
     <div class="wizard-actions">
         <button type="submit" th:text="#{common.continue} + ' &#8594;'">Continue &#8594;</button>
+        <button type="submit" class="btn-outline" th:attr="formaction=@{/leagues/wizard/ai}"
+                th:text="'&#10024; ' + #{leagues.wizard.ai.entry}">&#10024; Fill the whole league for me</button>
         <a th:href="@{/leagues/wizard}" class="btn-outline" th:text="'&#8592; ' + #{leagues.wizard.backtoformat}">&#8592; Back to format selection</a>
     </div>
 </form>
@@ -73,7 +75,6 @@
     var format = /*[[${format}]]*/ 0;
     var form = document.getElementById('wizardTeamsForm');
     var checkboxes = Array.from(form.querySelectorAll('input[name="existingTeamIds"]'));
-    var banner = document.getElementById('wizardSelectionBanner');
     var text = document.getElementById('wizardSelectionText');
 
     function update() {
@@ -81,9 +82,9 @@
         var newTeams = Math.max(0, format - selected);
         var i18n = document.getElementById('global-js-i18n').dataset;
         text.textContent = i18n.selectedCount
-            .replace('{0}', selected)
-            .replace('{1}', format)
-            + ' · ' + i18n.newCount.replace('{0}', newTeams);
+            .replace('{0}', String(selected))
+            .replace('{1}', String(format))
+            + ' · ' + i18n.newCount.replace('{0}', String(newTeams));
         checkboxes.forEach(function (cb) {
             if (!cb.checked && selected >= format) {
                 cb.disabled = true;

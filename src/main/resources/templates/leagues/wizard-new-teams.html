@@ -29,6 +29,24 @@
     Each new team needs a name, city, and 6–12 players — use the dice buttons to fill things in fast.
 </p>
 
+<div class="wizard-skip-note" style="max-width:900px">
+    <span th:text="#{leagues.wizard.ai.note}">Don't want to fill all this in by hand?</span>
+    <a id="aiDraftLink" class="btn-outline"
+       th:href="@{/leagues/wizard/ai(format=${leagueWizardForm.format},existingTeamIds=${leagueWizardForm.existingTeamIds})}"
+       th:data-busy="#{leagues.wizard.ai.generating}"
+       th:text="'&#10024; ' + #{leagues.wizard.ai.entry}">&#10024; Fill the whole league for me</a>
+</div>
+<script>
+(function () {
+    var link = document.getElementById('aiDraftLink');
+    link.addEventListener('click', function () {
+        link.textContent = link.dataset.busy;
+        link.style.pointerEvents = 'none';
+        link.style.opacity = '0.7';
+    });
+})();
+</script>
+
 <form th:action="@{/leagues/wizard(fromRequest=${fromRequest})}" th:object="${leagueWizardForm}" method="post" class="card-form" style="max-width:900px">
     <input type="hidden" th:field="*{format}"/>
     <input type="hidden" th:each="id, idStat : *{existingTeamIds}" th:field="*{existingTeamIds[__${idStat.index}__]}"/>
@@ -91,6 +109,8 @@
                         <label th:for="|newTeams${blockStat.index}.name|" th:text="#{common.name}">Name</label>
                         <div class="input-row">
                             <input type="text" th:id="|newTeams${blockStat.index}.name|"
+                                   aria-label="Team name"
+                                   th:aria-label="#{common.name}"
                                    th:field="*{newTeams[__${blockStat.index}__].name}"/>
                             <button type="button" class="dice-btn"
                                     th:onclick="|fillRandomTeamName('newTeams${blockStat.index}.name')|"
@@ -103,6 +123,8 @@
                         <label th:for="|newTeams${blockStat.index}.city|" th:text="#{leagues.wizard.city}">City</label>
                         <div class="input-row">
                             <input type="text" th:id="|newTeams${blockStat.index}.city|"
+                                   aria-label="Team city"
+                                   th:aria-label="#{leagues.wizard.city}"
                                    th:field="*{newTeams[__${blockStat.index}__].city}"/>
                             <button type="button" class="dice-btn"
                                     th:onclick="|fillRandomCity('newTeams${blockStat.index}.city')|"
@@ -125,7 +147,7 @@
                     </div>
 
                     <div class="table-wrapper">
-                    <table border="1" cellpadding="4">
+                    <table>
                         <thead>
                         <tr>
                             <th>#</th>
@@ -140,6 +162,8 @@
                             <td th:text="${rowStat.count}">1</td>
                             <td>
                                 <input type="number" min="1" max="99"
+                                       aria-label="Shirt number"
+                                       th:aria-label="#{players.shirtno} + ' ' + ${rowStat.count}"
                                        th:field="*{newTeams[__${blockStat.index}__].players[__${rowStat.index}__].shirtNumber}"/>
                                 <span style="color:red"
                                       th:if="${#fields.hasErrors('newTeams[__${blockStat.index}__].players[__${rowStat.index}__].shirtNumber')}"
@@ -147,6 +171,8 @@
                             </td>
                             <td>
                                 <input type="text" class="js-firstname"
+                                       aria-label="First name"
+                                       th:aria-label="#{players.firstname} + ' ' + ${rowStat.count}"
                                        th:field="*{newTeams[__${blockStat.index}__].players[__${rowStat.index}__].firstName}"/>
                                 <span style="color:red"
                                       th:if="${#fields.hasErrors('newTeams[__${blockStat.index}__].players[__${rowStat.index}__].firstName')}"
@@ -154,6 +180,8 @@
                             </td>
                             <td>
                                 <input type="text" class="js-lastname"
+                                       aria-label="Last name"
+                                       th:aria-label="#{players.lastname} + ' ' + ${rowStat.count}"
                                        th:field="*{newTeams[__${blockStat.index}__].players[__${rowStat.index}__].lastName}"/>
                                 <span style="color:red"
                                       th:if="${#fields.hasErrors('newTeams[__${blockStat.index}__].players[__${rowStat.index}__].lastName')}"

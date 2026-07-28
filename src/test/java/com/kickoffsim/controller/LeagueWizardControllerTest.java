@@ -128,7 +128,7 @@ class LeagueWizardControllerTest {
 
         assertThat(view).isEqualTo("leagues/wizard-teams");
         assertThat(model.getAttribute("format")).isEqualTo(6);
-        assertThat((List<TeamDto>) model.getAttribute("availableTeams")).containsExactly(eligible);
+        assertThat(model.getAttribute("availableTeams")).isEqualTo(List.of(eligible));
     }
 
     @Test
@@ -190,6 +190,7 @@ class LeagueWizardControllerTest {
 
         assertThat(view).isEqualTo("leagues/wizard-new-teams");
         LeagueWizardForm form = (LeagueWizardForm) model.getAttribute("leagueWizardForm");
+        org.junit.jupiter.api.Assertions.assertNotNull(form);
         assertThat(form.getNewTeams()).hasSize(6);
         assertThat(form.getExistingTeamIds()).isEmpty();
     }
@@ -207,6 +208,7 @@ class LeagueWizardControllerTest {
 
         assertThat(view).isEqualTo("leagues/wizard-new-teams");
         LeagueWizardForm form = (LeagueWizardForm) model.getAttribute("leagueWizardForm");
+        org.junit.jupiter.api.Assertions.assertNotNull(form);
         assertThat(form.getNewTeams()).hasSize(6);
         assertThat(form.getExistingTeamIds()).containsExactly(id1, id2);
         assertThat((List<?>) model.getAttribute("existingTeams")).hasSize(2);
@@ -227,6 +229,7 @@ class LeagueWizardControllerTest {
 
         assertThat(view).isEqualTo("leagues/wizard-new-teams");
         LeagueWizardForm form = (LeagueWizardForm) model.getAttribute("leagueWizardForm");
+        org.junit.jupiter.api.Assertions.assertNotNull(form);
         assertThat(form.getNewTeams()).isEmpty();
     }
 
@@ -491,6 +494,7 @@ class LeagueWizardControllerTest {
 
         assertThat(view).isEqualTo("leagues/wizard-new-teams");
         LeagueWizardForm form = (LeagueWizardForm) model.getAttribute("leagueWizardForm");
+        org.junit.jupiter.api.Assertions.assertNotNull(form);
         assertThat(form.getLeagueName()).isEqualTo("Rejected League");
         assertThat(form.getFormat()).isEqualTo(6);
         assertThat(form.getExistingTeamIds()).containsExactly(existingId);

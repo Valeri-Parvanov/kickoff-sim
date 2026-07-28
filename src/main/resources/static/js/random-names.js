@@ -57,15 +57,47 @@ const LEAGUE_FOODS = [
 ];
 
 const CITIES = [
-    "Sofia", "Plovdiv", "Varna", "Burgas", "Ruse", "Pleven",
-    "Stara Zagora", "Sliven", "Dobrich", "Shumen", "Pernik", "Haskovo",
-    "Yambol", "Pazardzhik", "Blagoevgrad", "Veliko Tarnovo", "Vratsa", "Gabrovo",
-    "Vidin", "Montana", "Lovech", "Targovishte", "Razgrad", "Silistra",
-    "Kardzhali", "Kyustendil", "Smolyan", "Sozopol", "Kazanlak", "Botevgrad",
-    "Dupnitsa", "Sandanski", "Petrich", "Velingrad", "Asenovgrad", "Gotse Delchev",
-    "Samokov", "Sevlievo", "Troyan", "Popovo", "Lom", "Berkovitsa",
-    "Gorna Oryahovitsa", "Svishtov", "Lyaskovets", "Tryavna", "Nessebar", "Pomorie",
-    "Aytos", "Nova Zagora"
+    "Sofia", "Bankya", "Novi Iskar", "Blagoevgrad", "Bansko", "Belitsa",
+    "Gotse Delchev", "Hadzhidimovo", "Kresna", "Melnik", "Petrich", "Razlog",
+    "Sandanski", "Simitli", "Yakoruda", "Burgas", "Aheloy", "Ahtopol",
+    "Aytos", "Bulgarovo", "Chernomorets", "Kableshkovo", "Kameno", "Karnobat",
+    "Malko Tarnovo", "Nesebar", "Obzor", "Pomorie", "Primorsko", "Sozopol",
+    "Sredets", "Sungurlare", "Sveti Vlas", "Tsarevo", "Varna", "Aksakovo",
+    "Beloslav", "Byala", "Dalgopol", "Devnya", "Ignatievo", "Provadia",
+    "Suvorovo", "Valchi Dol", "Veliko Tarnovo", "Byala Cherkva", "Debelets", "Elena",
+    "Gorna Oryahovitsa", "Kilifarevo", "Lyaskovets", "Pavlikeni", "Polski Trambesh", "Strazhitsa",
+    "Suhindol", "Svishtov", "Zlataritsa", "Vidin", "Belogradchik", "Bregovo",
+    "Dimovo", "Gramada", "Kula", "Vratsa", "Byala Slatina", "Knezha",
+    "Kozloduy", "Krivodol", "Mezdra", "Miziya", "Oryahovo", "Roman",
+    "Gabrovo", "Dryanovo", "Plachkovtsi", "Sevlievo", "Tryavna", "Dobrich",
+    "Balchik", "General Toshevo", "Kavarna", "Shabla", "Tervel", "Kardzhali",
+    "Ardino", "Dzhebel", "Krumovgrad", "Momchilgrad", "Kyustendil", "Boboshevo",
+    "Bobov Dol", "Dupnitsa", "Kocherinovo", "Rila", "Sapareva Banya", "Lovech",
+    "Apriltsi", "Letnitsa", "Lukovit", "Teteven", "Troyan", "Ugarchin",
+    "Yablanitsa", "Montana", "Berkovitsa", "Boychinovtsi", "Brusartsi", "Chiprovtsi",
+    "Lom", "Valchedram", "Varshets", "Pazardzhik", "Batak", "Belovo",
+    "Bratsigovo", "Kostandovo", "Panagyurishte", "Peshtera", "Rakitovo", "Sarnitsa",
+    "Septemvri", "Strelcha", "Velingrad", "Pernik", "Batanovtsi", "Breznik",
+    "Radomir", "Tran", "Zemen", "Pleven", "Belene", "Dolna Mitropolia",
+    "Dolni Dabnik", "Gulyantsi", "Levski", "Nikopol", "Pordim", "Slavyanovo",
+    "Trastenik", "Plovdiv", "Asenovgrad", "Banya", "Brezovo", "Hisarya",
+    "Kalofer", "Karlovo", "Klisura", "Krichim", "Kuklen", "Laki",
+    "Parvomay", "Perushtitsa", "Rakovski", "Sadovo", "Saedinenie", "Sopot",
+    "Stamboliyski", "Razgrad", "Isperih", "Kubrat", "Loznitsa", "Senovo",
+    "Tsar Kaloyan", "Zavet", "Ruse", "Borovo", "Dve Mogili", "Marten",
+    "Slivo Pole", "Vetovo", "Silistra", "Alfatar", "Dulovo", "Glavinitsa",
+    "Tutrakan", "Sliven", "Kermen", "Kotel", "Nova Zagora", "Shivachevo",
+    "Smolyan", "Chepelare", "Devin", "Dospat", "Madan", "Nedelino",
+    "Rudozem", "Zlatograd", "Botevgrad", "Dolna Banya", "Dragoman", "Elin Pelin",
+    "Etropole", "Godech", "Ihtiman", "Koprivshtitsa", "Kostenets", "Kostinbrod",
+    "Pirdop", "Pravets", "Samokov", "Slivnitsa", "Svoge", "Zlatitsa",
+    "Stara Zagora", "Chirpan", "Gurkovo", "Gulabovo", "Kazanlak", "Maglizh",
+    "Nikolaevo", "Pavel Banya", "Radnevo", "Shipka", "Targovishte", "Antonovo",
+    "Omurtag", "Opaka", "Popovo", "Haskovo", "Dimitrovgrad", "Harmanli",
+    "Ivaylovgrad", "Lyubimets", "Madzharovo", "Merichleri", "Simeonovgrad", "Svilengrad",
+    "Topolovgrad", "Shumen", "Kaolinovo", "Kaspichan", "Novi Pazar", "Pliska",
+    "Smyadovo", "Varbitsa", "Veliki Preslav", "Yambol", "Bolyarovo", "Elhovo",
+    "Straldzha"
 ];
 
 function randomFrom(list) {
@@ -88,11 +120,6 @@ const LEAGUE_TYPES_FALLBACK = [
     "Cup", "Derby", "League", "Masters", "Trophy",
     "Classic", "Open", "Series", "Shield", "Challenge"
 ];
-
-function randomLeagueName() {
-    const entry = randomFrom(LEAGUE_FOODS);
-    return entry.food + " " + randomFrom(entry.types);
-}
 
 function leagueTypesFor(food) {
     const key = (food || "").trim().toLowerCase();
@@ -184,19 +211,6 @@ function randomizeMinSquad() {
             if (ln) ln.value = randomPlayerLastName();
         }
     }
-}
-
-function randomizeAllSquadIn(scopeEl) {
-    scopeEl.querySelectorAll("tbody tr:not(.wizard-row-hidden) .js-firstname").forEach(function (el) {
-        if (!el.value.trim()) {
-            el.value = randomPlayerFirstName();
-        }
-    });
-    scopeEl.querySelectorAll("tbody tr:not(.wizard-row-hidden) .js-lastname").forEach(function (el) {
-        if (!el.value.trim()) {
-            el.value = randomPlayerLastName();
-        }
-    });
 }
 
 function setSquadSizeIn(blockEl, size) {
