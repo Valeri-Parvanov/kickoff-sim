@@ -10,6 +10,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.servlet.ModelAndView;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -84,6 +85,34 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void handleConstraintViolation_returnsErrorViewWith400AndJoinedMessages() {
+        Model model = new ExtendedModelMap();
+        jakarta.validation.ConstraintViolation<?> first = mock(jakarta.validation.ConstraintViolation.class);
+        jakarta.validation.ConstraintViolation<?> second = mock(jakarta.validation.ConstraintViolation.class);
+        when(first.getMessage()).thenReturn("City is required");
+        when(second.getMessage()).thenReturn("Shirt number must be at most 99");
+        jakarta.validation.ConstraintViolationException ex =
+                new jakarta.validation.ConstraintViolationException(
+                        new java.util.LinkedHashSet<>(java.util.List.of(first, second)));
+
+        assertThat(handler.handleConstraintViolation(ex, model)).isEqualTo("error");
+        assertThat(model.getAttribute("status")).isEqualTo(400);
+        assertThat(model.getAttribute("errorMessage")).asString()
+                .contains("City is required")
+                .contains("Shirt number must be at most 99");
+    }
+
+    @Test
+    void handleConstraintViolation_noViolations_fallsBackToGenericMessage() {
+        Model model = new ExtendedModelMap();
+        jakarta.validation.ConstraintViolationException ex =
+                new jakarta.validation.ConstraintViolationException(java.util.Set.of());
+
+        assertThat(handler.handleConstraintViolation(ex, model)).isEqualTo("error");
+        assertThat(model.getAttribute("errorMessage")).isEqualTo("flash.error.unexpected");
+    }
+
+    @Test
     void handleGeneric_returnsErrorViewWith500() {
         Model model = new ExtendedModelMap();
 
@@ -144,6 +173,14 @@ class GlobalExceptionHandlerTest {
         when(request.getHeader("Referer")).thenReturn("");
 
         assertThat(handler.handleDuplicateEntry(request, response).getView()).isNotNull();
+    }
+
+    @Test
+    void handleDisconnectedClient_swallowsTheAbortedWrite() {
+        assertThatCode(() -> handler.handleDisconnectedClient(
+                new org.springframework.web.context.request.async.AsyncRequestNotUsableException(
+                        "Servlet container error notification for disconnected client")))
+                .doesNotThrowAnyException();
     }
 
     @Test

@@ -14,7 +14,8 @@ import java.util.concurrent.ThreadLocalRandom;
 @Getter
 @Setter
 @Entity
-@Table(name = "teams", indexes = @Index(columnList = "city"))
+@Table(name = "teams", indexes = @Index(columnList = "city"),
+        uniqueConstraints = @UniqueConstraint(name = "uk_team_name_city", columnNames = {"name", "city"}))
 public class Team {
 
     @Id

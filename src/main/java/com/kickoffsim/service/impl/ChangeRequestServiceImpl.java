@@ -40,7 +40,6 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
     private final LeagueService leagueService;
     private final TeamService teamService;
     private final PlayerService playerService;
-    private final MatchService matchService;
     private final ScheduleService scheduleService;
     private final ObjectMapper objectMapper;
     private final Validator validator;
@@ -63,7 +62,6 @@ public class ChangeRequestServiceImpl implements ChangeRequestService {
         this.leagueService = leagueService;
         this.teamService = teamService;
         this.playerService = playerService;
-        this.matchService = matchService;
         this.scheduleService = scheduleService;
         this.objectMapper = objectMapper;
         this.validator = validator;

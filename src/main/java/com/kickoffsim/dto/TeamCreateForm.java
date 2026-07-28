@@ -21,7 +21,7 @@ public class TeamCreateForm {
 
     @NotBlank(message = "{validation.team.city.required}")
     @Size(max = 100, message = "{validation.team.city.max}")
-    @Pattern(regexp = "^\\S+$", message = "{validation.team.city.nospaces}")
+    @Pattern(regexp = "^\\S+(?: \\S+)*$", message = "{validation.team.city.nospaces}")
     private String city;
 
     private UUID leagueId;

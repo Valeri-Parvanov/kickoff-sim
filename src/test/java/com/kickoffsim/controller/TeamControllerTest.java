@@ -46,6 +46,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -123,8 +124,11 @@ class TeamControllerTest {
 
         @SuppressWarnings("unchecked")
         Map<UUID, int[]> standingsByTeamId = (Map<UUID, int[]>) model.getAttribute("standingsByTeamId");
+        org.junit.jupiter.api.Assertions.assertNotNull(standingsByTeamId);
         assertThat(standingsByTeamId).containsKey(teamInLeagueId);
-        assertThat(standingsByTeamId.get(teamInLeagueId)).containsExactly(1, 2);
+        int[] standings = standingsByTeamId.get(teamInLeagueId);
+        org.junit.jupiter.api.Assertions.assertNotNull(standings);
+        assertThat(standings).containsExactly(1, 2);
         assertThat(standingsByTeamId).doesNotContainKey(teamNoLeagueId);
     }
 
@@ -525,6 +529,7 @@ class TeamControllerTest {
 
         assertThat(controller.createForm(reqId, model, auth)).isEqualTo("teams/create");
         TeamCreateForm form = (TeamCreateForm) model.getAttribute("teamCreateForm");
+        org.junit.jupiter.api.Assertions.assertNotNull(form);
         assertThat(form.getPlayers()).hasSize(12);
     }
 
@@ -816,6 +821,7 @@ class TeamControllerTest {
 
         assertThat(controller.createForm(reqId, model, auth)).isEqualTo("teams/create");
         TeamCreateForm form = (TeamCreateForm) model.getAttribute("teamCreateForm");
+        org.junit.jupiter.api.Assertions.assertNotNull(form);
         assertThat(form.getPlayers()).hasSize(1);
         assertThat(form.getPlayers().get(0).getShirtNumber()).isNull();
     }
@@ -993,7 +999,7 @@ class TeamControllerTest {
     void liveSummary_anonymous_returnsLiveMatchAsUnfollowed() {
         UUID id = UUID.randomUUID();
         MatchDto live = sideMatch(id, UUID.randomUUID(), LocalDateTime.now().minusMinutes(10));
-        when(matchService.findAll(any(Sort.class))).thenReturn(List.of(live));
+        when(matchService.findInWindow(any(), any(), anyBoolean())).thenReturn(List.of(live));
 
         Map<String, Object> result = controller.liveSummary(id, null);
 
@@ -1009,7 +1015,7 @@ class TeamControllerTest {
         UUID leagueId = UUID.randomUUID();
         MatchDto live = sideMatch(id, UUID.randomUUID(), LocalDateTime.now().minusMinutes(10));
         live.setLeagueId(leagueId);
-        when(matchService.findAll(any(Sort.class))).thenReturn(List.of(live));
+        when(matchService.findInWindow(any(), any(), anyBoolean())).thenReturn(List.of(live));
 
         Map<String, Object> result = controller.liveSummary(id, null);
 
@@ -1023,7 +1029,7 @@ class TeamControllerTest {
         UUID id = UUID.randomUUID();
         Authentication a = authWithSubs("bob", UUID.randomUUID());
         MatchDto live = sideMatch(id, UUID.randomUUID(), LocalDateTime.now().minusMinutes(10));
-        when(matchService.findAll(any(Sort.class))).thenReturn(List.of(live));
+        when(matchService.findInWindow(any(), any(), anyBoolean())).thenReturn(List.of(live));
 
         SubscriptionDto matchSub = new SubscriptionDto();
         matchSub.setEntityType("MATCH");
@@ -1042,7 +1048,7 @@ class TeamControllerTest {
         UUID id = UUID.randomUUID();
         Authentication a = authWithSubs("bob", UUID.randomUUID());
         MatchDto live = sideMatch(id, UUID.randomUUID(), LocalDateTime.now().minusMinutes(10));
-        when(matchService.findAll(any(Sort.class))).thenReturn(List.of(live));
+        when(matchService.findInWindow(any(), any(), anyBoolean())).thenReturn(List.of(live));
         when(notificationClient.getSubscriptions(any())).thenThrow(new RuntimeException("down"));
 
         Map<String, Object> result = controller.liveSummary(id, a);
@@ -1056,7 +1062,7 @@ class TeamControllerTest {
     void liveSummary_awaySideMatch_isIncluded() {
         UUID id = UUID.randomUUID();
         MatchDto live = sideMatch(UUID.randomUUID(), id, LocalDateTime.now().minusMinutes(10));
-        when(matchService.findAll(any(Sort.class))).thenReturn(List.of(live));
+        when(matchService.findInWindow(any(), any(), anyBoolean())).thenReturn(List.of(live));
 
         Map<String, Object> result = controller.liveSummary(id, null);
 
@@ -1071,7 +1077,7 @@ class TeamControllerTest {
         MatchDto notTeam = sideMatch(UUID.randomUUID(), UUID.randomUUID(), LocalDateTime.now().minusMinutes(10));
         MatchDto tooOld = sideMatch(id, UUID.randomUUID(), LocalDateTime.now().minusHours(2));
         MatchDto future = sideMatch(id, UUID.randomUUID(), LocalDateTime.now().plusHours(1));
-        when(matchService.findAll(any(Sort.class))).thenReturn(List.of(notTeam, tooOld, future));
+        when(matchService.findInWindow(any(), any(), anyBoolean())).thenReturn(List.of(notTeam, tooOld, future));
 
         Map<String, Object> result = controller.liveSummary(id, null);
 

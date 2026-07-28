@@ -105,6 +105,7 @@ class SquadControllerTest {
         squadController.form(teamId, model);
 
         SquadForm squadForm = (SquadForm) model.getAttribute("squadForm");
+        org.junit.jupiter.api.Assertions.assertNotNull(squadForm);
         assertThat(squadForm.getRows()).hasSize(5);
         assertThat(squadForm.getRows().get(0).getShirtNumber()).isEqualTo(98);
         assertThat(squadForm.getRows().get(1).getShirtNumber()).isEqualTo(99);
@@ -278,6 +279,7 @@ class SquadControllerTest {
         assertThat(view).isEqualTo("teams/squad");
         assertThat(model.getAttribute("editMode")).isEqualTo(true);
         SquadForm squadForm = (SquadForm) model.getAttribute("squadForm");
+        org.junit.jupiter.api.Assertions.assertNotNull(squadForm);
         assertThat(squadForm.getRows()).hasSize(12);
         assertThat(squadForm.getRows().get(0).getId()).isEqualTo(existing.getId());
         assertThat(squadForm.getRows().get(0).getFirstName()).isEqualTo("Ivan");

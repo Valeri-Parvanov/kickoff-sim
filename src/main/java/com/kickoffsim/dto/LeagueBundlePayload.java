@@ -1,5 +1,8 @@
 package com.kickoffsim.dto;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -13,6 +16,8 @@ import java.util.UUID;
 @Setter
 public class LeagueBundlePayload {
 
+    @NotBlank(message = "{validation.league.name.required}")
+    @Size(max = 100, message = "{validation.league.name.max}")
     private String leagueName;
 
     private LocalDate scheduleStartDate;
@@ -23,5 +28,6 @@ public class LeagueBundlePayload {
 
     private List<UUID> existingTeamIds = new ArrayList<>();
 
+    @Valid
     private List<TeamSquadPayload> newTeams = new ArrayList<>();
 }

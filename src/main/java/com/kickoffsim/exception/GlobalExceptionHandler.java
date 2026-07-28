@@ -2,6 +2,8 @@ package com.kickoffsim.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -11,12 +13,16 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.servlet.FlashMap;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.servlet.support.RequestContextUtils;
 import org.springframework.web.servlet.view.RedirectView;
+
+import java.util.stream.Collectors;
 
 @ControllerAdvice
 public class GlobalExceptionHandler {
@@ -86,6 +92,17 @@ public class GlobalExceptionHandler {
         return "error";
     }
 
+    @ExceptionHandler(ConstraintViolationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public String handleConstraintViolation(ConstraintViolationException ex, Model model) {
+        String message = ex.getConstraintViolations().stream()
+                .map(ConstraintViolation::getMessage)
+                .collect(Collectors.joining(", "));
+        model.addAttribute("status", 400);
+        model.addAttribute("errorMessage", message.isBlank() ? "flash.error.unexpected" : message);
+        return "error";
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ModelAndView handleDuplicateEntry(HttpServletRequest request, HttpServletResponse response) {
         String referer = request.getHeader("Referer");
@@ -104,6 +121,12 @@ public class GlobalExceptionHandler {
         }
 
         return new ModelAndView(new RedirectView(targetUrl, false));
+    }
+
+    @ExceptionHandler(AsyncRequestNotUsableException.class)
+    @ResponseBody
+    public void handleDisconnectedClient(AsyncRequestNotUsableException ex) {
+        log.debug("Client disconnected before the response was written: {}", ex.getMessage());
     }
 
     @ExceptionHandler(Exception.class)

@@ -13,7 +13,8 @@ import java.util.UUID;
 @Getter
 @Setter
 @Entity
-@Table(name = "players")
+@Table(name = "players",
+        uniqueConstraints = @UniqueConstraint(name = "uk_player_team_shirt", columnNames = {"team_id", "shirt_number"}))
 public class Player {
 
     @Id
