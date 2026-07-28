@@ -30,7 +30,9 @@ class SecurityConfigTest {
 
         handler.onAuthenticationSuccess(request, response, authentication);
 
-        Object loginAt = request.getSession().getAttribute(SecurityConfig.LOGIN_AT_SESSION_ATTR);
+        var session = request.getSession(false);
+        org.junit.jupiter.api.Assertions.assertNotNull(session);
+        Object loginAt = session.getAttribute(SecurityConfig.LOGIN_AT_SESSION_ATTR);
         assertThat(loginAt).isInstanceOf(LocalDateTime.class);
         assertThat(response.getRedirectedUrl()).isEqualTo("/");
     }

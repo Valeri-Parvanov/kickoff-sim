@@ -1,6 +1,5 @@
 ﻿<!DOCTYPE html>
-<html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org"
-      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -34,8 +33,8 @@
 
 <form method="get" th:action="@{/my-change-requests}" style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;">
     <input type="hidden" name="status" th:value="${selectedStatus}"/>
-    <span class="ls-filter-label" th:text="#{mycr.type}">Type</span>
-    <select name="type" class="ls-filter-select" onchange="this.form.submit()">
+    <label for="changeRequestTypeFilter" class="ls-filter-label" th:text="#{mycr.type}">Type</label>
+    <select id="changeRequestTypeFilter" name="type" class="ls-filter-select" onchange="this.form.submit()">
         <option value="ALL" th:selected="${selectedType == 'ALL'}" th:text="#{mycr.alltypes}">All types</option>
         <option value="LEAGUE" th:selected="${selectedType == 'LEAGUE'}" th:text="'&#127942; ' + #{nav.leagues.singular}">&#127942; League</option>
         <option value="TEAM" th:selected="${selectedType == 'TEAM'}" th:text="'&#128737; ' + #{teams.singular}">&#128737; Team</option>

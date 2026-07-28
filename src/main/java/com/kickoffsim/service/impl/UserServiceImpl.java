@@ -87,8 +87,8 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public Page<User> findAllPaged(int page, int size) {
-        return userRepository.findAll(PageRequest.of(page, size, Sort.by("username")));
+    public Page<User> findAllPaged(int page, int size, Sort sort) {
+        return userRepository.findAll(PageRequest.of(page, size, sort));
     }
 
     @Override
@@ -104,11 +104,14 @@ public class UserServiceImpl implements UserService {
 
         if (user.getRole() == newRole) return;
 
+        if (newRole == Role.ADMIN && !user.isEnabled()) {
+            throw new IllegalStateException("error.user.promote.disabled");
+        }
+
         if (user.getRole() == Role.ADMIN) {
             long adminCount = userRepository.countByRole(Role.ADMIN);
             if (adminCount <= 1) {
-                throw new IllegalStateException(
-                        "Cannot demote the last administrator. Promote another user to admin first.");
+                throw new IllegalStateException("error.user.lastadmin.demote");
             }
         }
 
@@ -182,8 +185,7 @@ public class UserServiceImpl implements UserService {
         if (user.getRole() == Role.ADMIN) {
             long adminCount = userRepository.countByRole(Role.ADMIN);
             if (adminCount <= 1) {
-                throw new IllegalStateException(
-                        "Cannot deactivate the last administrator. Promote another user to admin first.");
+                throw new IllegalStateException("error.user.lastadmin.deactivate");
             }
         }
         user.setEnabled(false);

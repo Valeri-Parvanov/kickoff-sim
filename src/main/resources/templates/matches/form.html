@@ -52,8 +52,10 @@
     <div>
         <label th:text="#{matches.form.playedat}">Played at</label>
         <div class="input-row">
-            <input type="date" id="datePart"/>
-            <select id="timePart"></select>
+            <input type="date" id="datePart" aria-label="Played at: date"
+                   th:attr="aria-label=#{matches.form.playedat} + ': date'"/>
+            <select id="timePart" aria-label="Played at: time"
+                    th:attr="aria-label=#{matches.form.playedat} + ': time'"></select>
         </div>
         <span class="field-hint" th:text="#{matches.form.scheduledhint}">Matches scheduled 08:00 – 23:30, every 30 minutes</span>
         <input type="hidden" th:field="*{playedAt}" id="playedAt"/>

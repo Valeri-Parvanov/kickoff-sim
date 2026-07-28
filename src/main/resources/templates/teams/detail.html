@@ -75,7 +75,7 @@
 <section id="squad" class="team-tab-section">
     <div th:if="${players.isEmpty()}" class="no-matches" th:text="#{teams.detail.noplayers}">No players registered yet.</div>
     <div class="table-wrapper" th:if="${!players.isEmpty()}">
-        <table border="1" cellpadding="6" class="squad-table">
+        <table class="squad-table">
             <thead>
             <tr>
                 <th>#</th>
@@ -126,39 +126,39 @@
 
                 <details class="match-card">
                     <summary class="match-card-summary">
-                        <div class="match-meta">
-                            <div th:replace="~{fragments/topbar :: matchStar(${m.id})}"></div>
+                        <span class="match-meta">
+                            <span th:replace="~{fragments/topbar :: matchStar(${m.id})}"></span>
                             <span class="match-meta-info">
                                 <a th:if="${m.leagueId != null}"
                                    th:href="@{/leagues/{id}(id=${m.leagueId})}"
                                    th:text="${m.leagueName}" class="match-league-tag"></a>
                                 <span class="match-round" th:if="${m.roundNumber != null}" th:text="#{matches.round} + ' ' + ${m.roundNumber}"></span>
                             </span>
-                        </div>
-                        <div class="match-scoreline">
+                        </span>
+                        <span class="match-scoreline">
                             <a class="team-name home" th:href="@{/teams/{id}(id=${m.homeTeamId})}">
                                 <span th:text="${m.homeTeamName + (m.homeTeamCity != null ? ' (' + m.homeTeamCity + ')' : '')}"></span>
                                 <img th:src="@{/teams/{id}/logo(id=${m.homeTeamId})}" class="match-logo" alt=""/>
                                 <span class="scoring-dot scoring-dot-home"></span>
                             </a>
-                            <div class="score-block"
-                                 th:if="${m.playedAt.isAfter(liveThreshold)}"
-                                 th:attr="data-elapsed=${elapsedByMatchId[m.id]},data-match-id=${m.id}">
-                                <div class="score-time" th:attr="data-utc=${m.playedAtUtcIso},data-fmt='datetime-compact'"></div>
-                                <div class="ls-score-main"><span class="ls-h">-</span>&thinsp;:&thinsp;<span class="ls-a">-</span></div>
-                                <div class="live-badge" th:text="#{matches.live}">LIVE</div>
-                                <div class="live-minute"></div>
-                            </div>
-                            <div class="score-block" th:unless="${m.playedAt.isAfter(liveThreshold)}">
-                                <div class="score-time" th:attr="data-utc=${m.playedAtUtcIso},data-fmt='datetime-compact'"></div>
-                                <div class="score-main" th:text="${m.homeScore} + ' : ' + ${m.awayScore}"></div>
-                            </div>
+                            <span class="score-block"
+                                  th:if="${m.playedAt.isAfter(liveThreshold)}"
+                                  th:attr="data-elapsed=${elapsedByMatchId[m.id]},data-match-id=${m.id}">
+                                <span class="score-time" th:attr="data-utc=${m.playedAtUtcIso},data-fmt='datetime-compact'"></span>
+                                <span class="ls-score-main"><span class="ls-h">-</span>&thinsp;:&thinsp;<span class="ls-a">-</span></span>
+                                <span class="live-badge" th:text="#{matches.live}">LIVE</span>
+                                <span class="live-minute"></span>
+                            </span>
+                            <span class="score-block" th:unless="${m.playedAt.isAfter(liveThreshold)}">
+                                <span class="score-time" th:attr="data-utc=${m.playedAtUtcIso},data-fmt='datetime-compact'"></span>
+                                <span class="score-main" th:text="${m.homeScore} + ' : ' + ${m.awayScore}"></span>
+                            </span>
                             <a class="team-name away" th:href="@{/teams/{id}(id=${m.awayTeamId})}">
                                 <span class="scoring-dot scoring-dot-away"></span>
                                 <img th:src="@{/teams/{id}/logo(id=${m.awayTeamId})}" class="match-logo" alt=""/>
                                 <span th:text="${m.awayTeamName + (m.awayTeamCity != null ? ' (' + m.awayTeamCity + ')' : '')}"></span>
                             </a>
-                        </div>
+                        </span>
                     </summary>
                     <div class="match-card-expand">
                         <div class="goal-timeline" th:if="${!m.goalTimeline.isEmpty()}">
@@ -345,9 +345,14 @@
     function updateLive() {
         var stateById = {};
         liveData.forEach(function(m) {
-            var baseSec = (m.elapsedSec != null) ? m.elapsedSec : m.elapsedMin * 60;
-            var capturedAt = m.capturedAt != null ? m.capturedAt : PAGE_LOAD_TIME;
-            var elapsedSec = baseSec + (Date.now() - capturedAt) / 1000;
+            var elapsedSec;
+            if (m.playedAtEpochMs != null) {
+                elapsedSec = (Date.now() - m.playedAtEpochMs) / 1000;
+            } else {
+                var baseSec = (m.elapsedSec != null) ? m.elapsedSec : m.elapsedMin * 60;
+                var capturedAt = m.capturedAt != null ? m.capturedAt : PAGE_LOAD_TIME;
+                elapsedSec = baseSec + (Date.now() - capturedAt) / 1000;
+            }
             stateById[m.id] = { st: getLiveState(elapsedSec, m.goals), homeTeamId: m.homeTeamId, awayTeamId: m.awayTeamId, elapsedSec: elapsedSec };
         });
 
@@ -468,7 +473,7 @@
 
         var metaInfo = '';
         if (m.leagueId) {
-            metaInfo += '<a class="match-league-tag" href="/leagues/' + esc(m.leagueId) + '">' + esc(m.leagueName) + '</a>';
+            metaInfo += '<a class="match-league-tag" href="/leagues/' + esc(m.leagueId) + '">' + esc(m['leagueName']) + '</a>';
         }
         if (m.roundNumber != null) {
             metaInfo += '<span class="match-round">'
@@ -560,7 +565,7 @@
                     var idx = -1;
                     for (var i = 0; i < arr.length; i++) { if (arr[i].id === m.id) { idx = i; break; } }
                     var entry = { id: m.id, homeTeamId: m.homeTeamId, awayTeamId: m.awayTeamId,
-                                  elapsedMin: m.elapsedMin, elapsedSec: m.elapsedSec, goals: m.goals,
+                                  elapsedMin: m.elapsedMin, elapsedSec: m.elapsedSec, playedAtEpochMs: m.playedAtEpochMs, goals: m.goals,
                                   capturedAt: Date.now() };
                     if (idx >= 0) arr[idx] = entry; else arr.push(entry);
                 });

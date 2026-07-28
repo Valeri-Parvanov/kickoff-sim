@@ -3,6 +3,7 @@ package com.kickoffsim.security;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.jspecify.annotations.NonNull;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -29,17 +30,17 @@ class EagerCsrfTokenFilterTest {
         AtomicInteger resolutions = new AtomicInteger();
         CsrfToken deferred = new CsrfToken() {
             @Override
-            public String getHeaderName() {
+            public @NonNull String getHeaderName() {
                 return "X-CSRF-TOKEN";
             }
 
             @Override
-            public String getParameterName() {
+            public @NonNull String getParameterName() {
                 return "_csrf";
             }
 
             @Override
-            public String getToken() {
+            public @NonNull String getToken() {
                 resolutions.incrementAndGet();
                 return "resolved-token";
             }

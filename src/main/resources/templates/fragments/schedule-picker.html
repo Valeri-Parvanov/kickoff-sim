@@ -155,8 +155,7 @@
             opt.value = lbl; opt.textContent = lbl;
             sel.appendChild(opt);
         }
-        var cur = hidden.value ? hidden.value.substring(0,5) : '11:00';
-        sel.value = cur;
+        sel.value = hidden.value ? hidden.value.substring(0,5) : '11:00';
         if (!sel.value) sel.value = '11:00';
         hidden.value = sel.value;
 

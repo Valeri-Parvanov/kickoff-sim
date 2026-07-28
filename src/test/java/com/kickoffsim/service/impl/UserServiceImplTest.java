@@ -223,11 +223,12 @@ class UserServiceImplTest {
     }
 
     @Test
-    void findAllPaged_delegatesToRepositoryWithSortedPageRequest() {
+    void findAllPaged_delegatesToRepositoryWithGivenSort() {
         Page<User> page = new PageImpl<>(java.util.List.of(new User()));
-        when(userRepository.findAll(PageRequest.of(0, 10, Sort.by("username")))).thenReturn(page);
+        Sort sort = Sort.by(Sort.Order.desc("enabled"), Sort.Order.asc("role"), Sort.Order.asc("username"));
+        when(userRepository.findAll(PageRequest.of(0, 10, sort))).thenReturn(page);
 
-        Page<User> result = userService.findAllPaged(0, 10);
+        Page<User> result = userService.findAllPaged(0, 10, sort);
 
         assertThat(result).isSameAs(page);
     }
@@ -288,7 +289,7 @@ class UserServiceImplTest {
 
         assertThatThrownBy(() -> userService.changeRole(id, Role.USER, "admin"))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("last administrator");
+                .hasMessageContaining("lastadmin");
     }
 
     @Test
@@ -304,6 +305,38 @@ class UserServiceImplTest {
         ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).save(captor.capture());
         assertThat(captor.getValue().getRole()).isEqualTo(Role.ADMIN);
+    }
+
+    @Test
+    void changeRole_promoteDisabledUser_throwsIllegalStateException() {
+        UUID id = UUID.randomUUID();
+        User user = new User();
+        user.setId(id);
+        user.setRole(Role.USER);
+        user.setEnabled(false);
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> userService.changeRole(id, Role.ADMIN, "admin"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("promote.disabled");
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void changeRole_demoteDisabledAdmin_isAllowed() {
+        UUID id = UUID.randomUUID();
+        User user = new User();
+        user.setId(id);
+        user.setRole(Role.ADMIN);
+        user.setEnabled(false);
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+        when(userRepository.countByRole(Role.ADMIN)).thenReturn(2L);
+
+        userService.changeRole(id, Role.USER, "admin");
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(captor.capture());
+        assertThat(captor.getValue().getRole()).isEqualTo(Role.USER);
     }
 
     @Test
@@ -348,7 +381,7 @@ class UserServiceImplTest {
 
         assertThatThrownBy(() -> userService.deactivateSelf("admin", "correct"))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("last administrator");
+                .hasMessageContaining("lastadmin");
         verify(userRepository, never()).save(any());
     }
 
@@ -436,7 +469,7 @@ class UserServiceImplTest {
 
         assertThatThrownBy(() -> userService.setEnabled(id, false, "admin"))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("last administrator");
+                .hasMessageContaining("lastadmin");
         verify(userRepository, never()).save(any());
     }
 

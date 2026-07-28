@@ -16,7 +16,7 @@
 
     <div class="global-search">
         <input type="text" id="globalSearchInput" class="global-search-input" autocomplete="off"
-               th:placeholder="#{nav.search.placeholder}"/>
+               th:placeholder="#{nav.search.placeholder}" aria-label="Search" th:aria-label="#{nav.search.placeholder}"/>
         <div id="globalSearchResults" class="global-search-dropdown" hidden
              th:attr="data-label-teams=#{nav.search.teams},data-label-players=#{nav.search.players},data-label-leagues=#{nav.search.leagues},data-no-results=#{nav.search.noresults}"></div>
     </div>
@@ -53,7 +53,7 @@
         <a th:href="@{/admin/users}" sec:authorize="hasRole('ADMIN')">&#9881; <span th:text="#{nav.users}">Users</span></a>
 
         <div class="sidebar-lang-switch">
-            <a th:href="@{${currentPath != null ? currentPath : '/'}(lang='en')}"
+            <a th:href="${(currentPath != null ? currentPath : '/') + '?' + (currentQuery != null ? currentQuery + '&' : '') + 'lang=en'}"
                th:classappend="${#locale.language == 'en'} ? ' lang-active'">
                 <span class="lang-flag">
                     <svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="UK flag">
@@ -66,7 +66,7 @@
                 </span>
                 <span class="lang-code">EN</span>
             </a>
-            <a th:href="@{${currentPath != null ? currentPath : '/'}(lang='bg')}"
+            <a th:href="${(currentPath != null ? currentPath : '/') + '?' + (currentQuery != null ? currentQuery + '&' : '') + 'lang=bg'}"
                th:classappend="${#locale.language == 'bg'} ? ' lang-active'">
                 <span class="lang-flag">
                     <svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bulgarian flag">
@@ -77,7 +77,7 @@
                 </span>
                 <span class="lang-code">BG</span>
             </a>
-            <a th:href="@{${currentPath != null ? currentPath : '/'}(lang='de')}"
+            <a th:href="${(currentPath != null ? currentPath : '/') + '?' + (currentQuery != null ? currentQuery + '&' : '') + 'lang=de'}"
                th:classappend="${#locale.language == 'de'} ? ' lang-active'">
                 <span class="lang-flag">
                     <svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="German flag">
@@ -191,14 +191,16 @@
     var nameEl = document.getElementById('confirmDialogName');
     var body2El = document.getElementById('confirmDialogBody2');
     var confirmBtn = document.getElementById('confirmDialogConfirm');
+    var defaultConfirmLabel = confirmBtn.textContent;
     var pendingFormId = null;
 
-    window.openConfirmDialog = function(formId, title, name, body1, body2) {
+    window.openConfirmDialog = function(formId, title, name, body1, body2, confirmLabel) {
         pendingFormId = formId;
         titleEl.textContent = title;
         nameEl.textContent = name;
         body1El.textContent = body1;
         body2El.textContent = body2;
+        confirmBtn.textContent = confirmLabel || defaultConfirmLabel;
         dialog.showModal();
     };
 
@@ -379,10 +381,10 @@
                 statusLine.textContent = statusIcon + statusLabel(label);
                 body.appendChild(statusLine);
 
-                var matchLine = document.createElement('div');
-                matchLine.className = 'goal-toast-scorer';
-                matchLine.textContent = home + ' ' + L.vs + ' ' + away + ' · ' + hScore + ':' + aScore;
-                body.appendChild(matchLine);
+                var statusMatchLine = document.createElement('div');
+                statusMatchLine.className = 'goal-toast-scorer';
+                statusMatchLine.textContent = home + ' ' + L.vs + ' ' + away + ' · ' + hScore + ':' + aScore;
+                body.appendChild(statusMatchLine);
             } else {
                 var statusText = document.createElement('div');
                 statusText.className = 'goal-toast-msg';
@@ -778,7 +780,9 @@
         <span th:if="${!isError and !isWarn}">&#10004;</span>
     </div>
     <h2 class="flash-dialog-title" id="flashDialogTitle"
-        th:text="${isError} ? #{flash.title.error} : (${isWarn} ? #{flash.title.warning} : #{flash.title.success})">Done</h2>
+        th:text="${flashTitle != null}
+                    ? (${#messages.msgOrNull(flashTitle) != null ? #messages.msgOrNull(flashTitle) : flashTitle})
+                    : (${isError} ? #{flash.title.error} : (${isWarn} ? #{flash.title.warning} : #{flash.title.success}))">Done</h2>
     <div class="flash-dialog-body">
         <p th:if="${statusMessage}"
            th:text="${#messages.msgOrNull(statusMessage) != null ? #messages.msgOrNull(statusMessage) : statusMessage}"></p>
@@ -847,6 +851,15 @@
                 <span class="goal-icon">&#9917;</span>
             </th:block>
         </div>
+    </div>
+</th:block>
+
+<th:block th:fragment="weatherToggle(matchId)">
+    <div class="match-weather-row">
+        <button type="button" class="match-weather-btn"
+                th:attr="data-match-id=${matchId},data-unavailable=#{matches.weather.unavailable},data-loading=#{matches.weather.loading}"
+                th:text="#{matches.weather.details}">Weather</button>
+        <span class="match-weather-chip" hidden></span>
     </div>
 </th:block>
 

@@ -3,10 +3,12 @@ package com.kickoffsim.controller;
 import com.kickoffsim.model.Role;
 import com.kickoffsim.model.User;
 import com.kickoffsim.service.UserService;
+import com.kickoffsim.web.SortSupport;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
@@ -17,6 +19,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Controller
@@ -27,13 +30,30 @@ public class UserAdminController {
 
     private static final int PAGE_SIZE = 20;
 
+    private static final Map<String, String> SORT_FIELDS = Map.of(
+            "username", "username",
+            "email", "email",
+            "role", "role",
+            "status", "enabled");
+
+    private static final Sort DEFAULT_SORT = Sort.by(
+            Sort.Order.desc("enabled"),
+            Sort.Order.asc("role"),
+            Sort.Order.asc("username"));
+
     private final UserService userService;
 
     @GetMapping
-    public String list(@RequestParam(defaultValue = "0") int page, Model model) {
-        Page<User> userPage = userService.findAllPaged(page, PAGE_SIZE);
+    public String list(@RequestParam(defaultValue = "0") int page,
+                       @RequestParam(required = false) String sort,
+                       @RequestParam(required = false) String dir,
+                       Model model) {
+        Sort resolved = SortSupport.resolve(sort, dir, SORT_FIELDS, DEFAULT_SORT);
+        Page<User> userPage = userService.findAllPaged(page, PAGE_SIZE, resolved);
         long adminCount = userService.countByRole(Role.ADMIN);
 
+        model.addAttribute("currentSort", sort);
+        model.addAttribute("currentDir", "desc".equalsIgnoreCase(dir) ? "desc" : "asc");
         model.addAttribute("users", userPage.getContent());
         model.addAttribute("currentPage", userPage.getNumber());
         model.addAttribute("totalPages", userPage.getTotalPages());

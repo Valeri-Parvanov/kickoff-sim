@@ -28,8 +28,8 @@
 
     <form th:action="@{/profile}" th:object="${profileDto}" method="post" class="card-form profile-form">
         <div>
-            <label th:text="#{profile.username}">Username</label>
-            <input type="text" th:value="${profileUsername}" disabled class="input-disabled">
+            <label for="profileUsername" th:text="#{profile.username}">Username</label>
+            <input type="text" id="profileUsername" th:value="${profileUsername}" disabled class="input-disabled">
             <span class="field-hint" th:text="#{profile.username.hint}">Username cannot be changed.</span>
         </div>
         <div>
@@ -70,7 +70,7 @@
             <span class="field-error" th:if="${#fields.hasErrors('password')}" th:errors="*{password}"></span>
         </div>
         <button type="button" class="btn-del"
-                th:attr="onclick=|openConfirmDialog('deactivateSelfForm', '${#strings.escapeJavaScript(#messages.msg('profile.deactivate.title'))}', '${#strings.escapeJavaScript(profileUsername)}', '${#strings.escapeJavaScript(#messages.msg('profile.deactivate.body1'))}', '${#strings.escapeJavaScript(#messages.msg('profile.deactivate.body2'))}')|"
+                th:attr="onclick=|openConfirmDialog('deactivateSelfForm', '${#strings.escapeJavaScript(#messages.msg('profile.deactivate.title'))}', '${#strings.escapeJavaScript(profileUsername)}', '${#strings.escapeJavaScript(#messages.msg('profile.deactivate.body1'))}', '${#strings.escapeJavaScript(#messages.msg('profile.deactivate.body2'))}', '${#strings.escapeJavaScript(#messages.msg('common.deactivate'))}')|"
                 th:text="#{profile.deactivate.button}">Deactivate my account</button>
     </form>
 </div>

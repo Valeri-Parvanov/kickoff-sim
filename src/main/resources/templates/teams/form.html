@@ -21,13 +21,12 @@
 
     <div>
         <label for="name" th:text="#{common.name}">Name</label>
-        <div class="input-row" th:if="${teamDto.id == null}">
-            <input type="text" id="name" th:field="*{name}"/>
-            <button type="button" class="dice-btn" onclick="fillRandomTeamName('name')" th:title="#{leagues.form.randomname}" title="Generate random name">&#127922;</button>
-        </div>
-        <div th:if="${teamDto.id != null}">
-            <input type="text" id="name" th:field="*{name}" readonly class="input-disabled"/>
-            <span class="field-hint" style="display:block;margin-top:0.3rem" th:text="#{teams.form.namehint}">Team name cannot be changed after creation.</span>
+        <div th:class="${teamDto.id == null} ? 'input-row' : ''">
+            <input type="text" id="name" th:field="*{name}"
+                   th:readonly="${teamDto.id != null}"
+                   th:classappend="${teamDto.id != null} ? 'input-disabled' : ''"/>
+            <button th:if="${teamDto.id == null}" type="button" class="dice-btn" onclick="fillRandomTeamName('name')" th:title="#{leagues.form.randomname}" title="Generate random name">&#127922;</button>
+            <span th:if="${teamDto.id != null}" class="field-hint" style="display:block;margin-top:0.3rem" th:text="#{teams.form.namehint}">Team name cannot be changed after creation.</span>
         </div>
         <span style="color:red" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></span>
     </div>

@@ -6,6 +6,7 @@ import com.kickoffsim.dto.RegisterDto;
 import com.kickoffsim.model.Role;
 import com.kickoffsim.model.User;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Sort;
 
 import java.util.UUID;
 
@@ -19,7 +20,7 @@ public interface UserService {
 
     void changePassword(String currentUsername, ChangePasswordDto dto);
 
-    Page<User> findAllPaged(int page, int size);
+    Page<User> findAllPaged(int page, int size, Sort sort);
 
     long countByRole(Role role);
 

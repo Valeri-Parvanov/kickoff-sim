@@ -67,7 +67,8 @@ class AuthControllerTest {
         RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
 
         assertThat(controller.register(dto, br, ra)).isEqualTo("redirect:/login");
-        assertThat(ra.getFlashAttributes()).containsKey("statusMessage");
+        assertThat(ra.getFlashAttributes().get("statusMessage")).isEqualTo("flash.auth.firstadmin");
+        assertThat(ra.getFlashAttributes().get("flashTitle")).isEqualTo("flash.title.firstadmin");
     }
 
     @Test
@@ -79,6 +80,7 @@ class AuthControllerTest {
 
         assertThat(controller.register(dto, br, ra)).isEqualTo("redirect:/login");
         assertThat(ra.getFlashAttributes()).doesNotContainKey("statusMessage");
+        assertThat(ra.getFlashAttributes()).doesNotContainKey("flashTitle");
     }
 
     @Test

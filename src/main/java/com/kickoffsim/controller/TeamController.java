@@ -128,7 +128,7 @@ public class TeamController {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime liveThreshold = now.minusMinutes(46);
 
-        List<MatchDto> live = matchService.findAll(Sort.by(Sort.Direction.ASC, "playedAt")).stream()
+        List<MatchDto> live = matchService.findInWindow(liveThreshold, now, true).stream()
                 .filter(m -> id.equals(m.getHomeTeamId()) || id.equals(m.getAwayTeamId()))
                 .filter(m -> m.getPlayedAt().isBefore(now) && m.getPlayedAt().isAfter(liveThreshold))
                 .sorted(Comparator.comparing(MatchDto::getPlayedAt).reversed())

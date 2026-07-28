@@ -69,27 +69,26 @@ public final class LogoGenerator {
         String emblemGradId = "e" + uid;
         String shadowId = "s" + uid;
 
-        StringBuilder svg = new StringBuilder();
-        svg.append("<svg viewBox=\"0 0 80 90\" xmlns=\"http://www.w3.org/2000/svg\">");
-        svg.append("<defs>");
-        svg.append(linearGradient(baseGradId, "hsl(" + hue + ",60%,30%)", "hsl(" + hue + ",70%,48%)"));
-        svg.append(linearGradient(accentGradId, "hsl(" + accentHue + ",65%,42%)", "hsl(" + accentHue + ",75%,58%)"));
-        svg.append(linearGradient(emblemGradId, "#ffffff", "#d6d9e0"));
-        svg.append(rimGold ? goldGradient(rimGradId) : silverGradient(rimGradId));
-        svg.append("<clipPath id=\"").append(clipId).append("\">").append(innerClip(shapeIdx)).append("</clipPath>");
-        svg.append(dropShadowFilter(shadowId));
-        svg.append("</defs>");
-        svg.append("<g filter=\"url(#").append(shadowId).append(")\">");
-        svg.append(outerShape(shapeIdx, rimGradId));
-        svg.append(innerFill(shapeIdx, baseGradId));
-        svg.append("<g clip-path=\"url(#").append(clipId).append(")\">")
-           .append(splitPolygon(splitRight, accentGradId))
-           .append("</g>");
-        svg.append(highlightArc(shapeIdx));
-        svg.append(buildEmblem(emblemIdx, name, emblemGradId));
-        svg.append("</g>");
-        svg.append("</svg>");
-        return svg.toString();
+        String svg = "<svg viewBox=\"0 0 80 90\" xmlns=\"http://www.w3.org/2000/svg\">";
+        svg += "<defs>";
+        svg += linearGradient(baseGradId, "hsl(" + hue + ",60%,30%)", "hsl(" + hue + ",70%,48%)");
+        svg += linearGradient(accentGradId, "hsl(" + accentHue + ",65%,42%)", "hsl(" + accentHue + ",75%,58%)");
+        svg += linearGradient(emblemGradId, "#ffffff", "#d6d9e0");
+        svg += rimGold ? goldGradient(rimGradId) : silverGradient(rimGradId);
+        svg += "<clipPath id=\"" + clipId + "\">" + innerClip(shapeIdx) + "</clipPath>";
+        svg += dropShadowFilter(shadowId);
+        svg += "</defs>";
+        svg += "<g filter=\"url(#" + shadowId + ")\">";
+        svg += outerShape(shapeIdx, rimGradId);
+        svg += innerFill(shapeIdx, baseGradId);
+        svg += "<g clip-path=\"url(#" + clipId + ")\">"
+                + splitPolygon(splitRight, accentGradId)
+                + "</g>";
+        svg += highlightArc(shapeIdx);
+        svg += buildEmblem(emblemIdx, name, emblemGradId);
+        svg += "</g>";
+        svg += "</svg>";
+        return svg;
     }
 
     public static String generateLeagueLogo(String name, UUID id) {

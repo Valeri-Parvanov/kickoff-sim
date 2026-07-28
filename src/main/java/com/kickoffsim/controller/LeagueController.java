@@ -25,6 +25,7 @@ import com.kickoffsim.web.StandingsExportSupport;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Sort;
@@ -91,7 +92,7 @@ public class LeagueController {
 
         model.addAttribute("liveMatchesForJs", List.of());
         model.addAttribute("elapsedByMatchId", Map.of());
-        model.addAttribute("selectedRound", (Integer) null);
+        model.addAttribute("selectedRound", null);
 
         if (!league.getMatches().isEmpty()) {
             LocalDateTime now = LocalDateTime.now();
@@ -131,11 +132,11 @@ public class LeagueController {
             model.addAttribute("roundMatches", roundMatches);
             if (roundRecapService != null) {
                 model.addAttribute("roundRecap",
-                        roundRecapService.find(id, selectedRound, request.getLocale()).orElse(null));
+                        roundRecapService.find(id, selectedRound, LocaleContextHolder.getLocale()).orElse(null));
                 model.addAttribute("roundRecapReady",
                         roundRecapService.isRoundComplete(league, selectedRound));
                 model.addAttribute("seasonRecap",
-                        roundRecapService.findSeason(id, request.getLocale()).orElse(null));
+                        roundRecapService.findSeason(id, LocaleContextHolder.getLocale()).orElse(null));
                 model.addAttribute("seasonRecapReady",
                         roundRecapService.isSeasonRecapReady(league));
             }
@@ -192,7 +193,7 @@ public class LeagueController {
         } catch (RuntimeException ex) {
             redirectAttributes.addFlashAttribute("errorMessage", "flash.recap.failed");
         }
-        return "redirect:/leagues/" + id + "?round=" + round + "#overview";
+        return "redirect:/leagues/" + id + "?round=" + round + "&tab=overview#overview";
     }
 
     @PostMapping("/{id}/season-recap")
@@ -210,7 +211,7 @@ public class LeagueController {
         } catch (RuntimeException ex) {
             redirectAttributes.addFlashAttribute("errorMessage", "flash.seasonrecap.failed");
         }
-        return "redirect:/leagues/" + id + "#overview";
+        return "redirect:/leagues/" + id + "?tab=overview#overview";
     }
 
     @GetMapping("/{id}/standings-summary")

@@ -4,19 +4,19 @@
 
 <th:block th:fragment="standingsTable(rows, highlightTeamId)">
 <div class="table-wrapper">
-    <table border="1" cellpadding="6">
+    <table class="js-standings-sortable">
         <thead>
         <tr>
-            <th>#</th>
-            <th th:text="#{standings.team}">Team</th>
-            <th th:text="#{standings.p}">P</th>
-            <th th:text="#{standings.w}">W</th>
-            <th th:text="#{standings.d}">D</th>
-            <th th:text="#{standings.l}">L</th>
-            <th th:text="#{standings.gf}">GF</th>
-            <th th:text="#{standings.ga}">GA</th>
-            <th th:text="#{standings.gd}">GD</th>
-            <th th:text="#{standings.pts}">Pts</th>
+            <th class="js-sort" data-sort-type="number" th:title="#{standings.position.title}">#</th>
+            <th class="js-sort" data-sort-type="text" th:text="#{standings.team}">Team</th>
+            <th class="js-sort" data-sort-type="number" th:text="#{standings.p}">P</th>
+            <th class="js-sort" data-sort-type="number" th:text="#{standings.w}">W</th>
+            <th class="js-sort" data-sort-type="number" th:text="#{standings.d}">D</th>
+            <th class="js-sort" data-sort-type="number" th:text="#{standings.l}">L</th>
+            <th class="js-sort" data-sort-type="number" th:text="#{standings.gf}">GF</th>
+            <th class="js-sort" data-sort-type="number" th:text="#{standings.ga}">GA</th>
+            <th class="js-sort" data-sort-type="number" th:text="#{standings.gd}">GD</th>
+            <th class="js-sort" data-sort-type="number" th:text="#{standings.pts}">Pts</th>
         </tr>
         </thead>
         <tbody>
@@ -57,6 +57,61 @@
         </tbody>
     </table>
 </div>
+<script>
+(function () {
+    Array.prototype.forEach.call(document.querySelectorAll('.js-standings-sortable'), function (table) {
+        if (table.dataset.sortableReady) return;
+        table.dataset.sortableReady = '1';
+
+        var tbody = table.tBodies[0];
+        var original = Array.prototype.slice.call(tbody.rows);
+        var headers = Array.prototype.slice.call(table.querySelectorAll('th.js-sort'));
+
+        function cellValue(row, index, type) {
+            var text = (row.cells[index].textContent || '').trim();
+            if (type === 'number') {
+                var n = parseFloat(text);
+                return isNaN(n) ? 0 : n;
+            }
+            return text.toLowerCase();
+        }
+
+        headers.forEach(function (header) {
+            header.classList.add('sortable-th');
+            header.addEventListener('click', function () {
+                var index = Array.prototype.indexOf.call(header.parentNode.cells, header);
+                var type = header.dataset.sortType;
+                var dir = header.dataset.dir === 'asc' ? 'desc' : 'asc';
+
+                headers.forEach(function (h) {
+                    delete h.dataset.dir;
+                    h.classList.remove('sorted-asc', 'sorted-desc');
+                });
+
+                if (header.dataset.reset === '1') {
+                    delete header.dataset.reset;
+                    original.forEach(function (row) { tbody.appendChild(row); });
+                    return;
+                }
+
+                var rows = Array.prototype.slice.call(tbody.rows);
+                rows.sort(function (a, b) {
+                    var va = cellValue(a, index, type);
+                    var vb = cellValue(b, index, type);
+                    if (va < vb) return dir === 'asc' ? -1 : 1;
+                    if (va > vb) return dir === 'asc' ? 1 : -1;
+                    return 0;
+                });
+                rows.forEach(function (row) { tbody.appendChild(row); });
+
+                header.dataset.dir = dir;
+                header.classList.add(dir === 'asc' ? 'sorted-asc' : 'sorted-desc');
+                if (dir === 'desc') header.dataset.reset = '1';
+            });
+        });
+    });
+})();
+</script>
 </th:block>
 
 <th:block th:fragment="playerStatTable(rows, countLabel)">

@@ -1,6 +1,5 @@
 ﻿<!DOCTYPE html>
-<html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org"
-      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -18,7 +17,7 @@
 
 <div th:replace="~{fragments/topbar :: messages}"></div>
 
-<p th:if="${#lists.isEmpty(changeRequests)}" th:text="#{admin.cr.none}">No pending changes.</p>
+<p th:if="${#lists.isEmpty(changeRequests)}" th:text="#{admin.cr.none}">There are no pending changes.</p>
 
 <div class="cr-list" th:unless="${#lists.isEmpty(changeRequests)}">
     <div class="cr-card" th:each="cr : ${changeRequests}">
@@ -59,7 +58,9 @@
             <form th:action="@{/admin/change-requests/{id}/rejection(id=${cr.id})}" method="post" class="cr-reject-form">
                 <input type="text" name="reason" th:placeholder="#{admin.cr.reason}" placeholder="Reason (optional)" class="cr-reason-input"
                        th:value="${failedRequestId != null and failedRequestId == cr.id} ? ${suggestedReason} : null"
-                       th:attr="list=${'reasons-' + cr.id}"/>
+                       th:attr="list=${'reasons-' + cr.id}"
+                       aria-label="Rejection reason"
+                       th:aria-label="#{admin.cr.reason}"/>
                 <datalist th:id="${'reasons-' + cr.id}" th:switch="${cr.entityType.name()}">
                     <th:block th:case="'LEAGUE'">
                         <option th:value="#{admin.cr.reason.leaguenameexists}" value="League name already exists"></option>

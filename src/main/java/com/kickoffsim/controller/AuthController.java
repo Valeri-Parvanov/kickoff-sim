@@ -51,6 +51,7 @@ public class AuthController {
         }
 
         if (assignedRole == Role.ADMIN) {
+            redirectAttributes.addFlashAttribute("flashTitle", "flash.title.firstadmin");
             redirectAttributes.addFlashAttribute("statusMessage", "flash.auth.firstadmin");
         }
 

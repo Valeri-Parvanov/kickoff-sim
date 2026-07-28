@@ -43,22 +43,46 @@ class UserAdminControllerTest {
 
     @Test
     void list_returnsView() {
-        when(userService.findAllPaged(anyInt(), anyInt())).thenReturn(Page.empty());
+        when(userService.findAllPaged(anyInt(), anyInt(), any())).thenReturn(Page.empty());
         when(userService.countByRole(any())).thenReturn(1L);
         Model model = new ExtendedModelMap();
 
-        assertThat(controller.list(0, model)).isEqualTo("admin/users");
+        assertThat(controller.list(0, null, null, model)).isEqualTo("admin/users");
         assertThat(model.getAttribute("adminCount")).isEqualTo(1L);
+        assertThat(model.getAttribute("currentSort")).isNull();
+        assertThat(model.getAttribute("currentDir")).isEqualTo("asc");
+    }
+
+    @Test
+    void list_descendingSort_isExposedToTheView() {
+        when(userService.findAllPaged(anyInt(), anyInt(), any())).thenReturn(Page.empty());
+        when(userService.countByRole(any())).thenReturn(1L);
+        Model model = new ExtendedModelMap();
+
+        controller.list(0, "username", "DESC", model);
+
+        assertThat(model.getAttribute("currentSort")).isEqualTo("username");
+        assertThat(model.getAttribute("currentDir")).isEqualTo("desc");
+    }
+
+    @Test
+    void list_unknownSortField_fallsBackToTheDefaultOrder() {
+        when(userService.findAllPaged(anyInt(), anyInt(), any())).thenReturn(Page.empty());
+        when(userService.countByRole(any())).thenReturn(1L);
+        Model model = new ExtendedModelMap();
+
+        assertThat(controller.list(0, "bogus", "asc", model)).isEqualTo("admin/users");
+        assertThat(model.getAttribute("currentSort")).isEqualTo("bogus");
     }
 
     @Test
     void list_smallPageCount_showsAllPageNumbers() {
         Page<User> page = new PageImpl<>(List.of(), PageRequest.of(1, 20), 41);
-        when(userService.findAllPaged(1, 20)).thenReturn(page);
+        when(userService.findAllPaged(eq(1), eq(20), any())).thenReturn(page);
         when(userService.countByRole(any())).thenReturn(1L);
         Model model = new ExtendedModelMap();
 
-        controller.list(1, model);
+        controller.list(1, null, null, model);
 
         assertThat(model.getAttribute("totalPages")).isEqualTo(3);
         assertThat(model.getAttribute("pageNumbers")).isEqualTo(List.of(0, 1, 2));
@@ -67,11 +91,11 @@ class UserAdminControllerTest {
     @Test
     void list_manyPages_middlePage_showsBothEllipses() {
         Page<User> page = new PageImpl<>(List.of(), PageRequest.of(5, 20), 200);
-        when(userService.findAllPaged(5, 20)).thenReturn(page);
+        when(userService.findAllPaged(eq(5), eq(20), any())).thenReturn(page);
         when(userService.countByRole(any())).thenReturn(1L);
         Model model = new ExtendedModelMap();
 
-        controller.list(5, model);
+        controller.list(5, null, null, model);
 
         assertThat(model.getAttribute("totalPages")).isEqualTo(10);
         assertThat(model.getAttribute("pageNumbers")).isEqualTo(List.of(0, -1, 3, 4, 5, 6, 7, -1, 9));
@@ -80,11 +104,11 @@ class UserAdminControllerTest {
     @Test
     void list_manyPages_firstPage_showsOnlyTrailingEllipsis() {
         Page<User> page = new PageImpl<>(List.of(), PageRequest.of(0, 20), 200);
-        when(userService.findAllPaged(0, 20)).thenReturn(page);
+        when(userService.findAllPaged(eq(0), eq(20), any())).thenReturn(page);
         when(userService.countByRole(any())).thenReturn(1L);
         Model model = new ExtendedModelMap();
 
-        controller.list(0, model);
+        controller.list(0, null, null, model);
 
         assertThat(model.getAttribute("pageNumbers")).isEqualTo(List.of(0, 1, 2, -1, 9));
     }
@@ -92,11 +116,11 @@ class UserAdminControllerTest {
     @Test
     void list_manyPages_lastPage_showsOnlyLeadingEllipsis() {
         Page<User> page = new PageImpl<>(List.of(), PageRequest.of(9, 20), 200);
-        when(userService.findAllPaged(9, 20)).thenReturn(page);
+        when(userService.findAllPaged(eq(9), eq(20), any())).thenReturn(page);
         when(userService.countByRole(any())).thenReturn(1L);
         Model model = new ExtendedModelMap();
 
-        controller.list(9, model);
+        controller.list(9, null, null, model);
 
         assertThat(model.getAttribute("pageNumbers")).isEqualTo(List.of(0, -1, 7, 8, 9));
     }

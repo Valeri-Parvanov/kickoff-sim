@@ -350,6 +350,7 @@ class LeagueControllerTest {
 
         assertThat(controller.detail(id, null, auth, request, model)).isEqualTo("leagues/detail");
         ScheduleForm form = (ScheduleForm) model.getAttribute("scheduleForm");
+        org.junit.jupiter.api.Assertions.assertNotNull(form);
         assertThat(form.getStartDate()).isEqualTo(LocalDate.of(2026, 8, 1));
         assertThat(form.getStartTime()).isEqualTo(LocalTime.of(12, 0));
     }
@@ -709,8 +710,10 @@ class LeagueControllerTest {
         assertThat(controller.detail(id, null, auth, request, model)).isEqualTo("leagues/detail");
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> liveMatches = (List<Map<String, Object>>) model.getAttribute("liveMatchesForJs");
+        org.junit.jupiter.api.Assertions.assertNotNull(liveMatches);
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> goals = (List<Map<String, Object>>) liveMatches.get(0).get("goals");
+        org.junit.jupiter.api.Assertions.assertNotNull(goals);
         assertThat(goals.get(0).get("minute")).isEqualTo(0);
         assertThat(goals.get(0).get("half")).isEqualTo("FIRST");
         assertThat(goals.get(0).get("rh")).isEqualTo(0);

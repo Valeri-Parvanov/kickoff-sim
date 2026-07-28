@@ -40,7 +40,7 @@
                 </div>
 
                 <div class="table-wrapper">
-                <table border="1" cellpadding="6">
+                <table>
                     <thead>
                     <tr>
                         <th>#</th>
@@ -57,6 +57,8 @@
                         <td>
                             <input type="hidden" th:if="${row.id != null}" th:field="*{rows[__${stat.index}__].id}"/>
                             <input type="number" min="1" max="99"
+                                   aria-label="Shirt number"
+                                   th:aria-label="#{players.shirtno} + ' ' + ${stat.count}"
                                    th:field="*{rows[__${stat.index}__].shirtNumber}"/>
                             <span style="color:red"
                                   th:if="${#fields.hasErrors('rows[__${stat.index}__].shirtNumber')}"
@@ -64,6 +66,8 @@
                         </td>
                         <td>
                             <input type="text" class="js-firstname"
+                                   aria-label="First name"
+                                   th:aria-label="#{players.firstname} + ' ' + ${stat.count}"
                                    th:field="*{rows[__${stat.index}__].firstName}"/>
                             <span style="color:red"
                                   th:if="${#fields.hasErrors('rows[__${stat.index}__].firstName')}"
@@ -71,6 +75,8 @@
                         </td>
                         <td>
                             <input type="text" class="js-lastname"
+                                   aria-label="Last name"
+                                   th:aria-label="#{players.lastname} + ' ' + ${stat.count}"
                                    th:field="*{rows[__${stat.index}__].lastName}"/>
                             <span style="color:red"
                                   th:if="${#fields.hasErrors('rows[__${stat.index}__].lastName')}"
@@ -113,7 +119,7 @@
             </div>
 
             <div class="table-wrapper">
-            <table border="1" cellpadding="6">
+            <table>
                 <thead>
                 <tr>
                     <th>#</th>
@@ -128,6 +134,8 @@
                     <td th:text="${stat.count}">1</td>
                     <td>
                         <input type="number" min="1" max="99"
+                               aria-label="Shirt number"
+                               th:aria-label="#{players.shirtno} + ' ' + ${stat.count}"
                                th:field="*{rows[__${stat.index}__].shirtNumber}"/>
                         <span style="color:red"
                               th:if="${#fields.hasErrors('rows[__${stat.index}__].shirtNumber')}"
@@ -135,6 +143,8 @@
                     </td>
                     <td>
                         <input type="text" class="js-firstname"
+                               aria-label="First name"
+                               th:aria-label="#{players.firstname} + ' ' + ${stat.count}"
                                th:field="*{rows[__${stat.index}__].firstName}"/>
                         <span style="color:red"
                               th:if="${#fields.hasErrors('rows[__${stat.index}__].firstName')}"
@@ -142,6 +152,8 @@
                     </td>
                     <td>
                         <input type="text" class="js-lastname"
+                               aria-label="Last name"
+                               th:aria-label="#{players.lastname} + ' ' + ${stat.count}"
                                th:field="*{rows[__${stat.index}__].lastName}"/>
                         <span style="color:red"
                               th:if="${#fields.hasErrors('rows[__${stat.index}__].lastName')}"

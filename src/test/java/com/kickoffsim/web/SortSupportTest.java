@@ -30,20 +30,26 @@ class SortSupportTest {
     void resolve_knownSortKey_ascendingByDefault() {
         Sort result = SortSupport.resolve("name", null, allowed, defaultSort);
 
-        assertThat(result.getOrderFor("name").getDirection()).isEqualTo(Sort.Direction.ASC);
+        Sort.Order order = result.getOrderFor("name");
+        org.junit.jupiter.api.Assertions.assertNotNull(order);
+        assertThat(order.getDirection()).isEqualTo(Sort.Direction.ASC);
     }
 
     @Test
     void resolve_knownSortKey_explicitAsc() {
         Sort result = SortSupport.resolve("name", "asc", allowed, defaultSort);
 
-        assertThat(result.getOrderFor("name").getDirection()).isEqualTo(Sort.Direction.ASC);
+        Sort.Order order = result.getOrderFor("name");
+        org.junit.jupiter.api.Assertions.assertNotNull(order);
+        assertThat(order.getDirection()).isEqualTo(Sort.Direction.ASC);
     }
 
     @Test
     void resolve_knownSortKey_descDirection_caseInsensitive() {
         Sort result = SortSupport.resolve("city", "DESC", allowed, defaultSort);
 
-        assertThat(result.getOrderFor("city").getDirection()).isEqualTo(Sort.Direction.DESC);
+        Sort.Order order = result.getOrderFor("city");
+        org.junit.jupiter.api.Assertions.assertNotNull(order);
+        assertThat(order.getDirection()).isEqualTo(Sort.Direction.DESC);
     }
 }

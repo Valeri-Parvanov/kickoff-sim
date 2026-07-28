@@ -1,6 +1,5 @@
 ﻿<!DOCTYPE html>
-<html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org"
-      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -23,7 +22,8 @@
             gap: 0.6rem;
             padding: 1rem 1.1rem;
             border-radius: 12px;
-            background: var(--card-bg, #fff);
+            background: var(--surface-raised);
+            border: 1px solid var(--border-soft);
             box-shadow: 0 1px 5px rgba(0,0,0,.07);
             transition: box-shadow 0.15s ease, transform 0.12s ease;
         }
@@ -55,43 +55,42 @@
             font-weight: 700; font-size: 1rem; color: var(--text);
             overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
         }
-        .feed-card-sub { font-size: 0.8rem; color: var(--muted); margin-top: 1px; }
+        .feed-card-sub { font-size: 0.8rem; color: var(--muted-text); margin-top: 1px; }
         .feed-pills { display: flex; flex-wrap: wrap; gap: 0.4rem; }
         .feed-pill {
             font-size: 0.75rem; font-weight: 500;
             padding: 3px 9px; border-radius: 6px;
-            background: var(--surface, #f1f5f9);
+            background: var(--surface-raised);
+            border: 1px solid var(--border-soft);
             color: var(--text);
         }
-        .feed-pill.pos { background: #dcfce7; color: #15803d; font-weight: 700; }
-        .feed-pill.rem { background: #eff6ff; color: #1d4ed8; }
-        .feed-pill.teams { background: #f3e8ff; color: #7c3aed; }
+        .feed-pill.pos { background: #dcfce7; color: #15803d; font-weight: 700; border-color: #bbf7d0; }
+        .feed-pill.rem { background: #eff6ff; color: #1d4ed8; border-color: #dbeafe; }
+        .feed-pill.teams { background: #f3e8ff; color: #7c3aed; border-color: #e9d5ff; }
 
-        .feed-match-list { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem; }
-        .feed-match {
-            display: flex; align-items: center; justify-content: space-between;
-            gap: 0.75rem; padding: 0.65rem 1rem;
-            border-radius: 10px; background: var(--card-bg, #fff);
-            box-shadow: 0 1px 4px rgba(0,0,0,.06);
-            font-size: 0.9rem;
+        :root[data-theme="dark"] .feed-pill.pos {
+            background: rgba(34,197,94,0.16); color: #6ee7a0; border-color: rgba(34,197,94,0.3);
         }
-        .feed-match-teams { display: flex; align-items: center; gap: 0.5rem; flex: 1; min-width: 0; }
-        .feed-match-logo { width: 22px; height: 22px; border-radius: 50%; }
-        .feed-match-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .feed-match-vs { color: var(--muted); font-size: 0.8rem; flex-shrink: 0; }
-        .feed-match-score {
-            font-weight: 800; font-size: 1rem;
-            min-width: 40px; text-align: center; flex-shrink: 0;
+        :root[data-theme="dark"] .feed-pill.rem {
+            background: rgba(59,130,246,0.16); color: #93c5fd; border-color: rgba(59,130,246,0.3);
         }
-        .feed-match-score.upcoming { color: var(--muted); font-size: 0.8rem; font-weight: 500; }
-        .feed-match-date { font-size: 0.75rem; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
-        .feed-match-league { font-size: 0.72rem; color: var(--muted); }
-        .feed-section-label {
-            font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em;
-            text-transform: uppercase; color: var(--muted);
-            margin: 1rem 0 0.4rem;
+        :root[data-theme="dark"] .feed-pill.teams {
+            background: rgba(168,85,247,0.16); color: #d8b4fe; border-color: rgba(168,85,247,0.3);
         }
-        .no-feed { color: var(--muted); font-size: 0.92rem; padding: 1rem 0; }
+        :root[data-theme="dark"] .feed-card-trophy {
+            background: rgba(234,179,8,0.16); color: #fcd34d;
+        }
+        :root[data-theme="dark"] .feed-card-unfollow button {
+            background: rgba(244,63,94,0.14); color: #fda4af; border-color: rgba(244,63,94,0.32);
+        }
+        :root[data-theme="dark"] .feed-card-unfollow button:hover {
+            background: rgba(244,63,94,0.24);
+        }
+        :root[data-theme="dark"] .feed-card:hover {
+            box-shadow: 0 4px 16px rgba(0,0,0,.45);
+        }
+
+        .no-feed { color: var(--muted-text); font-size: 0.92rem; padding: 1rem 0; }
         .no-feed a { color: var(--pitch); }
 
         .feed-match-tabs {
@@ -120,36 +119,6 @@
         .feed-sub-section { display: none; }
         .feed-sub-section.active { display: block; }
 
-        .feed-match-detail { border: none; background: none; }
-        .feed-match-detail > summary { list-style: none; }
-        .feed-match-detail > summary::-webkit-details-marker { display: none; }
-        .feed-match-detail[open] > summary .feed-match {
-            border-bottom-left-radius: 0; border-bottom-right-radius: 0;
-        }
-        .feed-match-expand-body {
-            padding: 0.5rem 1rem 0.7rem;
-            background: #f7fbf8;
-            border: 1px solid #dcefe1;
-            border-top: none;
-            border-radius: 0 0 10px 10px;
-            font-size: 0.82rem;
-        }
-        .feed-goal-row {
-            display: flex; justify-content: space-between; gap: 0.5rem;
-            padding: 2px 0; font-size: 0.8rem;
-        }
-        .feed-goal-home { flex: 1; text-align: left; color: var(--ink); }
-        .feed-goal-away { flex: 1; text-align: right; color: var(--ink); }
-        .feed-half-label {
-            font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
-            color: var(--muted); letter-spacing: 0.05em;
-            margin: 0.4rem 0 0.2rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 2px;
-        }
-        .feed-expand-hint {
-            font-size: 0.72rem; color: var(--muted); margin-left: auto; flex-shrink: 0;
-            transition: transform 0.2s;
-        }
-        .feed-match-detail[open] .feed-expand-hint { transform: rotate(180deg); }
         .feed-live-dot {
             display: inline-block; width: 6px; height: 6px; border-radius: 50%;
             background: #dc2626; margin-right: 4px; vertical-align: middle;
@@ -157,14 +126,6 @@
         }
         @keyframes live-pulse {
             0%, 100% { opacity: 1; } 50% { opacity: 0.3; }
-        }
-        .feed-live-score {
-            display: flex; flex-direction: column; align-items: center;
-            font-weight: 800; font-size: 1rem; color: #dc2626; min-width: 56px; text-align: center;
-        }
-        .feed-live-min {
-            font-size: 0.68rem; font-weight: 700; color: #dc2626;
-            letter-spacing: 0.02em; opacity: 0.85; margin-top: 1px;
         }
     </style>
 </head>
@@ -278,34 +239,34 @@
                 <details th:each="m : ${liveMatches}" class="match-card"
                          th:attr="data-live-utc=${m.playedAtUtcIso}">
                     <summary class="match-card-summary">
-                        <div class="match-meta">
-                            <div th:replace="~{fragments/topbar :: matchStar(${m.id})}"></div>
+                        <span class="match-meta">
+                            <span th:replace="~{fragments/topbar :: matchStar(${m.id})}"></span>
                             <span class="match-meta-info">
                                 <a class="match-league-tag" th:if="${m.leagueId != null}"
                                    th:href="@{/leagues/{id}(id=${m.leagueId})}" th:text="${m.leagueName}"></a>
                                 <span class="match-round" th:if="${m.roundNumber != null}"
                                       th:text="#{matches.round} + ' ' + ${m.roundNumber}"></span>
                             </span>
-                        </div>
-                        <div class="match-scoreline">
+                        </span>
+                        <span class="match-scoreline">
                             <a class="team-name home" th:href="@{/teams/{id}(id=${m.homeTeamId})}">
                                 <span th:text="${m.homeTeamName + (m.homeTeamCity != null ? ' (' + m.homeTeamCity + ')' : '')}"></span>
                                 <img th:src="@{/teams/{id}/logo(id=${m.homeTeamId})}" class="match-logo" alt=""/>
                                 <span class="scoring-dot scoring-dot-home"></span>
                             </a>
-                            <div class="score-block"
-                                 th:attr="data-elapsed=${elapsedByMatchId[m.id]},data-match-id=${m.id}">
-                                <div class="score-time" th:attr="data-utc=${m.playedAtUtcIso},data-fmt='datetime-compact'"></div>
-                                <div class="ls-score-main"><span class="ls-h">-</span>&thinsp;:&thinsp;<span class="ls-a">-</span></div>
-                                <div class="live-badge" th:text="#{matches.live}">LIVE</div>
-                                <div class="live-minute"></div>
-                            </div>
+                            <span class="score-block"
+                                  th:attr="data-elapsed=${elapsedByMatchId[m.id]},data-match-id=${m.id}">
+                                <span class="score-time" th:attr="data-utc=${m.playedAtUtcIso},data-fmt='datetime-compact'"></span>
+                                <span class="ls-score-main"><span class="ls-h">-</span>&thinsp;:&thinsp;<span class="ls-a">-</span></span>
+                                <span class="live-badge" th:text="#{matches.live}">LIVE</span>
+                                <span class="live-minute"></span>
+                            </span>
                             <a class="team-name away" th:href="@{/teams/{id}(id=${m.awayTeamId})}">
                                 <span class="scoring-dot scoring-dot-away"></span>
                                 <img th:src="@{/teams/{id}/logo(id=${m.awayTeamId})}" class="match-logo" alt=""/>
                                 <span th:text="${m.awayTeamName + (m.awayTeamCity != null ? ' (' + m.awayTeamCity + ')' : '')}"></span>
                             </a>
-                        </div>
+                        </span>
                     </summary>
                     <div class="match-card-expand">
                         <p class="match-in-progress"
@@ -326,31 +287,31 @@
             <div class="match-list" id="feed-results-list" th:unless="${recentMatches.isEmpty()}">
                 <details th:each="m : ${recentMatches}" class="match-card">
                     <summary class="match-card-summary">
-                        <div class="match-meta">
+                        <span class="match-meta">
                             <span class="match-meta-info">
                                 <a class="match-league-tag" th:if="${m.leagueId != null}"
                                    th:href="@{/leagues/{id}(id=${m.leagueId})}" th:text="${m.leagueName}"></a>
                                 <span class="match-round" th:if="${m.roundNumber != null}"
                                       th:text="#{matches.round} + ' ' + ${m.roundNumber}"></span>
                             </span>
-                        </div>
-                        <div class="match-scoreline">
+                        </span>
+                        <span class="match-scoreline">
                             <a class="team-name home" th:href="@{/teams/{id}(id=${m.homeTeamId})}">
                                 <span th:text="${m.homeTeamName + (m.homeTeamCity != null ? ' (' + m.homeTeamCity + ')' : '')}"></span>
                                 <img th:src="@{/teams/{id}/logo(id=${m.homeTeamId})}" class="match-logo" alt=""/>
                                 <span class="scoring-dot scoring-dot-home"></span>
                             </a>
-                            <div class="score-block">
-                                <div class="score-time" th:attr="data-utc=${m.playedAtUtcIso},data-fmt='datetime-compact'"></div>
-                                <div class="score-main"
-                                     th:text="${m.homeScore != null ? m.homeScore : '-'} + ' : ' + ${m.awayScore != null ? m.awayScore : '-'}"></div>
-                            </div>
+                            <span class="score-block">
+                                <span class="score-time" th:attr="data-utc=${m.playedAtUtcIso},data-fmt='datetime-compact'"></span>
+                                <span class="score-main"
+                                      th:text="${m.homeScore != null ? m.homeScore : '-'} + ' : ' + ${m.awayScore != null ? m.awayScore : '-'}"></span>
+                            </span>
                             <a class="team-name away" th:href="@{/teams/{id}(id=${m.awayTeamId})}">
                                 <span class="scoring-dot scoring-dot-away"></span>
                                 <img th:src="@{/teams/{id}/logo(id=${m.awayTeamId})}" class="match-logo" alt=""/>
                                 <span th:text="${m.awayTeamName + (m.awayTeamCity != null ? ' (' + m.awayTeamCity + ')' : '')}"></span>
                             </a>
-                        </div>
+                        </span>
                     </summary>
                     <div class="match-card-expand">
                         <div class="goal-timeline" th:if="${!m.goalTimeline.isEmpty()}">
@@ -428,7 +389,7 @@
 }());
 </script>
 <script th:inline="javascript">
-var LIVE_MATCHES = /*[[${liveMatchesForJs}]]*/[];
+window.LIVE_MATCHES = /*[[${liveMatchesForJs}]]*/[];
 </script>
 <script th:src="@{/js/livescore.js}"></script>
 <script>
@@ -569,7 +530,7 @@ var _feedActivateSub;
 
         var metaInfo = '';
         if (m.leagueId) {
-            metaInfo += '<a class="match-league-tag" href="/leagues/' + esc(m.leagueId) + '">' + esc(m.leagueName) + '</a>';
+            metaInfo += '<a class="match-league-tag" href="/leagues/' + esc(m.leagueId) + '">' + esc(m['leagueName']) + '</a>';
         }
         if (m.roundNumber != null) {
             metaInfo += '<span class="match-round">'
@@ -651,7 +612,7 @@ var _feedActivateSub;
                     window.LIVE_MATCHES = (window.LIVE_MATCHES || [])
                         .filter(function(x) { return x.id !== m.id; })
                         .concat([{ id: m.id, homeTeamId: m.homeTeamId, awayTeamId: m.awayTeamId,
-                                   elapsedMin: m.elapsedMin, elapsedSec: m.elapsedSec, goals: m.goals,
+                                   elapsedMin: m.elapsedMin, elapsedSec: m.elapsedSec, playedAtEpochMs: m.playedAtEpochMs, goals: m.goals,
                                    capturedAt: Date.now() }]);
                 });
 

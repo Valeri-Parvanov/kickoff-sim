@@ -29,6 +29,34 @@ class FlashDialogRenderingTest {
     }
 
     @Test
+    void flashTitle_overridesTheDefaultSuccessTitle() throws Exception {
+        mockMvc.perform(get("/login")
+                        .flashAttr("flashTitle", "flash.title.firstadmin")
+                        .flashAttr("statusMessage", "flash.auth.firstadmin"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Welcome to Kickoff Sim!")))
+                .andExpect(content().string(containsString("Administrator role")))
+                .andExpect(content().string(not(containsString(">Done<"))));
+    }
+
+    @Test
+    void flashTitle_overrideIsLocalized() throws Exception {
+        mockMvc.perform(get("/login").param("lang", "bg")
+                        .flashAttr("flashTitle", "flash.title.firstadmin")
+                        .flashAttr("statusMessage", "flash.auth.firstadmin"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Добре дошли в Kickoff Sim!")))
+                .andExpect(content().string(containsString("роля Администратор")));
+    }
+
+    @Test
+    void withoutFlashTitle_theDefaultSuccessTitleIsUsed() throws Exception {
+        mockMvc.perform(get("/login").flashAttr("statusMessage", "flash.profile.passwordchanged"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString(">Done<")));
+    }
+
+    @Test
     void messageKey_isResolvedToEnglishByDefaultLocale() throws Exception {
         mockMvc.perform(get("/login").flashAttr("statusMessage", "flash.profile.passwordchanged"))
                 .andExpect(status().isOk())

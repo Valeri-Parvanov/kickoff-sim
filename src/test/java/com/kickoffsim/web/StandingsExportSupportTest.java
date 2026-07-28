@@ -65,17 +65,17 @@ class StandingsExportSupportTest {
     }
 
     @Test
-    void writeExcel_propagatesFailure_whenOutputStreamFails() {
+    void writeExcel_propagatesFailure_whenOutputStreamFails() throws IOException {
         List<StandingRow> standings = List.of(row("Sample FC", "Sofia", 1, 1, 0, 0, 3, 1));
-        OutputStream failing = new OutputStream() {
-            @Override
-            public void write(int b) throws IOException {
-                throw new IOException("boom");
-            }
-        };
-
-        assertThatThrownBy(() -> StandingsExportSupport.writeExcel("Test League", standings, failing))
-                .isInstanceOf(RuntimeException.class);
+        try (OutputStream failing = new OutputStream() {
+                @Override
+                public void write(int b) throws IOException {
+                    throw new IOException("boom");
+                }
+        }) {
+            assertThatThrownBy(() -> StandingsExportSupport.writeExcel("Test League", standings, failing))
+                    .isInstanceOf(RuntimeException.class);
+        }
     }
 
     @Test
