@@ -18,8 +18,7 @@
 <!-- Edit mode: team has no league — full squad management (League Wizard style) -->
 <div th:if="${editMode}">
     <h1 th:text="'&#128101; ' + #{teams.squad.manage}">&#128101; Manage squad</h1>
-    <p><span th:text="#{teams.squad.manage.desc1}">Add, edit, or remove players for</span> <strong th:text="${team.name}"></strong> <span th:text="#{teams.squad.manage.desc2}">(minimum 6, maximum 12 players).
-        Clear a row's name to remove that player.</span></p>
+    <p th:text="#{teams.squad.manage.description(${team.name})}">Add, edit, or remove players for this team (minimum 6, maximum 12). Clear a name to remove that player.</p>
 
     <form th:action="@{/teams/{id}/squad(id=${team.id})}" th:object="${squadForm}" method="post">
         <div th:replace="~{fragments/topbar :: errorDialog(${#fields.globalErrors()})}"></div>
@@ -101,8 +100,7 @@
 <!-- Add-only mode: team is in a league — can only fill remaining slots -->
 <div th:unless="${editMode}">
     <h1 th:text="'&#128101; ' + #{teams.squad.add}">&#128101; Add squad</h1>
-    <p><span th:text="#{teams.squad.add.desc1}">Fill in players for</span> <strong th:text="${team.name}"></strong>. <span th:text="#{teams.squad.add.desc2}">You can add up to</span>
-        <strong th:text="${remaining}"></strong> <span th:text="#{teams.squad.add.desc3}">more player(s). Leave rows empty to skip them.</span></p>
+    <p th:text="#{teams.squad.add.description(${team.name}, ${remaining})}">Fill in the squad. Leave unused rows empty.</p>
 
     <div th:if="${remaining <= 0}">
         <p class="status-message" th:text="#{teams.squad.full}">This team already has a full squad (12 players).</p>

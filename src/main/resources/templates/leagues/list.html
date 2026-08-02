@@ -66,7 +66,7 @@
             <form th:id="'deleteLeagueForm-' + ${league.id}"
                   th:action="@{/leagues/{id}(id=${league.id})}" th:method="delete" style="display:inline"></form>
             <button type="button" class="btn-del"
-                    th:attr="onclick=|openConfirmDialog('deleteLeagueForm-${league.id}', '${#strings.escapeJavaScript(#messages.msg('leagues.delete.title'))}', '${#strings.escapeJavaScript(league.name)}', '${#strings.escapeJavaScript(#messages.msg('leagues.delete.body1'))}', '${#strings.escapeJavaScript(#messages.msg('leagues.delete.body2'))}')|"
+                    th:attr="onclick=|openConfirmDialog('deleteLeagueForm-${league.id}', '${#strings.escapeJavaScript(#messages.msg('leagues.delete.title'))}', '${#strings.escapeJavaScript(#messages.msg('leagues.delete.body', league.name))}')|"
                     th:text="#{common.delete}">Delete</button>
         </td>
     </tr>

@@ -15,7 +15,7 @@
 <main class="page">
 <div th:replace="~{fragments/topbar :: messages}"></div>
 <h1 th:text="'&#128101; ' + #{admin.users.title}">&#128101; User Management</h1>
-<p class="section-meta" th:text="#{admin.users.total} + ' ' + ${totalUsers} + ' ' + #{admin.users.usersword} + ' · ' + ${adminCount} + ' ' + #{admin.users.adminsword}"></p>
+<p class="section-meta" th:text="#{admin.users.summary(${totalUsers}, ${adminCount})}"></p>
 
 <div class="wizard-skip-note" th:if="${adminCount <= 1}">
     <span>&#9888;</span>
@@ -76,7 +76,7 @@
                 <button th:if="${u.enabled}" type="button" class="btn-del"
                         th:disabled="${u.role.name() == 'ADMIN' and adminCount <= 1}"
                         th:title="${u.role.name() == 'ADMIN' and adminCount <= 1} ? #{admin.users.lastadmin} : ''"
-                        th:attr="onclick=|openConfirmDialog('deactivateUserForm-${u.id}', '${#strings.escapeJavaScript(#messages.msg('admin.users.deactivate.title'))}', '${#strings.escapeJavaScript(u.username)}', '${#strings.escapeJavaScript(#messages.msg('admin.users.deactivate.body1'))}', '${#strings.escapeJavaScript(#messages.msg('admin.users.deactivate.body2'))}', '${#strings.escapeJavaScript(#messages.msg('common.deactivate'))}')|"
+                        th:attr="onclick=|openConfirmDialog('deactivateUserForm-${u.id}', '${#strings.escapeJavaScript(#messages.msg('admin.users.deactivate.title'))}', '${#strings.escapeJavaScript(#messages.msg('admin.users.deactivate.body', u.username))}', '${#strings.escapeJavaScript(#messages.msg('common.deactivate'))}')|"
                         th:text="#{admin.users.deactivate}">Deactivate</button>
                 <form th:if="${!u.enabled}"
                       th:action="@{/admin/users/{id}/status(id=${u.id})}" method="post" style="display:inline">

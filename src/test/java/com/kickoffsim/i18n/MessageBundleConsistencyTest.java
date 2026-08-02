@@ -33,6 +33,9 @@ class MessageBundleConsistencyTest {
 
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{(\\d+)[^}]*}");
     private static final Pattern TEMPLATE_KEY = Pattern.compile("#\\{\\s*([A-Za-z][A-Za-z0-9_.\\-]*)");
+    private static final Pattern PSEUDO_PLURAL = Pattern.compile(
+            "team\\(s\\)|player\\(s\\)|admin\\(s\\)|time\\(s\\)|отбор\\(и\\)|играч\\(и\\)|път\\(и\\)|администратор\\(и\\)|Mannschaft\\(en\\)|Administrator\\(en\\)");
+    private static final Pattern FIXED_UTC_OFFSET = Pattern.compile("UTC[+-]\\d{1,2}");
 
     private static final Map<String, List<String>> FORBIDDEN_TERMS = Map.of(
             "bg", List.of("Тим", "Ранглиста", "Реализатор", "Скуад"),
@@ -114,6 +117,67 @@ class MessageBundleConsistencyTest {
                 });
 
         assertTrue(problems.isEmpty(), () -> "Blank messages:\n" + String.join("\n", problems));
+    }
+
+    @Test
+    @DisplayName("message bundles do not contain duplicate raw keys")
+    void noDuplicateRawKeys() {
+        List<String> problems = new ArrayList<>();
+
+        Stream.concat(Stream.of(Map.entry("en", BASE)), LOCALE_FILES.entrySet().stream())
+                .forEach(entry -> {
+                    Set<String> seen = new LinkedHashSet<>();
+                    for (String line : readLines(entry.getValue())) {
+                        String trimmed = line.trim();
+                        if (trimmed.isEmpty() || trimmed.startsWith("#") || trimmed.startsWith("!")) {
+                            continue;
+                        }
+                        int separator = trimmed.indexOf('=');
+                        if (separator <= 0) {
+                            continue;
+                        }
+                        String key = trimmed.substring(0, separator).trim();
+                        if (!seen.add(key)) {
+                            problems.add(entry.getKey() + ": duplicate key '" + key + "'");
+                        }
+                    }
+                });
+
+        assertTrue(problems.isEmpty(), () -> "Duplicate message keys:\n" + String.join("\n", problems));
+    }
+
+    @Test
+    @DisplayName("messages do not use attached pseudo-plural forms")
+    void noPseudoPluralForms() {
+        List<String> problems = new ArrayList<>();
+
+        Stream.concat(Stream.of(Map.entry("en", BASE)), LOCALE_FILES.entrySet().stream())
+                .forEach(entry -> {
+                    Properties bundle = load(entry.getValue());
+                    for (String key : new TreeSet<>(bundle.stringPropertyNames())) {
+                        if (PSEUDO_PLURAL.matcher(bundle.getProperty(key)).find()) {
+                            problems.add(entry.getKey() + ": '" + key + "' uses a pseudo-plural form");
+                        }
+                    }
+                });
+
+        assertTrue(problems.isEmpty(), () -> "Pseudo-plural messages:\n" + String.join("\n", problems));
+    }
+
+    @Test
+    @DisplayName("Sofia time messages do not hard-code a UTC offset")
+    void noFixedSofiaUtcOffset() {
+        List<String> problems = new ArrayList<>();
+
+        Stream.concat(Stream.of(Map.entry("en", BASE)), LOCALE_FILES.entrySet().stream())
+                .forEach(entry -> {
+                    String value = load(entry.getValue()).getProperty("schedule.sofiatime", "");
+                    if (FIXED_UTC_OFFSET.matcher(value).find()) {
+                        problems.add(entry.getKey() + ": schedule.sofiatime contains a fixed UTC offset");
+                    }
+                });
+
+        assertTrue(problems.isEmpty(), () -> "Fixed Sofia UTC offsets:\n" + String.join("\n", problems));
     }
 
     @Test
@@ -212,5 +276,13 @@ class MessageBundleConsistencyTest {
             throw new IllegalStateException("Cannot read " + fileName, e);
         }
         return properties;
+    }
+
+    private static List<String> readLines(String fileName) {
+        try {
+            return Files.readAllLines(RESOURCES.resolve(fileName), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new IllegalStateException("Cannot read " + fileName, e);
+        }
     }
 }

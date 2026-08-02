@@ -70,7 +70,7 @@
             <span class="field-error" th:if="${#fields.hasErrors('password')}" th:errors="*{password}"></span>
         </div>
         <button type="button" class="btn-del"
-                th:attr="onclick=|openConfirmDialog('deactivateSelfForm', '${#strings.escapeJavaScript(#messages.msg('profile.deactivate.title'))}', '${#strings.escapeJavaScript(profileUsername)}', '${#strings.escapeJavaScript(#messages.msg('profile.deactivate.body1'))}', '${#strings.escapeJavaScript(#messages.msg('profile.deactivate.body2'))}', '${#strings.escapeJavaScript(#messages.msg('common.deactivate'))}')|"
+                th:attr="onclick=|openConfirmDialog('deactivateSelfForm', '${#strings.escapeJavaScript(#messages.msg('profile.deactivate.title'))}', '${#strings.escapeJavaScript(#messages.msg('profile.deactivate.body', profileUsername))}', '${#strings.escapeJavaScript(#messages.msg('common.deactivate'))}')|"
                 th:text="#{profile.deactivate.button}">Deactivate my account</button>
     </form>
 </div>

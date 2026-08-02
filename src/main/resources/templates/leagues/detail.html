@@ -31,10 +31,8 @@
                     &nbsp;&middot;&nbsp;
                     <span th:text="${league.format.totalMatches}"></span> <span th:text="#{leagues.detail.matches}">matches</span>
                 </div>
-                <div class="team-hero-meta" th:if="${league.format == null}" style="color:var(--warn-text);">
-                    &#9888; <span th:text="#{leagues.detail.invalidcount}">Invalid team count (</span><span
-                        th:text="${league.teams.size()}"></span><span th:text="#{leagues.detail.invalidcount.suffix}">) &mdash; need 6, 8, 10, or 16</span>
-                </div>
+                <div class="team-hero-meta" th:if="${league.format == null}" style="color:var(--warn-text);"
+                     th:text="'&#9888; ' + #{leagues.detail.invalidcount(${league.teams.size()})}">&#9888; Invalid team count: 0. Required: 6, 8, 10, or 16.</div>
                 <div th:replace="~{fragments/standings :: leagueProgress(${totalMatchCount}, ${playedMatchCount})}"></div>
                 <div class="league-ends" th:if="${league.endsAt != null}">
                 <span class="league-ends-label"
@@ -50,7 +48,7 @@
             <form id="deleteLeagueForm" th:action="@{/leagues/{id}(id=${league.id})}" th:method="delete"
                   style="display:inline" sec:authorize="hasRole('ADMIN')"></form>
             <button type="button" class="btn-del" sec:authorize="hasRole('ADMIN')"
-                    th:attr="onclick=|openConfirmDialog('deleteLeagueForm', '${#strings.escapeJavaScript(#messages.msg('leagues.delete.title'))}', '${#strings.escapeJavaScript(league.name)}', '${#strings.escapeJavaScript(#messages.msg('leagues.delete.body1'))}', '${#strings.escapeJavaScript(#messages.msg('leagues.delete.body2'))}')|"
+                    th:attr="onclick=|openConfirmDialog('deleteLeagueForm', '${#strings.escapeJavaScript(#messages.msg('leagues.delete.title'))}', '${#strings.escapeJavaScript(#messages.msg('leagues.delete.body', league.name))}')|"
                     th:text="#{common.delete}">Delete
             </button>
             <th:block sec:authorize="isAuthenticated()">
@@ -240,17 +238,13 @@
             </form>
             <p style="margin-top:6px;font-size:0.85rem;color:#666;">
                 <span th:text="#{leagues.detail.scheduleinfo}">Each round is played on a separate day. Matches in the same round kick off 1 hour apart.</span>
-                <span th:text="#{leagues.detail.allroundscreated1}">All</span> <span
-                    th:text="${league.format.totalRounds}"></span> <span th:text="#{leagues.detail.allroundscreated2}">rounds will be created</span>
-                (<span th:text="${league.format.matchesPerRound}"></span> <span
-                    th:text="#{leagues.detail.matchesperround}">matches per round</span>).
+                <span th:text="#{leagues.detail.schedulepreview(${league.format.totalRounds}, ${league.format.matchesPerRound})}">Rounds: 0 · Matches per round: 0</span>
             </p>
         </div>
 
         <div sec:authorize="hasRole('ADMIN')" th:if="${league.format != null and !league.matches.isEmpty()}">
-            <p class="status-message"><span th:text="#{leagues.detail.scheduleactive}">Schedule is active (</span><span
-                    th:text="${league.matches.size()}"></span> <span th:text="#{leagues.detail.matchesgenerated}">matches generated).</span>
-            </p>
+            <p class="status-message"
+               th:text="#{leagues.detail.scheduleactive(${league.matches.size()})}">Schedule is active · Generated matches: 0</p>
         </div>
 
         <div th:if="${availableRounds == null or availableRounds.isEmpty()}" class="no-matches"
@@ -453,17 +447,10 @@
             <div class="rules-block">
                 <h3 class="rules-title" th:text="'&#128197; ' + #{leagues.rules.format}">&#128197; Format</h3>
                 <p class="rules-sub" th:if="${league.format != null}">
-                    <strong th:text="#{__${league.format.cycleNameKey}__}"></strong> —
-                    <span th:text="#{leagues.rules.eachteamplays}">each team plays</span> <strong
-                        th:text="${league.format.cycles}"></strong>
-                    <span th:text="#{leagues.rules.timesagainst}">time(s) against every opponent.</span>
+                    <span th:with="formatLabel=#{__${league.format.cycleNameKey}__}"
+                          th:text="#{leagues.rules.format.summary(${formatLabel}, ${league.format.cycles})}">Format · Matches against each opponent: 0</span>
                     <br/>
-                    <strong th:text="${league.format.totalRounds}"></strong> <span th:text="#{leagues.detail.rounds}">rounds</span>
-                    &nbsp;&middot;&nbsp;
-                    <strong th:text="${league.format.matchesPerRound}"></strong> <span
-                        th:text="#{leagues.detail.matchesperround}">matches per round</span> &nbsp;&middot;&nbsp;
-                    <strong th:text="${league.format.totalMatches}"></strong> <span
-                        th:text="#{leagues.rules.totalmatches}">total matches.</span>
+                    <span th:text="#{leagues.rules.schedule.summary(${league.format.totalRounds}, ${league.format.matchesPerRound}, ${league.format.totalMatches})}">Rounds: 0 · Matches per round: 0 · Total matches: 0</span>
                 </p>
             </div>
         </div>

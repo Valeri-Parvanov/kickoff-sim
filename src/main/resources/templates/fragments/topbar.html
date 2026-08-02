@@ -172,11 +172,7 @@
 <dialog id="confirmDialog" class="confirm-dialog" sec:authorize="isAuthenticated()">
     <div class="confirm-dialog-icon">&#9888;</div>
     <h2 class="confirm-dialog-title" id="confirmDialogTitle"></h2>
-    <p class="confirm-dialog-body">
-        <span id="confirmDialogBody1"></span>
-        <strong id="confirmDialogName"></strong>.
-        <span id="confirmDialogBody2"></span>
-    </p>
+    <p class="confirm-dialog-body" id="confirmDialogBody"></p>
     <div class="confirm-dialog-actions">
         <button type="button" class="btn-cancel" onclick="document.getElementById('confirmDialog').close()" th:text="#{common.cancel}">Cancel</button>
         <button type="button" class="btn-del" id="confirmDialogConfirm" th:text="#{common.delete}">Delete</button>
@@ -187,19 +183,15 @@
     var dialog = document.getElementById('confirmDialog');
     if (!dialog) return;
     var titleEl = document.getElementById('confirmDialogTitle');
-    var body1El = document.getElementById('confirmDialogBody1');
-    var nameEl = document.getElementById('confirmDialogName');
-    var body2El = document.getElementById('confirmDialogBody2');
+    var bodyEl = document.getElementById('confirmDialogBody');
     var confirmBtn = document.getElementById('confirmDialogConfirm');
     var defaultConfirmLabel = confirmBtn.textContent;
     var pendingFormId = null;
 
-    window.openConfirmDialog = function(formId, title, name, body1, body2, confirmLabel) {
+    window.openConfirmDialog = function(formId, title, body, confirmLabel) {
         pendingFormId = formId;
         titleEl.textContent = title;
-        nameEl.textContent = name;
-        body1El.textContent = body1;
-        body2El.textContent = body2;
+        bodyEl.textContent = body;
         confirmBtn.textContent = confirmLabel || defaultConfirmLabel;
         dialog.showModal();
     };

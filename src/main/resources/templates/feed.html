@@ -155,7 +155,7 @@
 <!-- ── MY TEAMS ── -->
 <section id="teams" class="team-tab-section">
     <div th:if="${teamViews.isEmpty()}" class="no-feed">
-        <span th:text="#{feed.noteams1}">Not following any teams yet. Visit a</span> <a th:href="@{/teams}" th:text="#{feed.teampage}">team page</a> <span th:text="#{feed.tofollow}">to follow.</span>
+        <span th:text="#{feed.noteams}">Not following any teams yet.</span> <a th:href="@{/teams}" th:text="#{feed.browseteams}">Browse teams to follow one.</a>
     </div>
     <div class="feed-grid" th:unless="${teamViews.isEmpty()}">
         <div th:each="t : ${teamViews}" class="feed-card">
@@ -188,7 +188,7 @@
 <!-- ── MY LEAGUES ── -->
 <section id="leagues" class="team-tab-section">
     <div th:if="${leagueViews.isEmpty()}" class="no-feed">
-        <span th:text="#{feed.noleagues1}">Not following any leagues yet. Visit a</span> <a th:href="@{/leagues}" th:text="#{feed.leaguepage}">league page</a> <span th:text="#{feed.tofollow}">to follow.</span>
+        <span th:text="#{feed.noleagues}">Not following any leagues yet.</span> <a th:href="@{/leagues}" th:text="#{feed.browseleagues}">Browse leagues to follow one.</a>
     </div>
     <div class="feed-grid" th:unless="${leagueViews.isEmpty()}">
         <div th:each="l : ${leagueViews}" class="feed-card">
@@ -219,7 +219,7 @@
 <!-- ── MY MATCHES ── -->
 <section id="matches" class="team-tab-section">
     <div th:if="${liveMatches.isEmpty() and upcomingMatches.isEmpty() and recentMatches.isEmpty()}" class="no-feed">
-        <span th:text="#{feed.nomatches1}">No matches found for followed teams or starred matches.</span> <a th:href="@{/teams}" th:text="#{feed.followteam}">Follow a team</a> <span th:text="#{feed.toseematches}">to see its matches here.</span>
+        <span th:text="#{feed.nomatches}">No matches found for followed teams or starred matches.</span> <a th:href="@{/teams}" th:text="#{feed.followteamaction}">Follow a team to see its matches here.</a>
     </div>
 
     <div th:unless="${liveMatches.isEmpty() and upcomingMatches.isEmpty() and recentMatches.isEmpty()}">

@@ -36,9 +36,8 @@
         <div class="league-ready-icon">&#9888;</div>
         <div class="league-ready-body">
             <div class="league-warn-title" th:text="#{leagues.form.notenough.title}">Not enough eligible teams yet</div>
-            <div class="league-warn-sub">
-                <span th:text="#{leagues.form.youhave}">You have</span> <strong th:text="${eligibleCount}"></strong> <span th:text="#{leagues.form.eligibleteams}">eligible team(s). You need at least 6 with 6+ players each.</span>
-            </div>
+            <div class="league-warn-sub"
+                 th:text="#{leagues.form.eligibilitysummary(${eligibleCount})}">Eligible teams: 0. At least 6 teams with 6 or more players are required.</div>
             <div class="league-ready-actions">
                 <a th:href="@{/teams/form}" class="league-warn-primary" th:text="'&#43; ' + #{leagues.form.addteam}">&#43; Add a Team</a>
             </div>
