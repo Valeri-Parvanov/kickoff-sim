@@ -33,7 +33,8 @@
         </div>
 
         <div class="match-scoreline">
-            <span class="team-name home" th:text="${match.homeTeamName}"></span>
+            <span class="team-name home"
+                  th:text="${match.homeTeamName + (match.homeTeamCity != null ? ' (' + match.homeTeamCity + ')' : '')}"></span>
             <div class="score-block" th:if="${match.playedAt.isBefore(now) and match.playedAt.isAfter(liveThreshold)}"
                  th:attr="data-elapsed=${liveMatchForJs['elapsedMin']},data-match-id=${match.id}">
                 <div class="ls-score-main"><span class="ls-h">-</span>&thinsp;:&thinsp;<span class="ls-a">-</span></div>
@@ -47,7 +48,8 @@
                      th:if="${match.homeHalfScore != null}"
                      th:text="#{matches.ht} + ' ' + ${match.homeHalfScore} + ' – ' + ${match.awayHalfScore}"></div>
             </div>
-            <span class="team-name away" th:text="${match.awayTeamName}"></span>
+            <span class="team-name away"
+                  th:text="${match.awayTeamName + (match.awayTeamCity != null ? ' (' + match.awayTeamCity + ')' : '')}"></span>
         </div>
 
         <div class="goal-timeline" th:if="${!match.goalTimeline.isEmpty()}">
