@@ -116,7 +116,9 @@ class TeamControllerTest {
         row2.setTeamId(UUID.randomUUID());
         LeagueDetailView leagueDetail = mock(LeagueDetailView.class);
         when(leagueDetail.getStandings()).thenReturn(List.of(row1, row2));
+        List<StandingRow> standingRows = leagueDetail.getStandings();
         when(leagueService.findDetail(leagueId)).thenReturn(leagueDetail);
+        when(leagueService.findStandings(leagueId)).thenReturn(standingRows);
 
         Model model = new ExtendedModelMap();
 
@@ -186,7 +188,9 @@ class TeamControllerTest {
         row2.setTeamId(secondPlace.getId());
         LeagueDetailView leagueDetail = mock(LeagueDetailView.class);
         when(leagueDetail.getStandings()).thenReturn(List.of(row1, row2));
+        List<StandingRow> standingRows = leagueDetail.getStandings();
         when(leagueService.findDetail(leagueId)).thenReturn(leagueDetail);
+        when(leagueService.findStandings(leagueId)).thenReturn(standingRows);
 
         Model model = new ExtendedModelMap();
 
@@ -214,7 +218,9 @@ class TeamControllerTest {
         row2.setTeamId(secondPlace.getId());
         LeagueDetailView leagueDetail = mock(LeagueDetailView.class);
         when(leagueDetail.getStandings()).thenReturn(List.of(row1, row2));
+        List<StandingRow> standingRows = leagueDetail.getStandings();
         when(leagueService.findDetail(leagueId)).thenReturn(leagueDetail);
+        when(leagueService.findStandings(leagueId)).thenReturn(standingRows);
 
         Model model = new ExtendedModelMap();
 
@@ -237,7 +243,9 @@ class TeamControllerTest {
         row.setTeamId(teamId);
         LeagueDetailView leagueDetail = mock(LeagueDetailView.class);
         when(leagueDetail.getStandings()).thenReturn(List.of(row));
+        List<StandingRow> standingRows = leagueDetail.getStandings();
         when(leagueService.findDetail(leagueId)).thenReturn(leagueDetail);
+        when(leagueService.findStandings(leagueId)).thenReturn(standingRows);
 
         Map<String, Map<String, Object>> result = controller.standingsSummary();
 

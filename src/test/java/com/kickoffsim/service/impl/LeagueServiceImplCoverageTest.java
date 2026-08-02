@@ -27,7 +27,9 @@ import org.springframework.data.domain.Sort;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -167,7 +169,6 @@ class LeagueServiceImplCoverageTest {
         Team t = team("A");
         League league = leagueWith(t);
         when(leagueRepository.findByIdWithTeams(id)).thenReturn(java.util.Optional.of(league));
-        when(matchRepository.findAllByHomeTeamOrAwayTeam(t, t)).thenReturn(List.of());
 
         service.delete(id);
 
@@ -232,13 +233,21 @@ class LeagueServiceImplCoverageTest {
         return r;
     }
 
+    private Map<UUID, int[]> settled(StandingRow... rows) {
+        Map<UUID, int[]> map = new HashMap<>();
+        for (StandingRow row : rows) {
+            map.put(row.getTeamId(), new int[]{row.getPlayed(), row.getPoints()});
+        }
+        return map;
+    }
+
     @Test
     void markChampion_leaderMathematicallySecured_setsChampion() {
         LeagueFormat format = LeagueFormat.forTeamCount(6).orElseThrow();
         StandingRow leader = standing("Alpha", format.getTotalRounds(), format.getTotalRounds());
         StandingRow rival = standing("Beta", format.getTotalRounds(), 0);
 
-        service.markChampion(new ArrayList<>(List.of(leader, rival)), format);
+        service.markChampion(new ArrayList<>(List.of(leader, rival)), format, settled(leader, rival));
 
         assertThat(leader.isChampion()).isTrue();
     }
@@ -249,7 +258,7 @@ class LeagueServiceImplCoverageTest {
         StandingRow leader = standing("Alpha", 1, 1);
         StandingRow rival = standing("Beta", 1, 0);
 
-        service.markChampion(new ArrayList<>(List.of(leader, rival)), format);
+        service.markChampion(new ArrayList<>(List.of(leader, rival)), format, settled(leader, rival));
 
         assertThat(leader.isChampion()).isFalse();
     }
@@ -260,8 +269,8 @@ class LeagueServiceImplCoverageTest {
         StandingRow rival = standing("Beta", 0, 0);
         List<StandingRow> rows = new ArrayList<>(List.of(leader, rival));
 
-        service.markChampion(rows, null);
-        service.markChampion(rows, LeagueFormat.forTeamCount(6).orElseThrow());
+        service.markChampion(rows, null, Map.of());
+        service.markChampion(rows, LeagueFormat.forTeamCount(6).orElseThrow(), Map.of());
 
         assertThat(leader.isChampion()).isFalse();
     }
@@ -590,7 +599,6 @@ class LeagueServiceImplCoverageTest {
         League league = leagueWith(t);
         when(leagueRepository.findFinishedBefore(any())).thenReturn(List.of(league));
         when(leagueRepository.findByIdWithTeams(league.getId())).thenReturn(java.util.Optional.of(league));
-        when(matchRepository.findAllByHomeTeamOrAwayTeam(t, t)).thenReturn(List.of());
 
         int count = service.deleteFinishedOlderThan(90);
 

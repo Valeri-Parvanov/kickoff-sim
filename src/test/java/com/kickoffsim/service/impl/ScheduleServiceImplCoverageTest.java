@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -47,6 +48,11 @@ class ScheduleServiceImplCoverageTest {
     @Mock private org.springframework.cache.CacheManager cacheManager;
 
     @InjectMocks private ScheduleServiceImpl service;
+
+    @org.junit.jupiter.api.BeforeEach
+    void allowNotificationTicks() {
+        when(matchRepository.existsInWindow(any(), any())).thenReturn(true);
+    }
 
     private Team team(String name) {
         Team t = new Team();
@@ -336,5 +342,32 @@ class ScheduleServiceImplCoverageTest {
         verify(matchRepository).save(kickoff);
         verify(matchRepository).save(halftime);
         verify(matchRepository).save(fulltime);
+    }
+
+    @Test
+    void notifyMatchEvents_skipsStaleMatchesButMarksThemNotified() {
+        Team home = team("Home");
+        Team away = team("Away");
+
+        Match stale = new Match();
+        stale.setId(UUID.randomUUID());
+        stale.setHomeTeam(home);
+        stale.setAwayTeam(away);
+        stale.setPlayedAt(LocalDateTime.now().minusHours(20));
+        stale.setHomeScore(1);
+        stale.setAwayScore(0);
+
+        when(matchRepository.findForKickoffNotification(any(), any())).thenReturn(List.of(stale));
+        when(matchRepository.findForHalftimeNotification(any(), any())).thenReturn(List.of(stale));
+        when(matchRepository.findForSecondHalfNotification(any(), any())).thenReturn(List.of(stale));
+        when(matchRepository.findForFulltimeNotification(any(), any())).thenReturn(List.of(stale));
+
+        service.notifyMatchEvents();
+
+        verify(notificationClient, never()).broadcast(any());
+        assertThat(stale.isKickoffNotified()).isTrue();
+        assertThat(stale.isHalftimeNotified()).isTrue();
+        assertThat(stale.isSecondHalfNotified()).isTrue();
+        assertThat(stale.isFulltimeNotified()).isTrue();
     }
 }

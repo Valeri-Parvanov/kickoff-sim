@@ -10,7 +10,6 @@ import com.kickoffsim.exception.InvalidLeagueOperationException;
 import com.kickoffsim.model.Half;
 import com.kickoffsim.model.League;
 import com.kickoffsim.model.LeagueFormat;
-import com.kickoffsim.model.Match;
 import com.kickoffsim.model.Team;
 import com.kickoffsim.repository.LeagueRepository;
 import com.kickoffsim.repository.MatchRepository;
@@ -25,7 +24,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -58,12 +59,20 @@ class LeagueServiceImplTest {
         return row;
     }
 
+    private Map<UUID, int[]> settled(StandingRow... rows) {
+        Map<UUID, int[]> map = new HashMap<>();
+        for (StandingRow row : rows) {
+            map.put(row.getTeamId(), new int[]{row.getPlayed(), row.getPoints()});
+        }
+        return map;
+    }
+
     @Test
     void markChampion_fourPointsClearWithOneRoundLeft_isChampion() {
         StandingRow leader = standing("Neftochimic", 12, 2, 17);
         StandingRow rival = standing("Orlovi", 10, 4, 17);
 
-        leagueService.markChampion(List.of(leader, rival), LeagueFormat.TEN);
+        leagueService.markChampion(List.of(leader, rival), LeagueFormat.TEN, settled(leader, rival));
 
         assertThat(leader.getPoints()).isEqualTo(38);
         assertThat(rival.getPoints()).isEqualTo(34);
@@ -75,7 +84,7 @@ class LeagueServiceImplTest {
         StandingRow leader = standing("Neftochimic", 12, 1, 17);
         StandingRow rival = standing("Orlovi", 10, 4, 17);
 
-        leagueService.markChampion(List.of(leader, rival), LeagueFormat.TEN);
+        leagueService.markChampion(List.of(leader, rival), LeagueFormat.TEN, settled(leader, rival));
 
         assertThat(leader.isChampion()).isFalse();
     }
@@ -86,7 +95,8 @@ class LeagueServiceImplTest {
         StandingRow second = standing("Orlovi", 10, 4, 17);
         StandingRow third = standing("Yantra", 10, 0, 14);
 
-        leagueService.markChampion(List.of(leader, second, third), LeagueFormat.TEN);
+        leagueService.markChampion(List.of(leader, second, third), LeagueFormat.TEN,
+                settled(leader, second, third));
 
         assertThat(leader.isChampion()).isFalse();
     }
@@ -96,9 +106,36 @@ class LeagueServiceImplTest {
         StandingRow leader = standing("Neftochimic", 12, 2, 18);
         StandingRow rival = standing("Orlovi", 11, 4, 18);
 
-        leagueService.markChampion(List.of(leader, rival), LeagueFormat.TEN);
+        leagueService.markChampion(List.of(leader, rival), LeagueFormat.TEN, settled(leader, rival));
 
         assertThat(leader.isChampion()).isTrue();
+    }
+
+    @Test
+    void markChampion_leadBuiltOnLiveMatches_isNotChampion() {
+        StandingRow leader = standing("Neftochimic", 13, 2, 18);
+        StandingRow rival = standing("Orlovi", 11, 4, 18);
+        Map<UUID, int[]> settled = new HashMap<>();
+        settled.put(leader.getTeamId(), new int[]{17, 38});
+        settled.put(rival.getTeamId(), new int[]{17, 37});
+
+        leagueService.markChampion(List.of(leader, rival), LeagueFormat.TEN, settled);
+
+        assertThat(leader.isChampion()).isFalse();
+    }
+
+    @Test
+    void markChampion_leaderOfLiveTableTrailsOnSettledMatches_marksTheSettledLeader() {
+        StandingRow liveLeader = standing("Neftochimic", 13, 2, 18);
+        StandingRow settledLeader = standing("Orlovi", 12, 4, 17);
+        Map<UUID, int[]> settled = new HashMap<>();
+        settled.put(liveLeader.getTeamId(), new int[]{17, 38});
+        settled.put(settledLeader.getTeamId(), new int[]{18, 45});
+
+        leagueService.markChampion(List.of(liveLeader, settledLeader), LeagueFormat.TEN, settled);
+
+        assertThat(liveLeader.isChampion()).isFalse();
+        assertThat(settledLeader.isChampion()).isTrue();
     }
 
     @Test
@@ -106,7 +143,7 @@ class LeagueServiceImplTest {
         StandingRow leader = standing("Neftochimic", 0, 0, 0);
         StandingRow rival = standing("Orlovi", 0, 0, 0);
 
-        leagueService.markChampion(List.of(leader, rival), LeagueFormat.TEN);
+        leagueService.markChampion(List.of(leader, rival), LeagueFormat.TEN, Map.of());
 
         assertThat(leader.isChampion()).isFalse();
     }
@@ -115,7 +152,7 @@ class LeagueServiceImplTest {
     void markChampion_singleTeamStandings_doesNothing() {
         StandingRow leader = standing("Neftochimic", 5, 0, 5);
 
-        leagueService.markChampion(List.of(leader), LeagueFormat.TEN);
+        leagueService.markChampion(List.of(leader), LeagueFormat.TEN, settled(leader));
 
         assertThat(leader.isChampion()).isFalse();
     }
@@ -178,7 +215,7 @@ class LeagueServiceImplTest {
     }
 
     @Test
-    void delete_removesMatchesForEachTeamThenLeague() {
+    void delete_bulkRemovesGoalsAndMatchesThenLeague() {
         UUID leagueId = UUID.randomUUID();
 
         Team teamA = new Team();
@@ -191,14 +228,28 @@ class LeagueServiceImplTest {
         league.getTeams().addAll(List.of(teamA, teamB));
 
         when(leagueRepository.findByIdWithTeams(leagueId)).thenReturn(Optional.of(league));
-        when(matchRepository.findAllByHomeTeamOrAwayTeam(teamA, teamA)).thenReturn(List.of(new Match()));
-        when(matchRepository.findAllByHomeTeamOrAwayTeam(teamB, teamB)).thenReturn(List.of(new Match()));
         when(teamRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         leagueService.delete(leagueId);
 
-        verify(matchRepository).findAllByHomeTeamOrAwayTeam(teamA, teamA);
-        verify(matchRepository).findAllByHomeTeamOrAwayTeam(teamB, teamB);
+        List<UUID> teamIds = List.of(teamA.getId(), teamB.getId());
+        verify(matchRepository).deleteGoalsForTeams(teamIds);
+        verify(matchRepository).deleteMatchesForTeams(teamIds);
+        verify(matchRepository, org.mockito.Mockito.never()).findAllByHomeTeamOrAwayTeam(any(), any());
+        verify(leagueRepository).delete(league);
+    }
+
+    @Test
+    void delete_leagueWithoutTeams_skipsBulkDeletes() {
+        UUID leagueId = UUID.randomUUID();
+        League league = new League();
+        league.setId(leagueId);
+        when(leagueRepository.findByIdWithTeams(leagueId)).thenReturn(Optional.of(league));
+
+        leagueService.delete(leagueId);
+
+        verify(matchRepository, org.mockito.Mockito.never()).deleteGoalsForTeams(any());
+        verify(matchRepository, org.mockito.Mockito.never()).deleteMatchesForTeams(any());
         verify(leagueRepository).delete(league);
     }
 
@@ -269,6 +320,42 @@ class LeagueServiceImplTest {
 
         assertThat(result.getName()).isEqualTo("New Name");
         verify(leagueRepository).save(league);
+    }
+
+    @Test
+    void findAll_usesSingleGroupedMatchCountQuery() {
+        UUID id = UUID.randomUUID();
+        League league = new League();
+        league.setId(id);
+        league.setName("Alpha");
+        when(leagueRepository.findAll(any(org.springframework.data.domain.Sort.class)))
+                .thenReturn(List.of(league));
+        when(matchRepository.countMatchesGroupedByLeague(any(LocalDateTime.class)))
+                .thenReturn(java.util.Collections.singletonList(new Object[]{id, 12L, 5L}));
+
+        List<LeagueDto> result = leagueService.findAll();
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getTotalMatches()).isEqualTo(12L);
+        assertThat(result.get(0).getPlayedMatches()).isEqualTo(5L);
+        verify(matchRepository, org.mockito.Mockito.never()).countByLeagueId(any());
+    }
+
+    @Test
+    void findAll_leagueWithoutMatches_reportsZeroCounts() {
+        UUID id = UUID.randomUUID();
+        League league = new League();
+        league.setId(id);
+        league.setName("Alpha");
+        when(leagueRepository.findAll(any(org.springframework.data.domain.Sort.class)))
+                .thenReturn(List.of(league));
+        when(matchRepository.countMatchesGroupedByLeague(any(LocalDateTime.class)))
+                .thenReturn(java.util.Collections.singletonList(new Object[]{UUID.randomUUID(), 12L, 5L}));
+
+        List<LeagueDto> result = leagueService.findAll();
+
+        assertThat(result.get(0).getTotalMatches()).isZero();
+        assertThat(result.get(0).getPlayedMatches()).isZero();
     }
 
     @Test

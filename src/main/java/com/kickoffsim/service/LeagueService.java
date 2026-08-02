@@ -2,6 +2,7 @@ package com.kickoffsim.service;
 
 import com.kickoffsim.dto.LeagueDetailView;
 import com.kickoffsim.dto.LeagueDto;
+import com.kickoffsim.dto.StandingRow;
 import org.springframework.data.domain.Sort;
 
 import java.util.List;
@@ -20,6 +21,8 @@ public interface LeagueService {
     List<LeagueDto> searchByName(String q);
 
     LeagueDetailView findDetail(UUID id);
+
+    List<StandingRow> findStandings(UUID leagueId);
 
     LeagueDto create(LeagueDto leagueDto);
 

@@ -1,6 +1,7 @@
 package com.kickoffsim.service.impl;
 
 import com.kickoffsim.client.BroadcastRequest;
+import com.kickoffsim.client.BulkSubscriptionRequest;
 import com.kickoffsim.client.NotificationClient;
 import com.kickoffsim.client.SubscriptionDto;
 import com.kickoffsim.client.SubscriptionRequest;
@@ -14,6 +15,7 @@ import com.kickoffsim.repository.PlayerRepository;
 import com.kickoffsim.service.ScheduleService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
@@ -49,6 +51,18 @@ public class ScheduleServiceImpl implements ScheduleService {
     private final GoalRepository goalRepository;
     private final NotificationClient notificationClient;
     private final CacheManager cacheManager;
+
+    @Value("${notifications.match-event-max-age-hours:3}")
+    private long matchEventMaxAgeHours = 3;
+
+    @Value("${matches.auto-simulate-max-age-hours:48}")
+    private long autoSimulateMaxAgeHours = 48;
+
+    private static final int ACTIVE_WINDOW_MINUTES = 46;
+
+    private static final int IDLE_RECHECK_SECONDS = 60;
+
+    private volatile LocalDateTime idleUntil;
 
     @Override
     @Transactional(noRollbackFor = InvalidLeagueOperationException.class)
@@ -144,6 +158,7 @@ public class ScheduleServiceImpl implements ScheduleService {
         }
 
         matchRepository.saveAll(allMatches);
+        idleUntil = null;
         List<Goal> allGoals = allMatches.stream()
                 .flatMap(m -> m.getGoals().stream())
                 .toList();
@@ -174,19 +189,18 @@ public class ScheduleServiceImpl implements ScheduleService {
                     .collect(Collectors.groupingBy(SubscriptionDto::getEntityId,
                             Collectors.mapping(SubscriptionDto::getUserId, Collectors.toSet())));
 
+            List<SubscriptionRequest> requests = new ArrayList<>();
             for (Match match : allMatches) {
                 Set<UUID> eligibleUserIds = new LinkedHashSet<>(leagueFollowerUserIds);
                 eligibleUserIds.addAll(teamFollowerUserIdsByTeam.getOrDefault(match.getHomeTeam().getId(), Set.of()));
                 eligibleUserIds.addAll(teamFollowerUserIdsByTeam.getOrDefault(match.getAwayTeam().getId(), Set.of()));
 
                 for (UUID userId : eligibleUserIds) {
-                    try {
-                        notificationClient.subscribe(new SubscriptionRequest(userId, "MATCH", match.getId()));
-                    } catch (Exception e) {
-                        log.warn("Could not auto-subscribe user {} to generated match {}: {}",
-                                userId, match.getId(), e.getMessage());
-                    }
+                    requests.add(new SubscriptionRequest(userId, "MATCH", match.getId()));
                 }
+            }
+            if (!requests.isEmpty()) {
+                notificationClient.subscribeAll(new BulkSubscriptionRequest(requests));
             }
         } catch (Exception e) {
             log.warn("Could not look up followers to auto-subscribe for league '{}': {}", league.getName(), e.getMessage());
@@ -196,8 +210,9 @@ public class ScheduleServiceImpl implements ScheduleService {
     @Override
     @Transactional
     public void simulatePastMatches() {
-        LocalDateTime to = LocalDateTime.now().minusMinutes(50);
-        List<Match> candidates = matchRepository.findGoallessBefore(to);
+        LocalDateTime now = LocalDateTime.now();
+        List<Match> candidates = matchRepository.findGoallessBetween(
+                now.minusHours(autoSimulateMaxAgeHours), now.minusMinutes(50));
         int count = 0;
         List<Goal> allNewGoals = new ArrayList<>();
         for (Match match : candidates) {
@@ -238,21 +253,61 @@ public class ScheduleServiceImpl implements ScheduleService {
         if (leagues != null) {
             leagues.clear();
         }
+        Cache leagueDetail = cacheManager.getCache("leagueDetail");
+        if (leagueDetail != null) {
+            leagueDetail.clear();
+        }
+        Cache leagueStandings = cacheManager.getCache("leagueStandings");
+        if (leagueStandings != null) {
+            leagueStandings.clear();
+        }
     }
 
     @Override
     @Transactional
     public void notifyMatchEvents() {
         LocalDateTime now = LocalDateTime.now();
+        if (noMatchNeedsAttention(now)) {
+            return;
+        }
         notifyKickoffs(now);
         notifyHalftimes(now);
         notifySecondHalfStarts(now);
         notifyFulltimes(now);
     }
 
+    private boolean isStale(Match match, LocalDateTime now) {
+        return match.getPlayedAt() != null
+                && match.getPlayedAt().isBefore(eventWindowStart(now));
+    }
+
+    private LocalDateTime eventWindowStart(LocalDateTime now) {
+        return now.minusHours(matchEventMaxAgeHours);
+    }
+
+    private boolean noMatchNeedsAttention(LocalDateTime now) {
+        LocalDateTime until = idleUntil;
+        if (until != null && now.isBefore(until)) {
+            return true;
+        }
+        if (matchRepository.existsInWindow(now.minusMinutes(ACTIVE_WINDOW_MINUTES), now)) {
+            idleUntil = null;
+            return false;
+        }
+        LocalDateTime recheckAt = now.plusSeconds(IDLE_RECHECK_SECONDS);
+        LocalDateTime nextKickoff = matchRepository.findNextKickoffAfter(now);
+        idleUntil = nextKickoff != null && nextKickoff.isBefore(recheckAt) ? nextKickoff : recheckAt;
+        return true;
+    }
+
     private void notifyKickoffs(LocalDateTime now) {
-        for (Match match : matchRepository.findForKickoffNotification(now.minusDays(1), now)) {
+        for (Match match : matchRepository.findForKickoffNotification(eventWindowStart(now), now)) {
             try {
+                if (isStale(match, now)) {
+                    match.setKickoffNotified(true);
+                    matchRepository.save(match);
+                    continue;
+                }
                 broadcast(match,
                         teamLabel(match.getHomeTeam()) + " vs " + teamLabel(match.getAwayTeam()) + " — KICK OFF!",
                         "MATCH_KICKOFF");
@@ -265,8 +320,13 @@ public class ScheduleServiceImpl implements ScheduleService {
     }
 
     private void notifyHalftimes(LocalDateTime now) {
-        for (Match match : matchRepository.findForHalftimeNotification(now.minusDays(1), now.minusMinutes(20))) {
+        for (Match match : matchRepository.findForHalftimeNotification(eventWindowStart(now), now.minusMinutes(20))) {
             try {
+                if (isStale(match, now)) {
+                    match.setHalftimeNotified(true);
+                    matchRepository.save(match);
+                    continue;
+                }
                 int homeHalf = 0;
                 int awayHalf = 0;
                 for (Goal g : match.getGoals()) {
@@ -287,8 +347,13 @@ public class ScheduleServiceImpl implements ScheduleService {
     }
 
     private void notifySecondHalfStarts(LocalDateTime now) {
-        for (Match match : matchRepository.findForSecondHalfNotification(now.minusDays(1), now.minusMinutes(25))) {
+        for (Match match : matchRepository.findForSecondHalfNotification(eventWindowStart(now), now.minusMinutes(25))) {
             try {
+                if (isStale(match, now)) {
+                    match.setSecondHalfNotified(true);
+                    matchRepository.save(match);
+                    continue;
+                }
                 int homeHalf = 0;
                 int awayHalf = 0;
                 for (Goal g : match.getGoals()) {
@@ -309,8 +374,13 @@ public class ScheduleServiceImpl implements ScheduleService {
     }
 
     private void notifyFulltimes(LocalDateTime now) {
-        for (Match match : matchRepository.findForFulltimeNotification(now.minusDays(1), now.minusMinutes(45))) {
+        for (Match match : matchRepository.findForFulltimeNotification(eventWindowStart(now), now.minusMinutes(45))) {
             try {
+                if (isStale(match, now)) {
+                    match.setFulltimeNotified(true);
+                    matchRepository.save(match);
+                    continue;
+                }
                 broadcast(match,
                         teamLabel(match.getHomeTeam()) + " vs " + teamLabel(match.getAwayTeam())
                                 + " — FULL TIME " + match.getHomeScore() + "-" + match.getAwayScore(),
@@ -331,8 +401,11 @@ public class ScheduleServiceImpl implements ScheduleService {
     @Transactional
     public void notifyGoals() {
         LocalDateTime now = LocalDateTime.now();
+        if (noMatchNeedsAttention(now)) {
+            return;
+        }
 
-        for (Goal goal : goalRepository.findUnnotifiedForMatchesStartedBetween(now.minusDays(1), now)) {
+        for (Goal goal : goalRepository.findUnnotifiedForMatchesStartedBetween(eventWindowStart(now), now)) {
             LocalDateTime goalTime = realGoalTime(goal);
             if (goalTime.isAfter(now)) {
                 continue;

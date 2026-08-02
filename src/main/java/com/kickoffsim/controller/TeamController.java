@@ -225,7 +225,7 @@ public class TeamController {
                 .collect(Collectors.toSet());
         Map<UUID, int[]> result = new HashMap<>();
         for (UUID leagueId : leagueIds) {
-            List<StandingRow> standings = leagueService.findDetail(leagueId).getStandings();
+            List<StandingRow> standings = leagueService.findStandings(leagueId);
             for (int i = 0; i < standings.size(); i++) {
                 result.put(standings.get(i).getTeamId(), new int[]{i + 1, standings.size()});
             }

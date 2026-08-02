@@ -32,6 +32,10 @@ public class LeagueServiceImpl implements LeagueService {
 
     private static final int MIN_PLAYERS_PER_TEAM = 6;
 
+    private static final long[] NO_MATCHES = {0L, 0L};
+
+    private static final int[] NO_SETTLED_MATCHES = {0, 0};
+
     private final LeagueRepository leagueRepository;
     private final MatchRepository matchRepository;
     private final TeamRepository teamRepository;
@@ -51,13 +55,13 @@ public class LeagueServiceImpl implements LeagueService {
     }
 
     @Override
-    @Cacheable("leagues")
+    @Cacheable(value = "leagues", key = "'all'")
     public List<LeagueDto> findAll() {
         return findAll(DEFAULT_SORT);
     }
 
     @Override
-    @Cacheable("leagues")
+    @Cacheable(value = "leagues", key = "'options'")
     public List<LeagueDto> findAllOptions() {
         return leagueRepository.findAllOptions().stream()
                 .map(option -> {
@@ -71,9 +75,23 @@ public class LeagueServiceImpl implements LeagueService {
 
     @Override
     public List<LeagueDto> findAll(Sort sort) {
+        Map<UUID, long[]> counts = matchCountsByLeague(LocalDateTime.now());
         return leagueRepository.findAll(sort).stream()
-                .map(this::toDto)
+                .map(league -> {
+                    long[] row = counts.getOrDefault(league.getId(), NO_MATCHES);
+                    return toDto(league, row[0], row[1]);
+                })
                 .toList();
+    }
+
+    private Map<UUID, long[]> matchCountsByLeague(LocalDateTime now) {
+        Map<UUID, long[]> counts = new HashMap<>();
+        for (Object[] row : matchRepository.countMatchesGroupedByLeague(now)) {
+            counts.put((UUID) row[0], new long[]{
+                    ((Number) row[1]).longValue(),
+                    ((Number) row[2]).longValue()});
+        }
+        return counts;
     }
 
     @Override
@@ -90,7 +108,7 @@ public class LeagueServiceImpl implements LeagueService {
 
     @Override
     @Transactional
-    @CacheEvict(value = "leagues", allEntries = true)
+    @CacheEvict(value = {"leagues", "leagueDetail", "leagueStandings"}, allEntries = true)
     public LeagueDto create(LeagueDto leagueDto) {
         int teamCount = leagueDto.getTeamIds() == null ? 0 : leagueDto.getTeamIds().size();
         if (teamCount == 0) {
@@ -127,7 +145,7 @@ public class LeagueServiceImpl implements LeagueService {
 
     @Override
     @Transactional
-    @CacheEvict(value = "leagues", allEntries = true)
+    @CacheEvict(value = {"leagues", "leagueDetail", "leagueStandings"}, allEntries = true)
     public LeagueDto update(UUID id, LeagueDto leagueDto) {
         League league = getLeagueOrThrow(id);
         mapToEntity(leagueDto, league);
@@ -138,7 +156,7 @@ public class LeagueServiceImpl implements LeagueService {
 
     @Override
     @Transactional
-    @CacheEvict(value = "leagues", allEntries = true)
+    @CacheEvict(value = {"leagues", "leagueDetail", "leagueStandings"}, allEntries = true)
     public void delete(UUID id) {
         League league = getLeagueOrThrow(id);
         if (hasLeagueStarted(id)) {
@@ -150,7 +168,7 @@ public class LeagueServiceImpl implements LeagueService {
 
     @Override
     @Transactional
-    @CacheEvict(value = "leagues", allEntries = true)
+    @CacheEvict(value = {"leagues", "leagueDetail", "leagueStandings"}, allEntries = true)
     public int deleteFinishedOlderThan(int days) {
         LocalDateTime cutoff = LocalDateTime.now().minusDays(days);
         List<League> finished = leagueRepository.findFinishedBefore(cutoff);
@@ -166,16 +184,26 @@ public class LeagueServiceImpl implements LeagueService {
     private void deleteInternal(League league) {
         List<Team> teams = new ArrayList<>(league.getTeams());
         for (Team team : teams) {
-            List<Match> matches = matchRepository.findAllByHomeTeamOrAwayTeam(team, team);
-            matchRepository.deleteAll(matches);
             team.setLeague(null);
             teamRepository.save(team);
+        }
+        if (!teams.isEmpty()) {
+            List<UUID> teamIds = teams.stream().map(Team::getId).toList();
+            matchRepository.deleteGoalsForTeams(teamIds);
+            matchRepository.deleteMatchesForTeams(teamIds);
         }
         leagueRepository.delete(league);
         log.info("Deleted league {} — {} team(s) detached", league.getId(), teams.size());
     }
 
     @Override
+    @Cacheable(value = "leagueStandings", key = "#leagueId")
+    public List<StandingRow> findStandings(UUID leagueId) {
+        return findDetail(leagueId).getStandings();
+    }
+
+    @Override
+    @Cacheable(value = "leagueDetail", key = "#id")
     public LeagueDetailView findDetail(UUID id) {
         League league = getLeagueOrThrow(id);
         List<MatchDto> allMatches = matchService.findByLeague(id);
@@ -207,6 +235,7 @@ public class LeagueServiceImpl implements LeagueService {
         LocalDateTime liveThreshold = now.minusMinutes(46);
         Map<UUID, PlayerStatRow> scorerMap = new LinkedHashMap<>();
         Map<UUID, PlayerStatRow> assistMap = new LinkedHashMap<>();
+        Map<UUID, int[]> settled = new HashMap<>();
         for (MatchDto m : intraLeagueMatches) {
             if (m.getPlayedAt() == null || m.getPlayedAt().isAfter(now)) continue;
 
@@ -243,6 +272,11 @@ public class LeagueServiceImpl implements LeagueService {
                 away.setDraws(away.getDraws() + 1);
             }
 
+            if (!isLive) {
+                settle(settled, m.getHomeTeamId(), pointsFor(homeGoals, awayGoals));
+                settle(settled, m.getAwayTeamId(), pointsFor(awayGoals, homeGoals));
+            }
+
             long realSec = isLive ? Duration.between(m.getPlayedAt(), now).getSeconds() : -1;
             for (GoalDto g : m.getGoalTimeline()) {
                 if (isLive && !goalRevealed(g, realSec)) continue;
@@ -258,7 +292,7 @@ public class LeagueServiceImpl implements LeagueService {
         }
 
         List<StandingRow> standings = sortWithTiebreakers(new ArrayList<>(rowMap.values()), intraLeagueMatches);
-        markChampion(standings, LeagueFormat.forTeamCount(league.getTeams().size()).orElse(null));
+        markChampion(standings, LeagueFormat.forTeamCount(league.getTeams().size()).orElse(null), settled);
 
         List<TeamDto> teamDtos = league.getTeams().stream()
                 .sorted(Comparator.comparing(Team::getName))
@@ -293,20 +327,48 @@ public class LeagueServiceImpl implements LeagueService {
         return view;
     }
 
-    void markChampion(List<StandingRow> standings, LeagueFormat format) {
+    void markChampion(List<StandingRow> standings, LeagueFormat format, Map<UUID, int[]> settled) {
         if (format == null || standings.size() < 2) return;
 
         StandingRow leader = standings.get(0);
-        if (leader.getPlayed() == 0) return;
+        int leaderPoints = settledPoints(settled, leader);
+        for (int i = 1; i < standings.size(); i++) {
+            StandingRow row = standings.get(i);
+            int points = settledPoints(settled, row);
+            if (points > leaderPoints) {
+                leaderPoints = points;
+                leader = row;
+            }
+        }
+        if (settledPlayed(settled, leader) == 0) return;
 
         int matchesPerTeam = format.getTotalRounds();
-        for (int i = 1; i < standings.size(); i++) {
-            StandingRow rival = standings.get(i);
-            int rivalRemaining = Math.max(0, matchesPerTeam - rival.getPlayed());
-            int rivalMaxPoints = rival.getPoints() + 3 * rivalRemaining;
-            if (leader.getPoints() <= rivalMaxPoints) return;
+        for (StandingRow rival : standings) {
+            if (rival == leader) continue;
+            int rivalRemaining = Math.max(0, matchesPerTeam - settledPlayed(settled, rival));
+            int rivalMaxPoints = settledPoints(settled, rival) + 3 * rivalRemaining;
+            if (leaderPoints <= rivalMaxPoints) return;
         }
         leader.setChampion(true);
+    }
+
+    private static void settle(Map<UUID, int[]> settled, UUID teamId, int points) {
+        int[] row = settled.computeIfAbsent(teamId, key -> new int[2]);
+        row[0]++;
+        row[1] += points;
+    }
+
+    private static int pointsFor(int goalsFor, int goalsAgainst) {
+        if (goalsFor > goalsAgainst) return 3;
+        return goalsFor == goalsAgainst ? 1 : 0;
+    }
+
+    private static int settledPlayed(Map<UUID, int[]> settled, StandingRow row) {
+        return settled.getOrDefault(row.getTeamId(), NO_SETTLED_MATCHES)[0];
+    }
+
+    private static int settledPoints(Map<UUID, int[]> settled, StandingRow row) {
+        return settled.getOrDefault(row.getTeamId(), NO_SETTLED_MATCHES)[1];
     }
 
     private List<StandingRow> sortWithTiebreakers(List<StandingRow> rows, List<MatchDto> intraLeagueMatches) {
@@ -432,14 +494,20 @@ public class LeagueServiceImpl implements LeagueService {
     }
 
     private LeagueDto toDto(League league) {
+        return toDto(league,
+                matchRepository.countByLeagueId(league.getId()),
+                matchRepository.countPlayedByLeagueId(league.getId(), LocalDateTime.now()));
+    }
+
+    private LeagueDto toDto(League league, long totalMatches, long playedMatches) {
         LeagueDto leagueDto = new LeagueDto();
         leagueDto.setId(league.getId());
         leagueDto.setName(league.getName());
         leagueDto.setScheduleStartDate(league.getScheduleStartDate());
         leagueDto.setScheduleStartTime(league.getScheduleStartTime());
         leagueDto.setTeamCount(league.getTeams().size());
-        leagueDto.setTotalMatches(matchRepository.countByLeagueId(league.getId()));
-        leagueDto.setPlayedMatches(matchRepository.countPlayedByLeagueId(league.getId(), LocalDateTime.now()));
+        leagueDto.setTotalMatches(totalMatches);
+        leagueDto.setPlayedMatches(playedMatches);
         return leagueDto;
     }
 }

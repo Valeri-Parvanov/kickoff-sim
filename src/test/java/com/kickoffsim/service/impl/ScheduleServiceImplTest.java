@@ -181,9 +181,10 @@ class ScheduleServiceImplTest {
 
         scheduleService.generate(id, START_DATE, VALID_TIME);
 
-        ArgumentCaptor<SubscriptionRequest> captor = ArgumentCaptor.forClass(SubscriptionRequest.class);
-        verify(notificationClient, org.mockito.Mockito.atLeastOnce()).subscribe(captor.capture());
-        List<SubscriptionRequest> matchSubs = captor.getAllValues().stream()
+        ArgumentCaptor<com.kickoffsim.client.BulkSubscriptionRequest> captor =
+                ArgumentCaptor.forClass(com.kickoffsim.client.BulkSubscriptionRequest.class);
+        verify(notificationClient).subscribeAll(captor.capture());
+        List<SubscriptionRequest> matchSubs = captor.getValue().getSubscriptions().stream()
                 .filter(r -> "MATCH".equals(r.getEntityType()))
                 .toList();
 
@@ -213,7 +214,7 @@ class ScheduleServiceImplTest {
 
         scheduleService.generate(id, START_DATE, VALID_TIME);
 
-        verify(notificationClient, never()).subscribe(any());
+        verify(notificationClient, never()).subscribeAll(any());
     }
 
     @Test
@@ -230,7 +231,7 @@ class ScheduleServiceImplTest {
         leagueSub.setEntityType("LEAGUE");
         leagueSub.setEntityId(id);
         when(notificationClient.getSubscriptionsForEntities(any())).thenReturn(List.of(leagueSub));
-        doThrow(new RuntimeException("subscribe failed")).when(notificationClient).subscribe(any());
+        doThrow(new RuntimeException("subscribe failed")).when(notificationClient).subscribeAll(any());
 
         scheduleService.generate(id, START_DATE, VALID_TIME);
 
@@ -249,7 +250,7 @@ class ScheduleServiceImplTest {
         scheduleService.generate(id, START_DATE, VALID_TIME);
 
         verify(matchRepository).saveAll(any());
-        verify(notificationClient, never()).subscribe(any());
+        verify(notificationClient, never()).subscribeAll(any());
     }
 
     private List<Player> squadFor(Team team) {
@@ -308,7 +309,7 @@ class ScheduleServiceImplTest {
 
     @Test
     void simulatePastMatches_noCandidates_nothingSaved() {
-        when(matchRepository.findGoallessBefore(any())).thenReturn(List.of());
+        when(matchRepository.findGoallessBetween(any(), any())).thenReturn(List.of());
 
         scheduleService.simulatePastMatches();
 
@@ -318,7 +319,7 @@ class ScheduleServiceImplTest {
 
     @Test
     void simulatePastMatches_noCandidates_leavesLeagueCacheAlone() {
-        when(matchRepository.findGoallessBefore(any())).thenReturn(List.of());
+        when(matchRepository.findGoallessBetween(any(), any())).thenReturn(List.of());
 
         scheduleService.simulatePastMatches();
 
@@ -340,7 +341,7 @@ class ScheduleServiceImplTest {
         match.setHomeScore(0);
         match.setAwayScore(0);
 
-        when(matchRepository.findGoallessBefore(any())).thenReturn(List.of(match));
+        when(matchRepository.findGoallessBetween(any(), any())).thenReturn(List.of(match));
         when(playerRepository.findAllByTeam(any())).thenReturn(List.of());
         when(matchRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         org.springframework.cache.Cache leagues = org.mockito.Mockito.mock(org.springframework.cache.Cache.class);
@@ -349,6 +350,165 @@ class ScheduleServiceImplTest {
         scheduleService.simulatePastMatches();
 
         verify(leagues).clear();
+    }
+
+    @Test
+    void simulatePastMatches_withCandidate_evictsLeagueDetailCache() {
+        Match match = new Match();
+        match.setId(UUID.randomUUID());
+        Team home = new Team();
+        home.setId(UUID.randomUUID());
+        home.setName("Home");
+        Team away = new Team();
+        away.setId(UUID.randomUUID());
+        away.setName("Away");
+        match.setHomeTeam(home);
+        match.setAwayTeam(away);
+        match.setHomeScore(0);
+        match.setAwayScore(0);
+
+        when(matchRepository.findGoallessBetween(any(), any())).thenReturn(List.of(match));
+        when(playerRepository.findAllByTeam(any())).thenReturn(List.of());
+        when(matchRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        org.springframework.cache.Cache leagues = org.mockito.Mockito.mock(org.springframework.cache.Cache.class);
+        org.springframework.cache.Cache leagueDetail = org.mockito.Mockito.mock(org.springframework.cache.Cache.class);
+        org.springframework.cache.Cache leagueStandings = org.mockito.Mockito.mock(org.springframework.cache.Cache.class);
+        when(cacheManager.getCache("leagues")).thenReturn(leagues);
+        when(cacheManager.getCache("leagueDetail")).thenReturn(leagueDetail);
+        when(cacheManager.getCache("leagueStandings")).thenReturn(leagueStandings);
+
+        scheduleService.simulatePastMatches();
+
+        verify(leagues).clear();
+        verify(leagueDetail).clear();
+        verify(leagueStandings).clear();
+    }
+
+    @Test
+    void simulatePastMatches_queriesBoundedWindow() {
+        when(matchRepository.findGoallessBetween(any(), any())).thenReturn(List.of());
+
+        java.time.LocalDateTime before = java.time.LocalDateTime.now();
+        scheduleService.simulatePastMatches();
+        java.time.LocalDateTime after = java.time.LocalDateTime.now();
+
+        org.mockito.ArgumentCaptor<java.time.LocalDateTime> from =
+                org.mockito.ArgumentCaptor.forClass(java.time.LocalDateTime.class);
+        org.mockito.ArgumentCaptor<java.time.LocalDateTime> to =
+                org.mockito.ArgumentCaptor.forClass(java.time.LocalDateTime.class);
+        verify(matchRepository).findGoallessBetween(from.capture(), to.capture());
+
+        org.junit.jupiter.api.Assertions.assertFalse(from.getValue().isBefore(before.minusHours(48)));
+        org.junit.jupiter.api.Assertions.assertFalse(from.getValue().isAfter(after.minusHours(48)));
+        org.junit.jupiter.api.Assertions.assertFalse(to.getValue().isBefore(before.minusMinutes(50)));
+        org.junit.jupiter.api.Assertions.assertFalse(to.getValue().isAfter(after.minusMinutes(50)));
+    }
+
+    @Test
+    void notifyMatchEvents_usesConfiguredEventWindowAsLowerBound() {
+        java.time.LocalDateTime before = java.time.LocalDateTime.now();
+        scheduleService.notifyMatchEvents();
+        java.time.LocalDateTime after = java.time.LocalDateTime.now();
+
+        org.mockito.ArgumentCaptor<java.time.LocalDateTime> from =
+                org.mockito.ArgumentCaptor.forClass(java.time.LocalDateTime.class);
+        verify(matchRepository).findForKickoffNotification(from.capture(), any());
+
+        org.junit.jupiter.api.Assertions.assertFalse(from.getValue().isBefore(before.minusHours(3)));
+        org.junit.jupiter.api.Assertions.assertFalse(from.getValue().isAfter(after.minusHours(3)));
+    }
+
+    @org.junit.jupiter.api.BeforeEach
+    void allowNotificationTicks() {
+        when(matchRepository.existsInWindow(any(), any())).thenReturn(true);
+    }
+
+    @Test
+    void notifyMatchEvents_noRecentMatchAndNoUpcoming_skipsEventQueries() {
+        when(matchRepository.existsInWindow(any(), any())).thenReturn(false);
+        when(matchRepository.findNextKickoffAfter(any())).thenReturn(null);
+
+        scheduleService.notifyMatchEvents();
+
+        verify(matchRepository, never()).findForKickoffNotification(any(), any());
+        verify(matchRepository, never()).findForFulltimeNotification(any(), any());
+    }
+
+    @Test
+    void notifyGoals_noRecentMatch_skipsGoalQuery() {
+        when(matchRepository.existsInWindow(any(), any())).thenReturn(false);
+        when(matchRepository.findNextKickoffAfter(any())).thenReturn(null);
+
+        scheduleService.notifyGoals();
+
+        verify(goalRepository, never()).findUnnotifiedForMatchesStartedBetween(any(), any());
+    }
+
+    @Test
+    void notifyMatchEvents_whileIdle_doesNotRepeatGuardQuery() {
+        when(matchRepository.existsInWindow(any(), any())).thenReturn(false);
+        when(matchRepository.findNextKickoffAfter(any())).thenReturn(null);
+
+        scheduleService.notifyMatchEvents();
+        scheduleService.notifyMatchEvents();
+
+        verify(matchRepository, org.mockito.Mockito.times(1)).existsInWindow(any(), any());
+    }
+
+    @Test
+    void notifyMatchEvents_idleWindowExpired_reevaluatesGuard() {
+        when(matchRepository.existsInWindow(any(), any())).thenReturn(false);
+        when(matchRepository.findNextKickoffAfter(any()))
+                .thenReturn(java.time.LocalDateTime.now().minusSeconds(1));
+
+        scheduleService.notifyMatchEvents();
+        scheduleService.notifyMatchEvents();
+
+        verify(matchRepository, org.mockito.Mockito.times(2)).existsInWindow(any(), any());
+    }
+
+    @Test
+    void notifyMatchEvents_kickoffSoonerThanRecheck_staysIdleUntilKickoff() {
+        when(matchRepository.existsInWindow(any(), any())).thenReturn(false);
+        when(matchRepository.findNextKickoffAfter(any()))
+                .thenReturn(java.time.LocalDateTime.now().plusSeconds(5));
+
+        scheduleService.notifyMatchEvents();
+
+        verify(matchRepository, never()).findForKickoffNotification(any(), any());
+    }
+
+    @Test
+    void notifyMatchEvents_kickoffLaterThanRecheck_idlesUntilRecheck() {
+        when(matchRepository.existsInWindow(any(), any())).thenReturn(false);
+        when(matchRepository.findNextKickoffAfter(any()))
+                .thenReturn(java.time.LocalDateTime.now().plusHours(4));
+
+        scheduleService.notifyMatchEvents();
+
+        verify(matchRepository, never()).findForKickoffNotification(any(), any());
+    }
+
+    @Test
+    void notifyMatchEvents_recentMatchPresent_runsEventQueries() {
+        scheduleService.notifyMatchEvents();
+
+        verify(matchRepository).findForKickoffNotification(any(), any());
+        verify(matchRepository, never()).findNextKickoffAfter(any());
+    }
+
+    @Test
+    void notifyGoals_usesConfiguredEventWindowAsLowerBound() {
+        java.time.LocalDateTime before = java.time.LocalDateTime.now();
+        scheduleService.notifyGoals();
+        java.time.LocalDateTime after = java.time.LocalDateTime.now();
+
+        org.mockito.ArgumentCaptor<java.time.LocalDateTime> from =
+                org.mockito.ArgumentCaptor.forClass(java.time.LocalDateTime.class);
+        verify(goalRepository).findUnnotifiedForMatchesStartedBetween(from.capture(), any());
+
+        org.junit.jupiter.api.Assertions.assertFalse(from.getValue().isBefore(before.minusHours(3)));
+        org.junit.jupiter.api.Assertions.assertFalse(from.getValue().isAfter(after.minusHours(3)));
     }
 
     @Test
@@ -366,7 +526,7 @@ class ScheduleServiceImplTest {
         match.setHomeScore(0);
         match.setAwayScore(0);
 
-        when(matchRepository.findGoallessBefore(any())).thenReturn(List.of(match));
+        when(matchRepository.findGoallessBetween(any(), any())).thenReturn(List.of(match));
         when(playerRepository.findAllByTeam(any())).thenReturn(List.of());
         when(matchRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -403,7 +563,7 @@ class ScheduleServiceImplTest {
         List<Player> homePlayers = squadOfFour(home);
         List<Player> awayPlayers = squadOfFour(away);
 
-        when(matchRepository.findGoallessBefore(any())).thenReturn(candidates);
+        when(matchRepository.findGoallessBetween(any(), any())).thenReturn(candidates);
         when(playerRepository.findAllByTeam(home)).thenReturn(homePlayers);
         when(playerRepository.findAllByTeam(away)).thenReturn(awayPlayers);
         when(matchRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -710,7 +870,7 @@ class ScheduleServiceImplTest {
         match.setHomeScore(0);
         match.setAwayScore(0);
 
-        when(matchRepository.findGoallessBefore(any())).thenReturn(List.of(match));
+        when(matchRepository.findGoallessBetween(any(), any())).thenReturn(List.of(match));
         when(playerRepository.findAllByTeam(any())).thenReturn(List.of());
         when(matchRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -736,7 +896,7 @@ class ScheduleServiceImplTest {
         match.setHomeScore(0);
         match.setAwayScore(0);
 
-        when(matchRepository.findGoallessBefore(any())).thenReturn(List.of(match));
+        when(matchRepository.findGoallessBetween(any(), any())).thenReturn(List.of(match));
         when(playerRepository.findAllByTeam(any())).thenReturn(List.of());
         when(matchRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         doThrow(new RuntimeException("down")).when(notificationClient).broadcast(any());
