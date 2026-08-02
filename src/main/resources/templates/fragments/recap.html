@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="sections(recap)" class="recap-feed">
+
+    <article class="recap-headline" th:if="${recap.lead != null}"
+             th:classappend="${'recap-k-' + recap.lead.kind.slug}">
+        <span class="recap-tag" th:with="kindKey=${'recap.kind.' + recap.lead.kind.name()}">
+            <span class="recap-tag-icon" th:text="${recap.lead.kind.icon}"></span>
+            <span th:text="#{${kindKey}}"></span>
+        </span>
+        <h4 class="recap-headline-title" th:text="${recap.lead.headline}"></h4>
+        <p class="recap-headline-body" th:text="${recap.lead.body}"></p>
+    </article>
+
+    <div class="recap-stat-strip" th:if="${recap.stats != null}">
+        <span class="recap-chip" th:each="chip : ${recap.stats.items()}" th:text="${chip}"></span>
+    </div>
+
+    <div class="recap-stories" th:if="${!recap.secondary.isEmpty()}">
+        <article class="recap-story" th:each="story, iter : ${recap.secondary}"
+                 th:classappend="${'recap-k-' + story.kind.slug + (iter.index == 0 ? ' recap-story-wide' : '')}">
+            <span class="recap-tag" th:with="kindKey=${'recap.kind.' + story.kind.name()}">
+                <span class="recap-tag-icon" th:text="${story.kind.icon}"></span>
+                <span th:text="#{${kindKey}}"></span>
+            </span>
+            <h5 class="recap-story-title" th:text="${story.headline}"></h5>
+            <p class="recap-story-body" th:text="${story.body}"></p>
+        </article>
+    </div>
+
+    <div class="recap-panels" th:if="${!recap.lists.isEmpty()}">
+        <section class="recap-panel" th:each="list : ${recap.lists}"
+                 th:classappend="${list.kind.name() == 'RESULTS' ? 'recap-panel-results' : ''}">
+            <h5 class="recap-panel-title">
+                <span class="recap-panel-icon" th:text="${list.kind.icon}"></span>
+                <span th:text="${list.headline}"></span>
+            </h5>
+            <ul class="recap-panel-items">
+                <li th:each="item : ${list.items()}" th:text="${item}"></li>
+            </ul>
+        </section>
+    </div>
+
+    <p class="recap-stamp" th:if="${recap.generatedAt != null}"
+       th:text="#{recap.generatedat(${#temporals.format(recap.generatedAt, 'dd.MM.yyyy HH:mm')})}"></p>
+</div>
+</body>
+</html>

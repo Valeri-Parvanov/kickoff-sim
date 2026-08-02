@@ -53,7 +53,7 @@ class MessageBundleConsistencyTest {
             "teams.position",
             "admin.users.status",
             "profile.optional",
-            "recap.results.line");
+            "recap.story.results.item");
 
     @Test
     @DisplayName("every locale defines exactly the same keys as the base bundle")

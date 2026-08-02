@@ -9,6 +9,7 @@ import com.kickoffsim.repository.LeagueRepository;
 import com.kickoffsim.service.LeagueService;
 import com.kickoffsim.service.RoundRecapAiClient;
 import com.kickoffsim.service.RoundRecapService;
+import com.kickoffsim.web.RecapStoryParser;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,6 +51,7 @@ public class RoundRecapServiceImpl implements RoundRecapService {
         String localeTag = localeTag(locale);
         return roundRecapRepository.findByLeagueIdAndRoundNumberAndLocaleTag(
                         leagueId, roundNumber, localeTag)
+                .filter(this::isCurrentFormat)
                 .map(this::toView);
     }
 
@@ -59,7 +61,7 @@ public class RoundRecapServiceImpl implements RoundRecapService {
         String localeTag = localeTag(locale);
         Optional<RoundRecap> existing = roundRecapRepository
                 .findByLeagueIdAndRoundNumberAndLocaleTag(leagueId, roundNumber, localeTag);
-        if (existing.isPresent() && !regenerate) {
+        if (existing.isPresent() && !regenerate && isCurrentFormat(existing.get())) {
             return toView(existing.get());
         }
 
@@ -102,6 +104,7 @@ public class RoundRecapServiceImpl implements RoundRecapService {
     public Optional<RoundRecapView> findSeason(UUID leagueId, Locale locale) {
         return roundRecapRepository.findByLeagueIdAndRoundNumberAndLocaleTag(
                         leagueId, SEASON_SCOPE, localeTag(locale))
+                .filter(this::isCurrentFormat)
                 .map(this::toView);
     }
 
@@ -111,7 +114,7 @@ public class RoundRecapServiceImpl implements RoundRecapService {
         String localeTag = localeTag(locale);
         Optional<RoundRecap> existing = roundRecapRepository
                 .findByLeagueIdAndRoundNumberAndLocaleTag(leagueId, SEASON_SCOPE, localeTag);
-        if (existing.isPresent() && !regenerate) {
+        if (existing.isPresent() && !regenerate && isCurrentFormat(existing.get())) {
             return toView(existing.get());
         }
 
@@ -179,7 +182,17 @@ public class RoundRecapServiceImpl implements RoundRecapService {
                     row.getGoalsAgainst(), row.getGoalDiff(), row.getPoints(), row.isChampion()));
         }
         return new RoundRecapPromptData(
-                league.getName(), roundNumber, localeTag, LANGUAGES.get(localeTag), matchData, standings);
+                league.getName(), roundNumber, localeTag, LANGUAGES.get(localeTag), matchData, standings,
+                league.getFormat() == null ? 0 : league.getFormat().getTotalRounds(),
+                toPlayerData(league.getTopScorers()),
+                toPlayerData(league.getTopAssists()));
+    }
+
+    private List<RoundRecapPlayerData> toPlayerData(List<PlayerStatRow> rows) {
+        return rows == null ? List.of() : rows.stream()
+                .map(row -> new RoundRecapPlayerData(
+                        row.getPlayerName(), teamLabel(row.getTeamName(), row.getTeamCity()), row.getCount()))
+                .toList();
     }
 
     private RoundRecapMatchData toMatchData(MatchDto match, boolean includeGoals) {
@@ -227,6 +240,11 @@ public class RoundRecapServiceImpl implements RoundRecapService {
 
     private RoundRecapView toView(RoundRecap recap) {
         return new RoundRecapView(
-                recap.getContent(), recap.getGeneratedAt(), recap.getLocaleTag(), recap.getSourceFingerprint());
+                recap.getContent(), recap.getGeneratedAt(), recap.getLocaleTag(), recap.getSourceFingerprint(),
+                RecapStoryParser.parse(recap.getContent()));
+    }
+
+    private boolean isCurrentFormat(RoundRecap recap) {
+        return !RecapStoryParser.parse(recap.getContent()).isEmpty();
     }
 }

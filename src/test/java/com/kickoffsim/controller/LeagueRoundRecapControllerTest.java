@@ -7,6 +7,7 @@ import com.kickoffsim.dto.RoundRecapView;
 import com.kickoffsim.exception.InvalidLeagueOperationException;
 import com.kickoffsim.service.*;
 import com.kickoffsim.web.MatchFollowSupport;
+import com.kickoffsim.web.RecapStoryParser;
 import com.kickoffsim.security.NotFoundAccessDeniedHandler;
 import com.kickoffsim.security.SecurityConfig;
 import jakarta.servlet.http.HttpServletResponse;
@@ -265,8 +266,7 @@ class LeagueRoundRecapControllerTest {
     void detailExposesGeneratedRecapForCurrentLocale() throws Exception {
         UUID id = UUID.randomUUID();
         LeagueDetailView league = league(id);
-        RoundRecapView recap = new RoundRecapView(
-                "English recap", LocalDateTime.now(), "en", "a".repeat(64));
+        RoundRecapView recap = recapView("MVP|40|English recap|Petar ran the round.");
         when(leagueService.findDetail(id)).thenReturn(league);
         when(roundRecapService.find(id, 1, Locale.ENGLISH)).thenReturn(Optional.of(recap));
         when(roundRecapService.isRoundComplete(league, 1)).thenReturn(true);
@@ -286,7 +286,7 @@ class LeagueRoundRecapControllerTest {
 
     @Test
     @WithMockUser(roles = "ADMIN")
-    void incompleteRoundKeepsRecapButtonClickable() throws Exception {
+    void missingRecapsOfferNoManualGeneration() throws Exception {
         UUID id = UUID.randomUUID();
         LeagueDetailView league = league(id);
         when(leagueService.findDetail(id)).thenReturn(league);
@@ -302,22 +302,23 @@ class LeagueRoundRecapControllerTest {
                         .locale(Locale.ENGLISH))
                 .andExpect(status().isOk())
                 .andExpect(model().attribute("roundRecapReady", false))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString(
-                        "/leagues/" + id + "/rounds/1/recap")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(
-                        org.hamcrest.Matchers.containsString("disabled=\"disabled\""))));
+                        org.hamcrest.Matchers.containsString("/leagues/" + id + "/rounds/1/recap"))))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("/leagues/" + id + "/season-recap"))));
     }
 
     @Test
     @WithMockUser(roles = "ADMIN")
-    void unfinishedSeasonKeepsSeasonRecapButtonClickable() throws Exception {
+    void generatedRecapsOfferRegenerationToAdmins() throws Exception {
         UUID id = UUID.randomUUID();
         LeagueDetailView league = league(id);
+        RoundRecapView recap = recapView("RESULTS|5|Results|Alpha 1:0 Beta");
         when(leagueService.findDetail(id)).thenReturn(league);
-        when(roundRecapService.find(id, 1, Locale.ENGLISH)).thenReturn(Optional.empty());
-        when(roundRecapService.isRoundComplete(league, 1)).thenReturn(false);
-        when(roundRecapService.findSeason(id, Locale.ENGLISH)).thenReturn(Optional.empty());
-        when(roundRecapService.isSeasonRecapReady(league)).thenReturn(false);
+        when(roundRecapService.find(id, 1, Locale.ENGLISH)).thenReturn(Optional.of(recap));
+        when(roundRecapService.isRoundComplete(league, 1)).thenReturn(true);
+        when(roundRecapService.findSeason(id, Locale.ENGLISH)).thenReturn(Optional.of(recap));
+        when(roundRecapService.isSeasonRecapReady(league)).thenReturn(true);
         when(matchFollowSupport.subscribedMatchIds(any())).thenReturn(Set.of());
 
         mockMvc.perform(get("/leagues/{id}", id)
@@ -325,11 +326,141 @@ class LeagueRoundRecapControllerTest {
                         .with(user("admin").roles("ADMIN"))
                         .locale(Locale.ENGLISH))
                 .andExpect(status().isOk())
-                .andExpect(model().attribute("seasonRecapReady", false))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "/leagues/" + id + "/rounds/1/recap")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString(
                         "/leagues/" + id + "/season-recap")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("recap-panel")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(
                         org.hamcrest.Matchers.containsString("disabled=\"disabled\""))));
+    }
+
+    @Test
+    @WithMockUser
+    void missingRoundRecapIsGeneratedOnDemandAndRefreshesTheSeason() throws Exception {
+        UUID id = UUID.randomUUID();
+        LeagueDetailView league = league(id);
+        RoundRecapView roundRecap = recapView("Round recap");
+        RoundRecapView seasonRecap = recapView("Season recap");
+        when(leagueService.findDetail(id)).thenReturn(league);
+        when(roundRecapService.find(id, 1, Locale.ENGLISH)).thenReturn(Optional.empty());
+        when(roundRecapService.isRoundComplete(league, 1)).thenReturn(true);
+        when(roundRecapService.generate(id, 1, Locale.ENGLISH, false)).thenReturn(roundRecap);
+        when(roundRecapService.findSeason(id, Locale.ENGLISH)).thenReturn(Optional.empty());
+        when(roundRecapService.isSeasonRecapReady(league)).thenReturn(true);
+        when(roundRecapService.generateSeason(id, Locale.ENGLISH, true)).thenReturn(seasonRecap);
+        when(matchFollowSupport.subscribedMatchIds(any())).thenReturn(Set.of());
+
+        mockMvc.perform(get("/leagues/{id}", id)
+                        .param("round", "1")
+                        .with(user("member").roles("USER"))
+                        .locale(Locale.ENGLISH))
+                .andExpect(status().isOk())
+                .andExpect(model().attribute("roundRecap", roundRecap))
+                .andExpect(model().attribute("seasonRecap", seasonRecap));
+
+        verify(roundRecapService).generate(id, 1, Locale.ENGLISH, false);
+        verify(roundRecapService).generateSeason(id, Locale.ENGLISH, true);
+    }
+
+    @Test
+    @WithMockUser
+    void storedRecapsAreNotRegeneratedOnDemand() throws Exception {
+        UUID id = UUID.randomUUID();
+        LeagueDetailView league = league(id);
+        RoundRecapView recap = recapView("Stored recap");
+        when(leagueService.findDetail(id)).thenReturn(league);
+        when(roundRecapService.find(id, 1, Locale.ENGLISH)).thenReturn(Optional.of(recap));
+        when(roundRecapService.isRoundComplete(league, 1)).thenReturn(true);
+        when(roundRecapService.findSeason(id, Locale.ENGLISH)).thenReturn(Optional.of(recap));
+        when(roundRecapService.isSeasonRecapReady(league)).thenReturn(true);
+        when(matchFollowSupport.subscribedMatchIds(any())).thenReturn(Set.of());
+
+        mockMvc.perform(get("/leagues/{id}", id)
+                        .param("round", "1")
+                        .with(user("member").roles("USER"))
+                        .locale(Locale.ENGLISH))
+                .andExpect(status().isOk());
+
+        verify(roundRecapService, never()).generate(any(), anyInt(), any(), anyBoolean());
+        verify(roundRecapService, never()).generateSeason(any(), any(), anyBoolean());
+    }
+
+    @Test
+    @WithMockUser
+    void unfinishedRoundIsNotGeneratedOnDemand() throws Exception {
+        UUID id = UUID.randomUUID();
+        LeagueDetailView league = league(id);
+        when(leagueService.findDetail(id)).thenReturn(league);
+        when(roundRecapService.find(id, 1, Locale.ENGLISH)).thenReturn(Optional.empty());
+        when(roundRecapService.isRoundComplete(league, 1)).thenReturn(false);
+        when(roundRecapService.findSeason(id, Locale.ENGLISH)).thenReturn(Optional.of(recapView("Season")));
+        when(roundRecapService.isSeasonRecapReady(league)).thenReturn(false);
+        when(matchFollowSupport.subscribedMatchIds(any())).thenReturn(Set.of());
+
+        mockMvc.perform(get("/leagues/{id}", id)
+                        .param("round", "1")
+                        .with(user("member").roles("USER"))
+                        .locale(Locale.ENGLISH))
+                .andExpect(status().isOk())
+                .andExpect(model().attributeDoesNotExist("roundRecap"));
+
+        verify(roundRecapService, never()).generate(any(), anyInt(), any(), anyBoolean());
+        verify(roundRecapService, never()).generateSeason(any(), any(), anyBoolean());
+    }
+
+    @Test
+    @WithMockUser
+    void failedOnDemandGenerationKeepsThePlaceholder() throws Exception {
+        UUID id = UUID.randomUUID();
+        LeagueDetailView league = league(id);
+        when(leagueService.findDetail(id)).thenReturn(league);
+        when(roundRecapService.find(id, 1, Locale.ENGLISH)).thenReturn(Optional.empty());
+        when(roundRecapService.isRoundComplete(league, 1)).thenReturn(true);
+        when(roundRecapService.generate(id, 1, Locale.ENGLISH, false))
+                .thenThrow(new InvalidLeagueOperationException("incomplete"));
+        when(roundRecapService.findSeason(id, Locale.ENGLISH)).thenReturn(Optional.empty());
+        when(roundRecapService.isSeasonRecapReady(league)).thenReturn(true);
+        when(roundRecapService.generateSeason(id, Locale.ENGLISH, true))
+                .thenThrow(new IllegalStateException("no data"));
+        when(matchFollowSupport.subscribedMatchIds(any())).thenReturn(Set.of());
+
+        mockMvc.perform(get("/leagues/{id}", id)
+                        .param("round", "1")
+                        .with(user("member").roles("USER"))
+                        .locale(Locale.ENGLISH))
+                .andExpect(status().isOk())
+                .andExpect(model().attributeDoesNotExist("roundRecap"))
+                .andExpect(model().attributeDoesNotExist("seasonRecap"));
+    }
+
+    @Test
+    @WithMockUser
+    void failedSeasonRefreshKeepsTheStoredSeasonRecap() throws Exception {
+        UUID id = UUID.randomUUID();
+        LeagueDetailView league = league(id);
+        RoundRecapView storedSeason = recapView("Stored season");
+        when(leagueService.findDetail(id)).thenReturn(league);
+        when(roundRecapService.find(id, 1, Locale.ENGLISH)).thenReturn(Optional.empty());
+        when(roundRecapService.isRoundComplete(league, 1)).thenReturn(true);
+        when(roundRecapService.generate(id, 1, Locale.ENGLISH, false)).thenReturn(recapView("Round"));
+        when(roundRecapService.findSeason(id, Locale.ENGLISH)).thenReturn(Optional.of(storedSeason));
+        when(roundRecapService.isSeasonRecapReady(league)).thenReturn(true);
+        when(roundRecapService.generateSeason(id, Locale.ENGLISH, true))
+                .thenThrow(new IllegalStateException("no data"));
+        when(matchFollowSupport.subscribedMatchIds(any())).thenReturn(Set.of());
+
+        mockMvc.perform(get("/leagues/{id}", id)
+                        .param("round", "1")
+                        .with(user("member").roles("USER"))
+                        .locale(Locale.ENGLISH))
+                .andExpect(status().isOk())
+                .andExpect(model().attribute("seasonRecap", storedSeason));
+    }
+
+    private RoundRecapView recapView(String content) {
+        return new RoundRecapView(content, LocalDateTime.now(), "en", "a".repeat(64),
+                RecapStoryParser.parse(content));
     }
 
     private LeagueDetailView league(UUID id) {

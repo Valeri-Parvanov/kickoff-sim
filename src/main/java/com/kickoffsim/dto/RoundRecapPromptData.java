@@ -8,5 +8,8 @@ public record RoundRecapPromptData(
         String localeTag,
         String languageName,
         List<RoundRecapMatchData> matches,
-        List<RoundRecapStandingData> standings) {
+        List<RoundRecapStandingData> standings,
+        int matchesPerTeam,
+        List<RoundRecapPlayerData> topScorers,
+        List<RoundRecapPlayerData> topAssists) {
 }

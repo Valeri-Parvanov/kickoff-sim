@@ -6,6 +6,7 @@ import com.kickoffsim.exception.InvalidLeagueOperationException;
 import com.kickoffsim.exception.RoundRecapGenerationException;
 import com.kickoffsim.model.Half;
 import com.kickoffsim.model.League;
+import com.kickoffsim.model.LeagueFormat;
 import com.kickoffsim.model.RoundRecap;
 import com.kickoffsim.repository.LeagueRepository;
 import com.kickoffsim.repository.RoundRecapRepository;
@@ -79,15 +80,94 @@ class RoundRecapServiceImplTest {
 
     @Test
     void generate_existingRecapReturnsItWithoutLeagueOrAiCall() {
-        RoundRecap existing = recap("en", "Cached");
+        RoundRecap existing = recap("en", "MVP|40|Cached|Cached body");
         when(recapRepository.findByLeagueIdAndRoundNumberAndLocaleTag(leagueId, 1, "en"))
                 .thenReturn(Optional.of(existing));
 
         RoundRecapView result = service.generate(leagueId, 1, Locale.ENGLISH, false);
 
-        assertThat(result.content()).isEqualTo("Cached");
+        assertThat(result.content()).isEqualTo("MVP|40|Cached|Cached body");
+        assertThat(result.getLead().headline()).isEqualTo("Cached");
         verifyNoInteractions(leagueService, aiClient, leagueRepository);
         verify(recapRepository, never()).save(any());
+    }
+
+    @Test
+    void generate_recapInAnOlderContentFormat_isRebuilt() {
+        when(recapRepository.findByLeagueIdAndRoundNumberAndLocaleTag(leagueId, 1, "en"))
+                .thenReturn(Optional.of(recap("en", "✨ Highlights:\n- Draws: 2")));
+        when(leagueService.findDetail(leagueId)).thenReturn(completedLeague());
+        when(leagueRepository.getReferenceById(leagueId)).thenReturn(new League());
+        when(aiClient.generate(any())).thenReturn("MVP|40|Fresh|body");
+        when(recapRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        assertThat(service.generate(leagueId, 1, Locale.ENGLISH, false).content())
+                .isEqualTo("MVP|40|Fresh|body");
+    }
+
+    @Test
+    void generateSeason_recapInAnOlderContentFormat_isRebuilt() {
+        RoundRecap existing = recap("en", "✨ Highlights:\n- Draws: 2");
+        existing.setRoundNumber(0);
+        when(recapRepository.findByLeagueIdAndRoundNumberAndLocaleTag(leagueId, 0, "en"))
+                .thenReturn(Optional.of(existing));
+        when(leagueService.findDetail(leagueId)).thenReturn(completedLeague());
+        when(leagueRepository.getReferenceById(leagueId)).thenReturn(new League());
+        when(aiClient.generate(any())).thenReturn("MVP|40|Fresh season|body");
+        when(recapRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        assertThat(service.generateSeason(leagueId, Locale.ENGLISH, false).content())
+                .isEqualTo("MVP|40|Fresh season|body");
+    }
+
+    @Test
+    void generate_passesTheFormatAndTheScoringChartsToTheGenerator() {
+        LeagueDetailView league = completedLeague();
+        league.setFormat(LeagueFormat.TEN);
+        league.setTopScorers(List.of(playerStat("Alex Ace", "Alpha", "Sofia", 9)));
+        league.setTopAssists(List.of(playerStat("Andy Aid", "Beta", null, 4)));
+        when(recapRepository.findByLeagueIdAndRoundNumberAndLocaleTag(leagueId, 1, "en"))
+                .thenReturn(Optional.empty());
+        when(leagueService.findDetail(leagueId)).thenReturn(league);
+        when(leagueRepository.getReferenceById(leagueId)).thenReturn(new League());
+        when(aiClient.generate(any())).thenReturn("MVP|40|Fresh|body");
+        when(recapRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.generate(leagueId, 1, Locale.ENGLISH, false);
+
+        ArgumentCaptor<RoundRecapPromptData> captor = ArgumentCaptor.forClass(RoundRecapPromptData.class);
+        verify(aiClient).generate(captor.capture());
+        assertThat(captor.getValue().matchesPerTeam()).isEqualTo(LeagueFormat.TEN.getTotalRounds());
+        assertThat(captor.getValue().topScorers())
+                .containsExactly(new RoundRecapPlayerData("Alex Ace", "Alpha (Sofia)", 9));
+        assertThat(captor.getValue().topAssists())
+                .containsExactly(new RoundRecapPlayerData("Andy Aid", "Beta", 4));
+    }
+
+    @Test
+    void generate_leagueWithoutFormatOrCharts_stillBuildsThePrompt() {
+        when(recapRepository.findByLeagueIdAndRoundNumberAndLocaleTag(leagueId, 1, "en"))
+                .thenReturn(Optional.empty());
+        when(leagueService.findDetail(leagueId)).thenReturn(completedLeague());
+        when(leagueRepository.getReferenceById(leagueId)).thenReturn(new League());
+        when(aiClient.generate(any())).thenReturn("MVP|40|Fresh|body");
+        when(recapRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.generate(leagueId, 1, Locale.ENGLISH, false);
+
+        ArgumentCaptor<RoundRecapPromptData> captor = ArgumentCaptor.forClass(RoundRecapPromptData.class);
+        verify(aiClient).generate(captor.capture());
+        assertThat(captor.getValue().matchesPerTeam()).isZero();
+        assertThat(captor.getValue().topScorers()).isEmpty();
+    }
+
+    private PlayerStatRow playerStat(String player, String team, String city, int count) {
+        PlayerStatRow row = new PlayerStatRow();
+        row.setPlayerName(player);
+        row.setTeamName(team);
+        row.setTeamCity(city);
+        row.setCount(count);
+        return row;
     }
 
     @Test
@@ -133,11 +213,11 @@ class RoundRecapServiceImplTest {
     @Test
     void generateAllLanguagesKeepsEveryCachedRecap() {
         when(recapRepository.findByLeagueIdAndRoundNumberAndLocaleTag(leagueId, 1, "bg"))
-                .thenReturn(Optional.of(recap("bg", "BG")));
+                .thenReturn(Optional.of(recap("bg", "MVP|40|BG|body")));
         when(recapRepository.findByLeagueIdAndRoundNumberAndLocaleTag(leagueId, 1, "en"))
-                .thenReturn(Optional.of(recap("en", "EN")));
+                .thenReturn(Optional.of(recap("en", "MVP|40|EN|body")));
         when(recapRepository.findByLeagueIdAndRoundNumberAndLocaleTag(leagueId, 1, "de"))
-                .thenReturn(Optional.of(recap("de", "DE")));
+                .thenReturn(Optional.of(recap("de", "MVP|40|DE|body")));
 
         service.generateAllLanguages(leagueId, 1, false);
 
@@ -239,12 +319,12 @@ class RoundRecapServiceImplTest {
     @Test
     void findUsesRequestedLocaleAndFallsBackUnsupportedLocaleToEnglish() {
         when(recapRepository.findByLeagueIdAndRoundNumberAndLocaleTag(leagueId, 1, "de"))
-                .thenReturn(Optional.of(recap("de", "Deutsch")));
+                .thenReturn(Optional.of(recap("de", "MVP|40|Deutsch|body")));
         when(recapRepository.findByLeagueIdAndRoundNumberAndLocaleTag(leagueId, 1, "en"))
                 .thenReturn(Optional.empty());
 
         assertThat(service.find(leagueId, 1, Locale.GERMAN)).get()
-                .extracting(RoundRecapView::content).isEqualTo("Deutsch");
+                .extracting(RoundRecapView::content).isEqualTo("MVP|40|Deutsch|body");
         assertThat(service.find(leagueId, 1, Locale.FRENCH)).isEmpty();
         assertThat(service.find(leagueId, 1, null)).isEmpty();
     }
@@ -358,25 +438,43 @@ class RoundRecapServiceImplTest {
 
     @Test
     void findSeasonUsesReservedScopeAndLocale() {
-        RoundRecap existing = recap("de", "Saison");
+        RoundRecap existing = recap("de", "MVP|40|Saison|body");
         existing.setRoundNumber(0);
         when(recapRepository.findByLeagueIdAndRoundNumberAndLocaleTag(leagueId, 0, "de"))
                 .thenReturn(Optional.of(existing));
 
         assertThat(service.findSeason(leagueId, Locale.GERMAN)).get()
                 .extracting(RoundRecapView::content)
-                .isEqualTo("Saison");
+                .isEqualTo("MVP|40|Saison|body");
+    }
+
+    @Test
+    void findSkipsRecapsLeftOverFromAnOlderContentFormat() {
+        when(recapRepository.findByLeagueIdAndRoundNumberAndLocaleTag(leagueId, 1, "en"))
+                .thenReturn(Optional.of(recap("en", "✨ Highlights:\n- Draws: 2")));
+
+        assertThat(service.find(leagueId, 1, Locale.ENGLISH)).isEmpty();
+    }
+
+    @Test
+    void findSeasonSkipsRecapsLeftOverFromAnOlderContentFormat() {
+        RoundRecap existing = recap("en", "✨ Highlights:\n- Draws: 2");
+        existing.setRoundNumber(0);
+        when(recapRepository.findByLeagueIdAndRoundNumberAndLocaleTag(leagueId, 0, "en"))
+                .thenReturn(Optional.of(existing));
+
+        assertThat(service.findSeason(leagueId, Locale.ENGLISH)).isEmpty();
     }
 
     @Test
     void generateSeasonReturnsCachedRecapWithoutAiCall() {
-        RoundRecap existing = recap("en", "Cached season");
+        RoundRecap existing = recap("en", "MVP|40|Cached season|body");
         existing.setRoundNumber(0);
         when(recapRepository.findByLeagueIdAndRoundNumberAndLocaleTag(leagueId, 0, "en"))
                 .thenReturn(Optional.of(existing));
 
         assertThat(service.generateSeason(leagueId, Locale.ENGLISH, false).content())
-                .isEqualTo("Cached season");
+                .isEqualTo("MVP|40|Cached season|body");
         verifyNoInteractions(leagueService, leagueRepository, aiClient);
         verify(recapRepository, never()).save(any());
     }

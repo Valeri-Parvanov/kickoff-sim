@@ -4,6 +4,7 @@ import com.kickoffsim.client.NotificationClient;
 import com.kickoffsim.dto.LeagueDetailView;
 import com.kickoffsim.dto.LeagueDto;
 import com.kickoffsim.dto.MatchDto;
+import com.kickoffsim.dto.RoundRecapView;
 import com.kickoffsim.dto.ScheduleForm;
 import com.kickoffsim.exception.InvalidLeagueOperationException;
 import com.kickoffsim.model.ChangeAction;
@@ -25,6 +26,7 @@ import com.kickoffsim.web.StandingsExportSupport;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -45,10 +47,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 @Controller
 @RequiredArgsConstructor
+@Slf4j
 @RequestMapping("/leagues")
 public class LeagueController {
 
@@ -131,14 +135,31 @@ public class LeagueController {
             model.addAttribute("selectedRound", selectedRound);
             model.addAttribute("roundMatches", roundMatches);
             if (roundRecapService != null) {
-                model.addAttribute("roundRecap",
-                        roundRecapService.find(id, selectedRound, LocaleContextHolder.getLocale()).orElse(null));
-                model.addAttribute("roundRecapReady",
-                        roundRecapService.isRoundComplete(league, selectedRound));
-                model.addAttribute("seasonRecap",
-                        roundRecapService.findSeason(id, LocaleContextHolder.getLocale()).orElse(null));
-                model.addAttribute("seasonRecapReady",
-                        roundRecapService.isSeasonRecapReady(league));
+                boolean roundRecapReady = roundRecapService.isRoundComplete(league, selectedRound);
+                boolean seasonRecapReady = roundRecapService.isSeasonRecapReady(league);
+                Locale recapLocale = LocaleContextHolder.getLocale();
+
+                Optional<RoundRecapView> roundRecap = roundRecapService.find(id, selectedRound, recapLocale);
+                boolean roundRecapCreated = false;
+                if (roundRecap.isEmpty() && roundRecapReady) {
+                    roundRecap = generateRecapQuietly(
+                            () -> roundRecapService.generate(id, selectedRound, recapLocale, false));
+                    roundRecapCreated = roundRecap.isPresent();
+                }
+
+                Optional<RoundRecapView> seasonRecap = roundRecapService.findSeason(id, recapLocale);
+                if (seasonRecapReady && (seasonRecap.isEmpty() || roundRecapCreated)) {
+                    Optional<RoundRecapView> refreshed = generateRecapQuietly(
+                            () -> roundRecapService.generateSeason(id, recapLocale, true));
+                    if (refreshed.isPresent()) {
+                        seasonRecap = refreshed;
+                    }
+                }
+
+                model.addAttribute("roundRecap", roundRecap.orElse(null));
+                model.addAttribute("roundRecapReady", roundRecapReady);
+                model.addAttribute("seasonRecap", seasonRecap.orElse(null));
+                model.addAttribute("seasonRecapReady", seasonRecapReady);
             }
             LocalDateTime liveThreshold = now.minusMinutes(46);
             model.addAttribute("now", now);
@@ -251,6 +272,15 @@ public class LeagueController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\""
                         + StandingsExportSupport.sanitizeFilename(league.getName()) + "-standings.pdf\"")
                 .body(data);
+    }
+
+    private Optional<RoundRecapView> generateRecapQuietly(Supplier<RoundRecapView> generator) {
+        try {
+            return Optional.ofNullable(generator.get());
+        } catch (RuntimeException exception) {
+            log.warn("Recap generation failed: {}", exception.getMessage(), exception);
+            return Optional.empty();
+        }
     }
 
     @GetMapping("/{id}/live-summary")
