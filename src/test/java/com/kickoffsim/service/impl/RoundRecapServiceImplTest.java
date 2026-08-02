@@ -550,9 +550,9 @@ class RoundRecapServiceImplTest {
     }
 
     @Test
-    void generateSeasonWithoutCompletedMatchesFailsBeforeAiCall() {
+    void generateSeasonBeforeEveryTeamPlayedFourMatchesFailsBeforeAiCall() {
         LeagueDetailView league = completedLeague();
-        league.getMatches().get(0).setPlayedAt(LocalDateTime.now().minusMinutes(10));
+        league.getStandings().get(1).setPlayed(3);
         when(recapRepository.findByLeagueIdAndRoundNumberAndLocaleTag(leagueId, 0, "en"))
                 .thenReturn(Optional.empty());
         when(leagueService.findDetail(leagueId)).thenReturn(league);
@@ -560,17 +560,28 @@ class RoundRecapServiceImplTest {
         assertThatThrownBy(() -> service.generateSeason(
                 leagueId, Locale.ENGLISH, false))
                 .isInstanceOf(InvalidLeagueOperationException.class)
-                .hasMessageContaining("At least one match");
+                .hasMessageContaining("at least 4 matches");
         verifyNoInteractions(aiClient);
         verify(recapRepository, never()).save(any());
     }
 
     @Test
-    void seasonReadinessRequiresAtLeastOneCompletedMatch() {
+    void seasonReadinessRequiresFourMatchesFromEveryTeam() {
         LeagueDetailView league = completedLeague();
         assertThat(service.isSeasonRecapReady(league)).isTrue();
 
-        league.getMatches().get(0).setPlayedAt(LocalDateTime.now().plusHours(1));
+        league.getStandings().get(1).setPlayed(3);
+        assertThat(service.isSeasonRecapReady(league)).isFalse();
+    }
+
+    @Test
+    void seasonReadinessIsFalseWhenTheLeagueHasNoStandingsYet() {
+        LeagueDetailView league = completedLeague();
+
+        league.setStandings(List.of());
+        assertThat(service.isSeasonRecapReady(league)).isFalse();
+
+        league.setStandings(null);
         assertThat(service.isSeasonRecapReady(league)).isFalse();
     }
 
@@ -601,13 +612,13 @@ class RoundRecapServiceImplTest {
         StandingRow alpha = new StandingRow();
         alpha.setTeamName("Alpha");
         alpha.setTeamCity("Sofia");
-        alpha.setPlayed(1);
+        alpha.setPlayed(4);
         alpha.setWins(1);
         alpha.setGoalsFor(2);
         alpha.setGoalsAgainst(1);
         StandingRow beta = new StandingRow();
         beta.setTeamName("Beta");
-        beta.setPlayed(1);
+        beta.setPlayed(4);
         beta.setLosses(1);
         beta.setGoalsFor(1);
         beta.setGoalsAgainst(2);

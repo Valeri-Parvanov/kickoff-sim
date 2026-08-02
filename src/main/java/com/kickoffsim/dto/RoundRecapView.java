@@ -24,7 +24,25 @@ public record RoundRecapView(
     }
 
     public List<RecapStory> getLists() {
-        return byFamily(RecapStoryFamily.LIST);
+        return byFamily(RecapStoryFamily.LIST).stream()
+                .filter(story -> story.kind() != RecapStoryKind.SQUAD)
+                .filter(story -> story.kind() != RecapStoryKind.BENCH)
+                .toList();
+    }
+
+    public RecapStory getSquad() {
+        return byKind(RecapStoryKind.SQUAD);
+    }
+
+    public RecapStory getBench() {
+        return byKind(RecapStoryKind.BENCH);
+    }
+
+    private RecapStory byKind(RecapStoryKind kind) {
+        return stories == null ? null : stories.stream()
+                .filter(story -> story.kind() == kind)
+                .findFirst()
+                .orElse(null);
     }
 
     private List<RecapStory> narrative() {

@@ -238,7 +238,7 @@ class RecapStoryCatalogTest {
                 "Alpha, Petar, minute 3, first half, assist Georgi"));
 
         assertThat(items(stories, RecapStoryKind.SQUAD))
-                .containsExactly("Petar (Alpha) — 1G 0A", "Georgi (Alpha) — 0G 1A");
+                .containsExactly("Petar::Alpha::1::0", "Georgi::Alpha::0::1");
     }
 
     @Test
@@ -246,7 +246,7 @@ class RecapStoryCatalogTest {
         List<RecapStory> stories = round(match("Alpha", "Beta", 1, 0,
                 "Alpha, Petar, minute 3, first half, assist Georgi, penalty"));
 
-        assertThat(items(stories, RecapStoryKind.SQUAD)).contains("Georgi (Alpha) — 0G 1A");
+        assertThat(items(stories, RecapStoryKind.SQUAD)).contains("Georgi::Alpha::0::1");
     }
 
     @Test
@@ -255,7 +255,7 @@ class RecapStoryCatalogTest {
                 "Alpha, Petar, minute 3, first half",
                 "unstructured"));
 
-        assertThat(items(stories, RecapStoryKind.SQUAD)).containsExactly("Petar (Alpha) — 1G 0A");
+        assertThat(items(stories, RecapStoryKind.SQUAD)).containsExactly("Petar::Alpha::1::0");
     }
 
     @Test
@@ -274,7 +274,7 @@ class RecapStoryCatalogTest {
 
         assertThat(items(stories, RecapStoryKind.SQUAD)).hasSize(6);
         assertThat(items(stories, RecapStoryKind.BENCH)).containsExactly(
-                "Georgi (Gama) — 1G 0A", "Hristo (Gama) — 1G 0A");
+                "Georgi::Gama::1::0", "Hristo::Gama::1::0");
     }
 
     @Test
@@ -294,13 +294,21 @@ class RecapStoryCatalogTest {
     }
 
     @Test
+    void roundStories_knownMatches_carryTheirIdIntoTheResults() {
+        List<RecapStory> stories = round(
+                new RoundRecapMatchData("Alpha", "Beta", 2, 1, List.of(), "match-1"));
+
+        assertThat(items(stories, RecapStoryKind.RESULTS)).containsExactly("Alpha 2:1 Beta::match-1");
+    }
+
+    @Test
     void roundStories_statsChips_countEverythingThatHappened() {
         List<RecapStory> stories = round(match("Alpha", "Beta", 5, 0),
                 match("Gama", "Delta", 3, 3), match("Beta", "Gama", 0, 0));
 
         assertThat(items(stories, RecapStoryKind.STATS)).containsExactly(
-                "3 matches", "11 goals", "3.7 per game", "2 draws", "2 clean sheets",
-                "1 goalless", "2 five-goal games");
+                "3::matches", "11::goals", "3.7::goals per game", "2::draws", "2::clean sheets",
+                "1::goalless", "2::five-goal games");
     }
 
     @Test
@@ -308,7 +316,7 @@ class RecapStoryCatalogTest {
         List<RecapStory> stories = round(match("Alpha", "Beta", 2, 1));
 
         assertThat(items(stories, RecapStoryKind.STATS))
-                .containsExactly("1 matches", "3 goals", "3.0 per game");
+                .containsExactly("1::matches", "3::goals", "3.0::goals per game");
     }
 
     @Test

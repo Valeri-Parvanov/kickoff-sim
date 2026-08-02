@@ -14,7 +14,10 @@
     </article>
 
     <div class="recap-stat-strip" th:if="${recap.stats != null}">
-        <span class="recap-chip" th:each="chip : ${recap.stats.items()}" th:text="${chip}"></span>
+        <div class="recap-stat" th:each="tile : ${recap.stats.tiles()}">
+            <span class="recap-stat-value" th:text="${tile.value}"></span>
+            <span class="recap-stat-label" th:text="${tile.label}"></span>
+        </div>
     </div>
 
     <div class="recap-stories" th:if="${!recap.secondary.isEmpty()}">
@@ -29,6 +32,39 @@
         </article>
     </div>
 
+    <section class="recap-lineup" th:if="${recap.squad != null}">
+        <h5 class="recap-panel-title">
+            <span class="recap-panel-icon" th:text="${recap.squad.kind.icon}"></span>
+            <span th:text="${recap.squad.headline}"></span>
+        </h5>
+        <div class="recap-pitch">
+            <div class="recap-pitch-line" th:each="line, lineIter : ${recap.squad.lineup()}">
+                <div class="recap-slot" th:each="player, iter : ${line}"
+                     th:classappend="${lineIter.index == 0 and iter.index == 0} ? 'recap-slot-star' : ''">
+                    <span class="recap-shirt">
+                        <span class="recap-shirt-initials" th:text="${player.initials}"></span>
+                        <span class="recap-shirt-star" th:if="${lineIter.index == 0 and iter.index == 0}"
+                              th:title="#{recap.lineup.star}">★</span>
+                    </span>
+                    <span class="recap-slot-name" th:text="${player.name}"></span>
+                    <span class="recap-slot-team" th:text="${player.team}"></span>
+                </div>
+            </div>
+        </div>
+        <div class="recap-bench" th:if="${recap.bench != null}">
+            <span class="recap-bench-title">
+                <span class="recap-panel-icon" th:text="${recap.bench.kind.icon}"></span>
+                <span th:text="${recap.bench.headline}"></span>
+            </span>
+            <span class="recap-bench-list">
+                <span class="recap-bench-player" th:each="player : ${recap.bench.players()}">
+                    <span class="recap-bench-name" th:text="${player.name}"></span>
+                    <span class="recap-bench-team" th:text="${player.team}"></span>
+                </span>
+            </span>
+        </div>
+    </section>
+
     <div class="recap-panels" th:if="${!recap.lists.isEmpty()}">
         <section class="recap-panel" th:each="list : ${recap.lists}"
                  th:classappend="${list.kind.name() == 'RESULTS' ? 'recap-panel-results' : ''}">
@@ -37,7 +73,11 @@
                 <span th:text="${list.headline}"></span>
             </h5>
             <ul class="recap-panel-items">
-                <li th:each="item : ${list.items()}" th:text="${item}"></li>
+                <li th:each="item : ${list.results()}">
+                    <a th:if="${item.id != null}" class="recap-result-link"
+                       th:href="@{/matches/{id}(id=${item.id})}" th:text="${item.text}"></a>
+                    <span th:if="${item.id == null}" th:text="${item.text}"></span>
+                </li>
             </ul>
         </section>
     </div>

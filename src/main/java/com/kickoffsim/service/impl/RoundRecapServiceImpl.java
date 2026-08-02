@@ -22,6 +22,7 @@ import java.util.*;
 public class RoundRecapServiceImpl implements RoundRecapService {
 
     private static final int SEASON_SCOPE = 0;
+    private static final int SEASON_MIN_MATCHES_PER_TEAM = 4;
     private static final Map<String, String> LANGUAGES = Map.of(
             "bg", "Bulgarian",
             "en", "English",
@@ -122,8 +123,9 @@ public class RoundRecapServiceImpl implements RoundRecapService {
         List<MatchDto> completedMatches = league.getMatches().stream()
                 .filter(this::isMatchComplete)
                 .toList();
-        if (completedMatches.isEmpty()) {
-            throw new InvalidLeagueOperationException("At least one match must be finished first.");
+        if (!isSeasonRecapReady(league)) {
+            throw new InvalidLeagueOperationException(
+                    "Every team must have played at least " + SEASON_MIN_MATCHES_PER_TEAM + " matches first.");
         }
 
         RoundRecapPromptData promptData = toPromptData(
@@ -149,7 +151,15 @@ public class RoundRecapServiceImpl implements RoundRecapService {
 
     @Override
     public boolean isSeasonRecapReady(LeagueDetailView league) {
-        return league.getMatches().stream().anyMatch(this::isMatchComplete);
+        return matchesPlayedByEveryTeam(league) >= SEASON_MIN_MATCHES_PER_TEAM;
+    }
+
+    private int matchesPlayedByEveryTeam(LeagueDetailView league) {
+        List<StandingRow> standings = league.getStandings();
+        return standings == null ? 0 : standings.stream()
+                .mapToInt(StandingRow::getPlayed)
+                .min()
+                .orElse(0);
     }
 
     private List<MatchDto> roundMatches(LeagueDetailView league, int roundNumber) {
@@ -212,7 +222,7 @@ public class RoundRecapServiceImpl implements RoundRecapService {
         return new RoundRecapMatchData(
                 teamLabel(match.getHomeTeamName(), match.getHomeTeamCity()),
                 teamLabel(match.getAwayTeamName(), match.getAwayTeamCity()),
-                match.getHomeScore(), match.getAwayScore(), goals);
+                match.getHomeScore(), match.getAwayScore(), goals, match.getId().toString());
     }
 
     private String teamLabel(String name, String city) {

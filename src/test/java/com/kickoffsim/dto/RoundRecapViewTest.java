@@ -16,13 +16,17 @@ class RoundRecapViewTest {
         RecapStory third = story(RecapStoryKind.AWAY_WIN, 28);
         RecapStory stats = story(RecapStoryKind.STATS, 1);
         RecapStory squad = story(RecapStoryKind.SQUAD, 10);
+        RecapStory bench = story(RecapStoryKind.BENCH, 9);
+        RecapStory results = story(RecapStoryKind.RESULTS, 5);
 
-        RoundRecapView view = view(List.of(lead, second, third, stats, squad));
+        RoundRecapView view = view(List.of(lead, second, third, stats, squad, bench, results));
 
         assertThat(view.getLead()).isEqualTo(lead);
         assertThat(view.getSecondary()).containsExactly(second, third);
         assertThat(view.getStats()).isEqualTo(stats);
-        assertThat(view.getLists()).containsExactly(squad);
+        assertThat(view.getLists()).containsExactly(results);
+        assertThat(view.getSquad()).isEqualTo(squad);
+        assertThat(view.getBench()).isEqualTo(bench);
     }
 
     @Test
@@ -35,6 +39,8 @@ class RoundRecapViewTest {
         assertThat(view.getSecondary()).isEmpty();
         assertThat(view.getStats()).isNull();
         assertThat(view.getLists()).containsExactly(results);
+        assertThat(view.getSquad()).isNull();
+        assertThat(view.getBench()).isNull();
     }
 
     @Test
@@ -45,6 +51,8 @@ class RoundRecapViewTest {
         assertThat(view.getSecondary()).isEmpty();
         assertThat(view.getStats()).isNull();
         assertThat(view.getLists()).isEmpty();
+        assertThat(view.getSquad()).isNull();
+        assertThat(view.getBench()).isNull();
     }
 
     @Test
@@ -55,6 +63,8 @@ class RoundRecapViewTest {
         assertThat(view.getSecondary()).isEmpty();
         assertThat(view.getStats()).isNull();
         assertThat(view.getLists()).isEmpty();
+        assertThat(view.getSquad()).isNull();
+        assertThat(view.getBench()).isNull();
     }
 
     private RecapStory story(RecapStoryKind kind, int weight) {

@@ -340,8 +340,8 @@ public class RecapStoryCatalog {
 
     private RecapStory listStory(RecapStoryKind kind, int weight, Locale locale, List<Contributor> players) {
         List<String> items = players.stream()
-                .map(player -> msg("recap.story.squad.item", locale,
-                        player.name(), player.team(), player.goals(), player.assists()))
+                .map(player -> String.join(RecapStory.FIELD_SEPARATOR, player.name(), player.team(),
+                        String.valueOf(player.goals()), String.valueOf(player.assists())))
                 .toList();
         return new RecapStory(kind, weight, msg("recap.story." + kind.getSlug() + ".head", locale),
                 String.join(RecapStory.ITEM_SEPARATOR, items));
@@ -349,8 +349,8 @@ public class RecapStoryCatalog {
 
     private void addResults(List<RecapStory> stories, List<RoundRecapMatchData> matches, Locale locale) {
         List<String> items = matches.stream()
-                .map(match -> msg("recap.story.results.item", locale,
-                        match.homeTeam(), match.homeScore(), match.awayScore(), match.awayTeam()))
+                .map(match -> link(msg("recap.story.results.item", locale,
+                        match.homeTeam(), match.homeScore(), match.awayScore(), match.awayTeam()), match.id()))
                 .toList();
         stories.add(new RecapStory(RecapStoryKind.RESULTS, 5,
                 msg("recap.story.results.head", locale),
@@ -366,23 +366,31 @@ public class RecapStoryCatalog {
         long thrillers = matches.stream().filter(m -> m.homeScore() + m.awayScore() >= THRILLER_GOALS).count();
 
         List<String> chips = new ArrayList<>();
-        chips.add(msg("recap.stat.matches", locale, matches.size()));
-        chips.add(msg("recap.stat.goals", locale, goals));
-        chips.add(msg("recap.stat.average", locale, average));
+        chips.add(tile(matches.size(), "recap.stat.matches", locale));
+        chips.add(tile(goals, "recap.stat.goals", locale));
+        chips.add(tile(average, "recap.stat.average", locale));
         if (draws > 0) {
-            chips.add(msg("recap.stat.draws", locale, draws));
+            chips.add(tile(draws, "recap.stat.draws", locale));
         }
         if (cleanSheets > 0) {
-            chips.add(msg("recap.stat.cleansheets", locale, cleanSheets));
+            chips.add(tile(cleanSheets, "recap.stat.cleansheets", locale));
         }
         if (goalless > 0) {
-            chips.add(msg("recap.stat.goalless", locale, goalless));
+            chips.add(tile(goalless, "recap.stat.goalless", locale));
         }
         if (thrillers > 0) {
-            chips.add(msg("recap.stat.thrillers", locale, thrillers));
+            chips.add(tile(thrillers, "recap.stat.thrillers", locale));
         }
         stories.add(new RecapStory(RecapStoryKind.STATS, 1, "",
                 String.join(RecapStory.ITEM_SEPARATOR, chips)));
+    }
+
+    private String link(String text, String id) {
+        return id == null ? text : text + RecapStory.FIELD_SEPARATOR + id;
+    }
+
+    private String tile(Object value, String key, Locale locale) {
+        return value + RecapStory.FIELD_SEPARATOR + msg(key, locale);
     }
 
     private RecapStory story(RecapStoryKind kind, int weight, RoundRecapPromptData data,

@@ -337,6 +337,39 @@ class LeagueRoundRecapControllerTest {
 
     @Test
     @WithMockUser
+    void teamOfTheRoundIsDrawnOnAPitchAndResultsLinkToTheirMatch() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID matchId = UUID.randomUUID();
+        LeagueDetailView league = league(id);
+        RoundRecapView recap = recapView("""
+                SQUAD|10|Team of the round|Petar Ivanov::Alpha::2::1;;Georgi Dimitrov::Beta::1::0
+                BENCH|9|Bench|Stefan Kolev::Gama::1::0
+                RESULTS|5|Results|Alpha 1:0 Beta::%s""".formatted(matchId));
+        when(leagueService.findDetail(id)).thenReturn(league);
+        when(roundRecapService.find(id, 1, Locale.ENGLISH)).thenReturn(Optional.of(recap));
+        when(roundRecapService.isRoundComplete(league, 1)).thenReturn(true);
+        when(roundRecapService.findSeason(id, Locale.ENGLISH)).thenReturn(Optional.empty());
+        when(roundRecapService.isSeasonRecapReady(league)).thenReturn(false);
+        when(matchFollowSupport.subscribedMatchIds(any())).thenReturn(Set.of());
+
+        mockMvc.perform(get("/leagues/{id}", id)
+                        .param("round", "1")
+                        .with(user("member").roles("USER"))
+                        .locale(Locale.ENGLISH))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("recap-pitch")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("recap-slot-star")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("PI")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Petar Ivanov")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("recap-bench-player")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Stefan Kolev")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("/matches/" + matchId)))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("2::1"))));
+    }
+
+    @Test
+    @WithMockUser
     void missingRoundRecapIsGeneratedOnDemandAndRefreshesTheSeason() throws Exception {
         UUID id = UUID.randomUUID();
         LeagueDetailView league = league(id);
