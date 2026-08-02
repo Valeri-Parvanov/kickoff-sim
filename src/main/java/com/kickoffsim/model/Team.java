@@ -14,7 +14,7 @@ import java.util.concurrent.ThreadLocalRandom;
 @Getter
 @Setter
 @Entity
-@Table(name = "teams", indexes = @Index(columnList = "city"),
+@Table(name = "teams",
         uniqueConstraints = @UniqueConstraint(name = "uk_team_name_city", columnNames = {"name", "city"}))
 public class Team {
 
@@ -30,7 +30,7 @@ public class Team {
     @Size(max = 100)
     private String city;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "league_id")
     private League league;
 

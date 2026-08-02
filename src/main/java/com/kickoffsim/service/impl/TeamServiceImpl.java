@@ -77,16 +77,18 @@ public class TeamServiceImpl implements TeamService {
 
     @Override
     public List<TeamDto> searchByName(String q) {
+        Map<UUID, Long> playerCounts = playerCountsByTeam();
         return teamRepository.searchTop6ByNameOrCity(q, PageRequest.of(0, 6)).stream()
-                .map(this::toDto)
+                .map(t -> toDto(t, playerCounts.getOrDefault(t.getId(), 0L)))
                 .toList();
     }
 
     @Override
     public List<TeamDto> findAllByLeague(UUID leagueId) {
         League league = getLeagueOrThrow(leagueId);
+        Map<UUID, Long> playerCounts = playerCountsByTeam();
         return teamRepository.findAllByLeague(league).stream()
-                .map(this::toDto)
+                .map(t -> toDto(t, playerCounts.getOrDefault(t.getId(), 0L)))
                 .toList();
     }
 

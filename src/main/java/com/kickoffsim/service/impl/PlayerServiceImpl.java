@@ -20,8 +20,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -64,6 +66,11 @@ public class PlayerServiceImpl implements PlayerService {
                 })
                 .sorted(Comparator.comparingInt(PlayerDto::getShirtNumber))
                 .toList();
+    }
+
+    @Override
+    public Set<Integer> findShirtNumbersByTeam(UUID teamId) {
+        return new HashSet<>(playerRepository.findShirtNumbersByTeamId(teamId));
     }
 
     @Override

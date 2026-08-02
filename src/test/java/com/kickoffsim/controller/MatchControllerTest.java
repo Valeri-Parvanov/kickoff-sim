@@ -72,6 +72,17 @@ class MatchControllerTest {
 
     private void stubMatches(List<MatchDto> matches) {
         when(matchService.findInWindow(any(), any(), anyBoolean())).thenReturn(matches);
+        when(matchService.findInWindow(any(), any(), anyBoolean(), any(), any()))
+                .thenAnswer(invocation -> {
+                    UUID leagueId = invocation.getArgument(3);
+                    UUID teamId = invocation.getArgument(4);
+                    return matches.stream()
+                            .filter(m -> leagueId == null || leagueId.equals(m.getLeagueId()))
+                            .filter(m -> teamId == null
+                                    || teamId.equals(m.getHomeTeamId())
+                                    || teamId.equals(m.getAwayTeamId()))
+                            .toList();
+                });
         when(matchService.findPlayedAtTimes(any(), any()))
                 .thenReturn(matches.stream()
                         .map(MatchDto::getPlayedAt)

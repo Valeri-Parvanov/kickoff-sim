@@ -56,6 +56,14 @@ class PlayerServiceImplTest {
     }
 
     @Test
+    void findShirtNumbersByTeam_returnsDistinctNumbersWithoutLoadingPlayers() {
+        when(playerRepository.findShirtNumbersByTeamId(teamId)).thenReturn(List.of(1, 7, 7, 10));
+
+        assertThat(playerService.findShirtNumbersByTeam(teamId)).containsExactlyInAnyOrder(1, 7, 10);
+        org.mockito.Mockito.verify(playerRepository, org.mockito.Mockito.never()).findAllByTeam(any());
+    }
+
+    @Test
     void searchByName_returnsMatches() {
         Player p = new Player();
         p.setId(UUID.randomUUID());

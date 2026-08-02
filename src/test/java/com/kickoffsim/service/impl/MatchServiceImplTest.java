@@ -826,27 +826,42 @@ class MatchServiceImplTest {
     void findInWindow_withGoals_usesFullGraphAndBuildsTimeline() {
         LocalDateTime from = LocalDateTime.now().minusHours(1);
         LocalDateTime to = LocalDateTime.now();
-        when(matchRepository.findByDateRange(from, to)).thenReturn(List.of(match));
+        when(matchRepository.findByDateRangeFiltered(from, to, null, null)).thenReturn(List.of(match));
 
         List<MatchDto> result = matchService.findInWindow(from, to, true);
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getGoalTimeline()).hasSize(match.getGoals().size());
-        verify(matchRepository, never()).findByDateRangeWithoutGoals(any(), any());
+        verify(matchRepository, never()).findByDateRangeFilteredWithoutGoals(any(), any(), any(), any());
     }
 
     @Test
     void findInWindow_withoutGoals_skipsTimelineAndGoalQuery() {
         LocalDateTime from = LocalDateTime.now();
         LocalDateTime to = from.plusDays(1);
-        when(matchRepository.findByDateRangeWithoutGoals(from, to)).thenReturn(List.of(match));
+        when(matchRepository.findByDateRangeFilteredWithoutGoals(from, to, null, null)).thenReturn(List.of(match));
 
         List<MatchDto> result = matchService.findInWindow(from, to, false);
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getGoalTimeline()).isEmpty();
         assertThat(result.get(0).getHomeTeamName()).isEqualTo(match.getHomeTeam().getName());
-        verify(matchRepository, never()).findByDateRange(any(), any());
+        verify(matchRepository, never()).findByDateRangeFiltered(any(), any(), any(), any());
+    }
+
+    @Test
+    void findInWindow_withFilters_passesLeagueAndTeamToQuery() {
+        LocalDateTime from = LocalDateTime.now().minusHours(1);
+        LocalDateTime to = LocalDateTime.now();
+        UUID leagueId = UUID.randomUUID();
+        UUID teamId = UUID.randomUUID();
+        when(matchRepository.findByDateRangeFiltered(from, to, leagueId, teamId))
+                .thenReturn(List.of(match));
+
+        List<MatchDto> result = matchService.findInWindow(from, to, true, leagueId, teamId);
+
+        assertThat(result).hasSize(1);
+        verify(matchRepository, never()).findByDateRangeFilteredWithoutGoals(any(), any(), any(), any());
     }
 
     @Test

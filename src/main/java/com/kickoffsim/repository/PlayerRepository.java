@@ -28,6 +28,9 @@ public interface PlayerRepository extends JpaRepository<Player, UUID> {
     @Query("SELECT p.team.id, COUNT(p) FROM Player p GROUP BY p.team.id")
     List<Object[]> countAllGroupedByTeam();
 
+    @Query("SELECT p.shirtNumber FROM Player p WHERE p.team.id = :teamId AND p.shirtNumber IS NOT NULL")
+    List<Integer> findShirtNumbersByTeamId(@Param("teamId") UUID teamId);
+
     Optional<Player> findByTeamAndShirtNumber(Team team, Integer shirtNumber);
 
     @EntityGraph(attributePaths = "team")

@@ -4,6 +4,7 @@ import com.kickoffsim.dto.PlayerDto;
 import org.springframework.data.domain.Sort;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 public interface PlayerService {
@@ -13,6 +14,8 @@ public interface PlayerService {
     List<PlayerDto> findAll(Sort sort);
 
     List<PlayerDto> findAllByTeam(UUID teamId);
+
+    Set<Integer> findShirtNumbersByTeam(UUID teamId);
 
     List<PlayerDto> searchByName(String q);
 

@@ -35,7 +35,7 @@ public class Player {
     @Max(99)
     private Integer shirtNumber;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "team_id", nullable = false)
     private Team team;
 }

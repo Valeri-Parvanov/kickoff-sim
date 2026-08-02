@@ -9,22 +9,25 @@ import java.util.UUID;
 @Getter
 @Setter
 @Entity
-@Table(name = "goals", indexes = @Index(name = "idx_goals_match_id", columnList = "match_id"))
+@Table(name = "goals", indexes = {
+        @Index(name = "idx_goals_match_id", columnList = "match_id"),
+        @Index(name = "idx_goals_notified_match", columnList = "notified, match_id")
+})
 public class Goal {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "match_id", nullable = false)
     private Match match;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "scorer_id", nullable = false)
     private Player scorer;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assistant_id")
     private Player assistant;
 

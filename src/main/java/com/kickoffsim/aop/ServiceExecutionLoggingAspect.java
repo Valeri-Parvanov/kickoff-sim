@@ -13,14 +13,17 @@ public class ServiceExecutionLoggingAspect {
 
     @Around("execution(* com.kickoffsim.service.impl..*(..))")
     public Object logExecution(ProceedingJoinPoint joinPoint) throws Throwable {
-        String signature = joinPoint.getSignature().toShortString();
         long start = System.currentTimeMillis();
         try {
             Object result = joinPoint.proceed();
-            log.info("{} completed in {} ms", signature, System.currentTimeMillis() - start);
+            if (log.isInfoEnabled()) {
+                log.info("{} completed in {} ms",
+                        joinPoint.getSignature().toShortString(), System.currentTimeMillis() - start);
+            }
             return result;
         } catch (Throwable ex) {
-            log.warn("{} failed after {} ms: {}", signature, System.currentTimeMillis() - start, ex.getMessage());
+            log.warn("{} failed after {} ms: {}",
+                    joinPoint.getSignature().toShortString(), System.currentTimeMillis() - start, ex.getMessage());
             throw ex;
         }
     }

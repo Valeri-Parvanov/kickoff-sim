@@ -25,11 +25,11 @@ public class Match {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "home_team_id", nullable = false)
     private Team homeTeam;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "away_team_id", nullable = false)
     private Team awayTeam;
 

@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import feign.Feign;
 import feign.Logger;
 import feign.Request;
+import feign.Retryer;
 import feign.jackson.JacksonDecoder;
 import feign.jackson.JacksonEncoder;
 import feign.slf4j.Slf4jLogger;
@@ -33,6 +34,7 @@ public class FeignConfig {
                         connectTimeoutMillis, TimeUnit.MILLISECONDS,
                         readTimeoutMillis, TimeUnit.MILLISECONDS,
                         true))
+                .retryer(Retryer.NEVER_RETRY)
                 .logger(new Slf4jLogger(NotificationClient.class))
                 .logLevel(Logger.Level.BASIC)
                 .target(NotificationClient.class, url);

@@ -92,13 +92,11 @@ class SquadControllerTest {
 
     @Test
     void form_fewerFreeNumbersThanRemaining_leavesExtraRowsBlank() {
-        List<PlayerDto> taken = new java.util.ArrayList<>();
+        java.util.Set<Integer> taken = new java.util.HashSet<>();
         for (int shirt = 1; shirt <= 97; shirt++) {
-            PlayerDto p = new PlayerDto();
-            p.setShirtNumber(shirt);
-            taken.add(p);
+            taken.add(shirt);
         }
-        when(playerService.findAllByTeam(teamId)).thenReturn(taken);
+        when(playerService.findShirtNumbersByTeam(teamId)).thenReturn(taken);
         when(playerService.squadRemainingSlots(teamId)).thenReturn(5);
         Model model = new ExtendedModelMap();
 
@@ -197,9 +195,7 @@ class SquadControllerTest {
 
     @Test
     void submit_shirtNumberTakenByExistingPlayer_addsFieldError() {
-        PlayerDto existing = new PlayerDto();
-        existing.setShirtNumber(5);
-        when(playerService.findAllByTeam(teamId)).thenReturn(List.of(existing));
+        when(playerService.findShirtNumbersByTeam(teamId)).thenReturn(java.util.Set.of(5));
 
         SquadForm form = squadFormOf(row(5, "Ivan", "Ivanov"));
         BindingResult binding = binding(form);

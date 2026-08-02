@@ -334,9 +334,15 @@ public class MatchServiceImpl implements MatchService {
 
     @Override
     public List<MatchDto> findInWindow(LocalDateTime from, LocalDateTime to, boolean includeGoals) {
+        return findInWindow(from, to, includeGoals, null, null);
+    }
+
+    @Override
+    public List<MatchDto> findInWindow(LocalDateTime from, LocalDateTime to, boolean includeGoals,
+                                       UUID leagueId, UUID teamId) {
         List<Match> matches = includeGoals
-                ? matchRepository.findByDateRange(from, to)
-                : matchRepository.findByDateRangeWithoutGoals(from, to);
+                ? matchRepository.findByDateRangeFiltered(from, to, leagueId, teamId)
+                : matchRepository.findByDateRangeFilteredWithoutGoals(from, to, leagueId, teamId);
         return matches.stream()
                 .map(match -> toDto(match, includeGoals))
                 .toList();

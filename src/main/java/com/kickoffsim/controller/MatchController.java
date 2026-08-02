@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.Predicate;
 
 @Controller
 @RequiredArgsConstructor
@@ -42,6 +41,8 @@ import java.util.function.Predicate;
 public class MatchController {
 
     private static final int UPCOMING_HORIZON_DAYS = 7;
+
+    private static final int VIEWER_ZONE_MARGIN_HOURS = 14;
 
     private final MatchService matchService;
     private final TeamService teamService;
@@ -109,31 +110,25 @@ public class MatchController {
                 .sorted()
                 .toList();
 
-        Predicate<MatchDto> selected = m ->
-                (league == null || league.equals(m.getLeagueId()))
-                        && (team == null
-                        || team.equals(m.getHomeTeamId()) || team.equals(m.getAwayTeamId()));
-
         if (date != null) {
             final LocalDate d = date;
             dateMatches = MatchStatusSupport.sortByStatus(
                     matchService.findInWindow(
-                                    d.minusDays(1).atStartOfDay(), d.plusDays(2).atStartOfDay(), true).stream()
-                            .filter(selected)
+                                    d.atStartOfDay().minusHours(VIEWER_ZONE_MARGIN_HOURS),
+                                    d.plusDays(1).atStartOfDay().plusHours(VIEWER_ZONE_MARGIN_HOURS),
+                                    true, league, team).stream()
                             .filter(m -> viewerZone.dateOf(m.getPlayedAt(), vz).equals(d))
                             .toList(),
                     now, liveThreshold);
         } else {
             recentMatches = matchService.findInWindow(
-                            today.minusDays(1).atStartOfDay(), now.plusSeconds(1), true).stream()
-                    .filter(selected)
+                            today.minusDays(1).atStartOfDay(), now.plusSeconds(1), true, league, team).stream()
                     .filter(m -> !m.getPlayedAt().isAfter(now)
                             && viewerZone.dateOf(m.getPlayedAt(), vz).equals(today))
                     .sorted(Comparator.comparing(MatchDto::getPlayedAt).reversed())
                     .toList();
             upcomingMatches = matchService
-                    .findInWindow(now, now.plusDays(UPCOMING_HORIZON_DAYS), false).stream()
-                    .filter(selected)
+                    .findInWindow(now, now.plusDays(UPCOMING_HORIZON_DAYS), false, league, team).stream()
                     .filter(m -> m.getPlayedAt().isAfter(now))
                     .sorted(Comparator.comparing(MatchDto::getPlayedAt))
                     .toList();

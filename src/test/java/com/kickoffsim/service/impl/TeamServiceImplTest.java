@@ -155,6 +155,51 @@ class TeamServiceImplTest {
     }
 
     @Test
+    void searchByName_usesGroupedPlayerCounts() {
+        Team found = new Team();
+        found.setId(UUID.randomUUID());
+        found.setName("Sofia FC");
+        when(teamRepository.searchTop6ByNameOrCity(eq("sofia"), any(Pageable.class)))
+                .thenReturn(List.of(found));
+        when(playerRepository.countAllGroupedByTeam())
+                .thenReturn(java.util.Collections.singletonList(new Object[]{found.getId(), 7L}));
+
+        List<TeamDto> result = teamService.searchByName("sofia");
+
+        assertThat(result.get(0).getPlayerCount()).isEqualTo(7L);
+        org.mockito.Mockito.verify(playerRepository, org.mockito.Mockito.never()).countByTeam(any());
+    }
+
+    @Test
+    void searchByName_teamMissingFromGroupedCounts_reportsZero() {
+        Team found = new Team();
+        found.setId(UUID.randomUUID());
+        found.setName("Sofia FC");
+        when(teamRepository.searchTop6ByNameOrCity(eq("sofia"), any(Pageable.class)))
+                .thenReturn(List.of(found));
+        when(playerRepository.countAllGroupedByTeam())
+                .thenReturn(java.util.Collections.singletonList(new Object[]{UUID.randomUUID(), 7L}));
+
+        assertThat(teamService.searchByName("sofia").get(0).getPlayerCount()).isZero();
+    }
+
+    @Test
+    void findAllByLeague_usesGroupedPlayerCounts() {
+        when(leagueRepository.findById(leagueId)).thenReturn(Optional.of(league));
+        Team team = new Team();
+        team.setId(UUID.randomUUID());
+        team.setLeague(league);
+        when(teamRepository.findAllByLeague(league)).thenReturn(List.of(team));
+        when(playerRepository.countAllGroupedByTeam())
+                .thenReturn(java.util.Collections.singletonList(new Object[]{team.getId(), 11L}));
+
+        List<TeamDto> result = teamService.findAllByLeague(leagueId);
+
+        assertThat(result.get(0).getPlayerCount()).isEqualTo(11L);
+        org.mockito.Mockito.verify(playerRepository, org.mockito.Mockito.never()).countByTeam(any());
+    }
+
+    @Test
     void searchByName_matchesByCity() {
         Team found = new Team();
         found.setId(UUID.randomUUID());

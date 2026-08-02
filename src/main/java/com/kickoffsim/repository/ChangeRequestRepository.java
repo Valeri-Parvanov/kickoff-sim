@@ -3,6 +3,7 @@ package com.kickoffsim.repository;
 import com.kickoffsim.model.ChangeRequest;
 import com.kickoffsim.model.ChangeRequestStatus;
 import com.kickoffsim.model.User;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;
@@ -12,8 +13,10 @@ import java.util.UUID;
 
 public interface ChangeRequestRepository extends JpaRepository<ChangeRequest, UUID> {
 
+    @EntityGraph(attributePaths = {"requestedBy", "reviewedBy"})
     List<ChangeRequest> findAllByStatusOrderByRequestedAtAsc(ChangeRequestStatus status);
 
+    @EntityGraph(attributePaths = {"requestedBy", "reviewedBy"})
     List<ChangeRequest> findAllByRequestedByOrderByRequestedAtDesc(User requestedBy);
 
     long countByStatus(ChangeRequestStatus status);

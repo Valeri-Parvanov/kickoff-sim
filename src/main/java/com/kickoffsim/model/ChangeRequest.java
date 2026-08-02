@@ -10,7 +10,12 @@ import java.util.UUID;
 @Getter
 @Setter
 @Entity
-@Table(name = "change_requests")
+@Table(name = "change_requests", indexes = {
+        @Index(name = "idx_change_requests_status", columnList = "status"),
+        @Index(name = "idx_change_requests_status_requested_at", columnList = "status, requested_at"),
+        @Index(name = "idx_change_requests_status_reviewed_at", columnList = "status, reviewed_at"),
+        @Index(name = "idx_change_requests_requested_by", columnList = "requested_by")
+})
 public class ChangeRequest {
 
     @Id
@@ -34,14 +39,14 @@ public class ChangeRequest {
     @Column(nullable = false)
     private ChangeRequestStatus status;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "requested_by", nullable = false)
     private User requestedBy;
 
     @Column(nullable = false)
     private LocalDateTime requestedAt;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reviewed_by")
     private User reviewedBy;
 

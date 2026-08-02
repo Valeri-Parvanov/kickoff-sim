@@ -17,7 +17,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Controller
 @RequiredArgsConstructor
@@ -173,9 +172,6 @@ public class SquadController {
     }
 
     private Set<Integer> takenShirtNumbers(UUID teamId) {
-        return playerService.findAllByTeam(teamId).stream()
-                .map(PlayerDto::getShirtNumber)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
+        return playerService.findShirtNumbersByTeam(teamId);
     }
 }

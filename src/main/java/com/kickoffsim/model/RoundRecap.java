@@ -21,7 +21,7 @@ public class RoundRecap {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "league_id", nullable = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
     private League league;

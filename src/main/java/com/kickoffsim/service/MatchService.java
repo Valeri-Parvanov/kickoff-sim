@@ -45,6 +45,13 @@ public interface MatchService {
 
     List<MatchDto> findInWindow(LocalDateTime from, LocalDateTime to, boolean includeGoals);
 
+    List<MatchDto> findInWindow(
+            LocalDateTime from,
+            LocalDateTime to,
+            boolean includeGoals,
+            UUID leagueId,
+            UUID teamId);
+
     List<MatchDto> findFollowedInWindow(
             LocalDateTime from,
             LocalDateTime to,
