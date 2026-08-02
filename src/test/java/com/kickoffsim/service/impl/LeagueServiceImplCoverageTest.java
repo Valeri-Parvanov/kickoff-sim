@@ -253,6 +253,112 @@ class LeagueServiceImplCoverageTest {
     }
 
     @Test
+    void markChampion_seasonCompleteTiedOnPoints_marksTiebreakerLeader() {
+        LeagueFormat format = LeagueFormat.forTeamCount(6).orElseThrow();
+        int rounds = format.getTotalRounds();
+        StandingRow leader = standing("Alpha", rounds, rounds - 1);
+        leader.setDraws(1);
+        StandingRow rival = standing("Beta", rounds, rounds - 1);
+        rival.setDraws(1);
+
+        service.markChampion(new ArrayList<>(List.of(leader, rival)), format, settled(leader, rival));
+
+        assertThat(leader.isChampion()).isTrue();
+        assertThat(rival.isChampion()).isFalse();
+    }
+
+    @Test
+    void markChampion_leaderUncatchableMidSeason_setsChampion() {
+        LeagueFormat format = LeagueFormat.forTeamCount(6).orElseThrow();
+        int rounds = format.getTotalRounds();
+        StandingRow leader = standing("Alpha", rounds, rounds);
+        StandingRow rival = standing("Beta", rounds - 1, 0);
+
+        service.markChampion(new ArrayList<>(List.of(leader, rival)), format, settled(leader, rival));
+
+        assertThat(leader.isChampion()).isTrue();
+    }
+
+    @Test
+    void computeClinchRound_leaderPullsClear_returnsThatRound() {
+        LeagueFormat format = LeagueFormat.forTeamCount(6).orElseThrow();
+        int rounds = format.getTotalRounds();
+        StandingRow champion = standing("Alpha", 0, 0);
+        champion.setChampion(true);
+        StandingRow rival = standing("Beta", 0, 0);
+
+        Integer clinch = service.computeClinchRound(List.of(champion, rival),
+                oneSidedRounds(champion, rival, rounds), format);
+
+        assertThat(clinch).isEqualTo(rounds / 2 + 1);
+    }
+
+    @Test
+    void computeClinchRound_decidedOnGoalDifference_returnsTheLastRound() {
+        LeagueFormat format = LeagueFormat.forTeamCount(6).orElseThrow();
+        int rounds = format.getTotalRounds();
+        StandingRow champion = standing("Alpha", 0, 0);
+        champion.setChampion(true);
+        StandingRow rival = standing("Beta", 0, 0);
+
+        List<LeagueServiceImpl.RoundSettle> results = new ArrayList<>();
+        for (int r = 1; r <= rounds; r++) {
+            results.add(new LeagueServiceImpl.RoundSettle(r, champion.getTeamId(), 3));
+            results.add(new LeagueServiceImpl.RoundSettle(r, rival.getTeamId(), 3));
+        }
+
+        assertThat(service.computeClinchRound(List.of(champion, rival), results, format))
+                .isEqualTo(rounds);
+    }
+
+    @Test
+    void computeClinchRound_championWithAByeFirstRound_skipsUntilTheyHavePlayed() {
+        LeagueFormat format = LeagueFormat.forTeamCount(6).orElseThrow();
+        StandingRow champion = standing("Alpha", 0, 0);
+        champion.setChampion(true);
+        StandingRow rival = standing("Beta", 0, 0);
+
+        List<LeagueServiceImpl.RoundSettle> results = new ArrayList<>();
+        results.add(new LeagueServiceImpl.RoundSettle(1, rival.getTeamId(), 0));
+        for (int r = 2; r <= format.getTotalRounds(); r++) {
+            results.add(new LeagueServiceImpl.RoundSettle(r, champion.getTeamId(), 3));
+            results.add(new LeagueServiceImpl.RoundSettle(r, rival.getTeamId(), 0));
+        }
+
+        assertThat(service.computeClinchRound(List.of(champion, rival), results, format))
+                .isNotNull().isGreaterThanOrEqualTo(2);
+    }
+
+    @Test
+    void computeClinchRound_noChampionFlagged_returnsNull() {
+        LeagueFormat format = LeagueFormat.forTeamCount(6).orElseThrow();
+        StandingRow leader = standing("Alpha", 0, 0);
+        StandingRow rival = standing("Beta", 0, 0);
+
+        assertThat(service.computeClinchRound(List.of(leader, rival),
+                oneSidedRounds(leader, rival, format.getTotalRounds()), format)).isNull();
+    }
+
+    @Test
+    void computeClinchRound_nullFormatOrNoResults_returnsNull() {
+        StandingRow champion = standing("Alpha", 0, 0);
+        champion.setChampion(true);
+
+        assertThat(service.computeClinchRound(List.of(champion), List.of(), null)).isNull();
+        assertThat(service.computeClinchRound(List.of(champion), List.of(),
+                LeagueFormat.forTeamCount(6).orElseThrow())).isNull();
+    }
+
+    private List<LeagueServiceImpl.RoundSettle> oneSidedRounds(StandingRow winner, StandingRow loser, int rounds) {
+        List<LeagueServiceImpl.RoundSettle> results = new ArrayList<>();
+        for (int r = 1; r <= rounds; r++) {
+            results.add(new LeagueServiceImpl.RoundSettle(r, winner.getTeamId(), 3));
+            results.add(new LeagueServiceImpl.RoundSettle(r, loser.getTeamId(), 0));
+        }
+        return results;
+    }
+
+    @Test
     void markChampion_rivalStillInContention_doesNotMark() {
         LeagueFormat format = LeagueFormat.forTeamCount(6).orElseThrow();
         StandingRow leader = standing("Alpha", 1, 1);

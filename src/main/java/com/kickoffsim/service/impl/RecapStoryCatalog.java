@@ -46,6 +46,14 @@ public class RecapStoryCatalog {
 
     private static final int OPEN_RACE_BOOST = 15;
 
+    private static final int SEASON_SCOPE = 0;
+
+    private static final int ROTATION_SPREAD = 15;
+
+    private static final int CHAMPION_LEAD_WEIGHT = 200;
+
+    private static final int BODY_VARIANTS = 3;
+
     private static final String SECOND_HALF = "second half";
 
     private static final String OWN_GOAL = ", own goal";
@@ -62,6 +70,7 @@ public class RecapStoryCatalog {
         List<RoundRecapMatchData> matches = data.matches();
         List<RecapStory> stories = new ArrayList<>();
 
+        addRoundChampion(stories, data, playedTable(data.standings()), locale);
         addComeback(stories, data, matches, locale);
         addLateDrama(stories, data, matches, locale);
         addSwings(stories, data, matches, locale);
@@ -87,9 +96,7 @@ public class RecapStoryCatalog {
         addStreak(stories, data, matches, locale, boost);
         addScorerRace(stories, data, locale, boost);
         addAttackDefence(stories, data, table, locale, boost);
-        RoundRecapMatchData headline = addBigWin(stories, data, matches, locale, 0);
-        addAwayWin(stories, data, matches, locale, 0, headline);
-        addGoalFest(stories, data, matches, locale, 0, headline);
+        addSeasonRecords(stories, data, matches, locale);
         addBottom(stories, data, table, locale);
         addStats(stories, matches, locale);
         return stories;
@@ -103,6 +110,13 @@ public class RecapStoryCatalog {
         RoundRecapStandingData leader = table.get(0);
         if (leader.champion()) {
             int weight = open ? 90 - OPEN_TITLE_PENALTY : 90;
+            int coLeaders = (int) table.stream().filter(row -> row.points() == leader.points()).count();
+            if (coLeaders > 1) {
+                stories.add(storyVaried(RecapStoryKind.TITLE_DECIDED, weight, data, locale, leader.team(),
+                        new Object[]{leader.team(), leader.points(), coLeaders, leader.goalDifference()},
+                        "title-decided-tiebreak"));
+                return;
+            }
             stories.add(story(RecapStoryKind.TITLE_DECIDED, weight, data, locale, leader.team(),
                     new Object[]{leader.team(), leader.points(), leader.wins(), leader.draws(), leader.losses()}));
             return;
@@ -120,6 +134,54 @@ public class RecapStoryCatalog {
         }
         stories.add(story(RecapStoryKind.TITLE_RACE, Math.max(40, 70 - gap), data, locale, leader.team(),
                 new Object[]{leader.team(), leader.points(), second.team(), second.points(), gap, remaining}));
+    }
+
+    private void addRoundChampion(List<RecapStory> stories, RoundRecapPromptData data,
+                                  List<RoundRecapStandingData> table, Locale locale) {
+        Integer clinchRound = data.championClinchRound();
+        if (clinchRound == null || data.roundNumber() != clinchRound || table.isEmpty()) {
+            return;
+        }
+        RoundRecapStandingData leader = table.get(0);
+        if (!leader.champion()) {
+            return;
+        }
+        int coLeaders = (int) table.stream().filter(row -> row.points() == leader.points()).count();
+        if (coLeaders > 1) {
+            stories.add(storyVaried(RecapStoryKind.TITLE_DECIDED, CHAMPION_LEAD_WEIGHT, data, locale, leader.team(),
+                    new Object[]{leader.team(), leader.points(), coLeaders, leader.goalDifference()},
+                    "title-decided-tiebreak"));
+            return;
+        }
+        stories.add(storyVaried(RecapStoryKind.TITLE_DECIDED, CHAMPION_LEAD_WEIGHT, data, locale, leader.team(),
+                new Object[]{leader.team(), leader.points()}, "title-clinched"));
+    }
+
+    private void addSeasonRecords(List<RecapStory> stories, RoundRecapPromptData data,
+                                  List<RoundRecapMatchData> matches, Locale locale) {
+        RoundRecapMatchData widest = matches.stream()
+                .max(Comparator.comparingInt(this::margin))
+                .orElse(null);
+        if (widest != null && margin(widest) > 0) {
+            boolean homeWon = widest.homeScore() > widest.awayScore();
+            String winner = homeWon ? widest.homeTeam() : widest.awayTeam();
+            String loser = homeWon ? widest.awayTeam() : widest.homeTeam();
+            stories.add(storyVaried(RecapStoryKind.BIG_WIN, 35, data, locale, winner,
+                    new Object[]{winner, loser, Math.max(widest.homeScore(), widest.awayScore()),
+                            Math.min(widest.homeScore(), widest.awayScore()), margin(widest)},
+                    "big-win-season"));
+        }
+        RoundRecapMatchData richest = matches.stream()
+                .filter(match -> match != widest)
+                .max(Comparator.comparingInt(match -> match.homeScore() + match.awayScore()))
+                .orElse(null);
+        if (richest != null && richest.homeScore() + richest.awayScore() > 0) {
+            int goals = richest.homeScore() + richest.awayScore();
+            stories.add(storyVaried(RecapStoryKind.GOAL_FEST, 30, data, locale, richest.homeTeam(),
+                    new Object[]{richest.homeTeam(), richest.awayTeam(), goals,
+                            richest.homeScore(), richest.awayScore()},
+                    "goal-fest-season"));
+        }
     }
 
     private void addSecondPlace(List<RecapStory> stories, RoundRecapPromptData data,
@@ -404,7 +466,25 @@ public class RecapStoryCatalog {
                 HEADLINE_VARIANTS) + 1;
         String headline = msg("recap.story." + template + ".head." + variant, locale, args);
         String body = msg("recap.story." + template + ".body", locale, args);
-        return new RecapStory(kind, weight, headline, body);
+        return new RecapStory(kind, rotate(weight, data, kind, template), headline, body);
+    }
+
+    private RecapStory storyVaried(RecapStoryKind kind, int weight, RoundRecapPromptData data,
+                                   Locale locale, String subject, Object[] args, String template) {
+        int seed = (data.leagueName() + data.roundNumber() + subject + template).hashCode();
+        int headVariant = Math.floorMod(seed, HEADLINE_VARIANTS) + 1;
+        int bodyVariant = Math.floorMod(seed * 31 + 7, BODY_VARIANTS) + 1;
+        String headline = msg("recap.story." + template + ".head." + headVariant, locale, args);
+        String body = msg("recap.story." + template + ".body." + bodyVariant, locale, args);
+        return new RecapStory(kind, rotate(weight, data, kind, template), headline, body);
+    }
+
+    private int rotate(int weight, RoundRecapPromptData data, RecapStoryKind kind, String template) {
+        if (data.roundNumber() == SEASON_SCOPE) {
+            return weight;
+        }
+        int seed = (data.leagueName() + kind.name() + template).hashCode() + data.roundNumber() * 7;
+        return weight + Math.floorMod(seed, ROTATION_SPREAD);
     }
 
     private List<RoundRecapStandingData> playedTable(List<RoundRecapStandingData> standings) {

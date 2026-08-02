@@ -87,7 +87,7 @@ class DataDrivenRoundRecapClientTest {
                 matches(), standings(), 3,
                 List.of(new RoundRecapPlayerData("Petar", "Alpha", 12),
                         new RoundRecapPlayerData("Ivan", "Beta", 2)),
-                List.of());
+                List.of(), null);
 
         List<RecapStory> narrative = byFamily(stories(data), RecapStoryFamily.NARRATIVE);
         int scorerRace = indexOfKind(narrative, RecapStoryKind.SCORER_RACE);
@@ -145,7 +145,7 @@ class DataDrivenRoundRecapClientTest {
     @Test
     void generate_nullLocaleTag_fallsBackToEnglish() {
         RoundRecapPromptData data = new RoundRecapPromptData("Test League", 1, null, null,
-                matches(), standings(), 3, List.of(), List.of());
+                matches(), standings(), 3, List.of(), List.of(), null);
 
         assertThat(client.generate(data)).doesNotContain("recap.");
     }
@@ -177,12 +177,12 @@ class DataDrivenRoundRecapClientTest {
 
     private RoundRecapPromptData roundData(String locale, int round) {
         return new RoundRecapPromptData("Test League", round, locale, "English",
-                matches(), standings(), 6, List.of(), List.of());
+                matches(), standings(), 6, List.of(), List.of(), null);
     }
 
     private RoundRecapPromptData data(int round, List<RoundRecapMatchData> matches) {
         return new RoundRecapPromptData("Test League", round, "en", "English",
-                matches, standings(), 6, List.of(), List.of());
+                matches, standings(), 6, List.of(), List.of(), null);
     }
 
     private RoundRecapPromptData crowdedRound() {

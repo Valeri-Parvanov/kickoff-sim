@@ -32,7 +32,7 @@
                 <span class="champion-badge" th:if="${row.champion}"
                       th:title="#{standings.champion.title}"
                       th:text="'&#127942; ' + #{standings.champion}"
-                      title="Mathematically secured — cannot be caught">&#127942; Champion</span>
+                      title="League champion">&#127942; Champion</span>
                 <a class="standings-live-badge"
                    th:if="${liveTeamIds != null and liveTeamIds.contains(row.teamId)}">
                     <span class="slb-label">LIVE</span>

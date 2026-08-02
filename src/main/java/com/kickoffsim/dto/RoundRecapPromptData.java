@@ -11,5 +11,6 @@ public record RoundRecapPromptData(
         List<RoundRecapStandingData> standings,
         int matchesPerTeam,
         List<RoundRecapPlayerData> topScorers,
-        List<RoundRecapPlayerData> topAssists) {
+        List<RoundRecapPlayerData> topAssists,
+        Integer championClinchRound) {
 }

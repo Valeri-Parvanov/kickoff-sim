@@ -195,7 +195,8 @@ public class RoundRecapServiceImpl implements RoundRecapService {
                 league.getName(), roundNumber, localeTag, LANGUAGES.get(localeTag), matchData, standings,
                 league.getFormat() == null ? 0 : league.getFormat().getTotalRounds(),
                 toPlayerData(league.getTopScorers()),
-                toPlayerData(league.getTopAssists()));
+                toPlayerData(league.getTopAssists()),
+                league.getChampionClinchRound());
     }
 
     private List<RoundRecapPlayerData> toPlayerData(List<PlayerStatRow> rows) {

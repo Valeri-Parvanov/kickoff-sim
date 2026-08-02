@@ -236,6 +236,7 @@ public class LeagueServiceImpl implements LeagueService {
         Map<UUID, PlayerStatRow> scorerMap = new LinkedHashMap<>();
         Map<UUID, PlayerStatRow> assistMap = new LinkedHashMap<>();
         Map<UUID, int[]> settled = new HashMap<>();
+        List<RoundSettle> settledResults = new ArrayList<>();
         for (MatchDto m : intraLeagueMatches) {
             if (m.getPlayedAt() == null || m.getPlayedAt().isAfter(now)) continue;
 
@@ -273,8 +274,14 @@ public class LeagueServiceImpl implements LeagueService {
             }
 
             if (!isLive) {
-                settle(settled, m.getHomeTeamId(), pointsFor(homeGoals, awayGoals));
-                settle(settled, m.getAwayTeamId(), pointsFor(awayGoals, homeGoals));
+                int homePoints = pointsFor(homeGoals, awayGoals);
+                int awayPoints = pointsFor(awayGoals, homeGoals);
+                settle(settled, m.getHomeTeamId(), homePoints);
+                settle(settled, m.getAwayTeamId(), awayPoints);
+                if (m.getRoundNumber() != null) {
+                    settledResults.add(new RoundSettle(m.getRoundNumber(), m.getHomeTeamId(), homePoints));
+                    settledResults.add(new RoundSettle(m.getRoundNumber(), m.getAwayTeamId(), awayPoints));
+                }
             }
 
             long realSec = isLive ? Duration.between(m.getPlayedAt(), now).getSeconds() : -1;
@@ -292,7 +299,9 @@ public class LeagueServiceImpl implements LeagueService {
         }
 
         List<StandingRow> standings = sortWithTiebreakers(new ArrayList<>(rowMap.values()), intraLeagueMatches);
-        markChampion(standings, LeagueFormat.forTeamCount(league.getTeams().size()).orElse(null), settled);
+        LeagueFormat format = LeagueFormat.forTeamCount(league.getTeams().size()).orElse(null);
+        markChampion(standings, format, settled);
+        Integer championClinchRound = computeClinchRound(standings, settledResults, format);
 
         List<TeamDto> teamDtos = league.getTeams().stream()
                 .sorted(Comparator.comparing(Team::getName))
@@ -316,7 +325,8 @@ public class LeagueServiceImpl implements LeagueService {
                 .sorted(Comparator.comparingInt((MatchDto m) -> m.getRoundNumber() == null ? Integer.MAX_VALUE : m.getRoundNumber())
                         .thenComparing(MatchDto::getPlayedAt, Comparator.nullsLast(Comparator.naturalOrder())))
                 .toList());
-        view.setFormat(LeagueFormat.forTeamCount(league.getTeams().size()).orElse(null));
+        view.setFormat(format);
+        view.setChampionClinchRound(championClinchRound);
         view.setScheduleStartDate(league.getScheduleStartDate());
         view.setScheduleStartTime(league.getScheduleStartTime());
         view.setEndsAt(allMatches.stream()
@@ -343,13 +353,52 @@ public class LeagueServiceImpl implements LeagueService {
         if (settledPlayed(settled, leader) == 0) return;
 
         int matchesPerTeam = format.getTotalRounds();
+        if (standings.stream().allMatch(r -> settledPlayed(settled, r) >= matchesPerTeam)
+                || cannotBeCaught(leader, standings, settled, matchesPerTeam)) {
+            leader.setChampion(true);
+        }
+    }
+
+    private static boolean cannotBeCaught(StandingRow leader, List<StandingRow> standings,
+                                          Map<UUID, int[]> settled, int matchesPerTeam) {
+        int leaderPoints = settledPoints(settled, leader);
         for (StandingRow rival : standings) {
             if (rival == leader) continue;
             int rivalRemaining = Math.max(0, matchesPerTeam - settledPlayed(settled, rival));
             int rivalMaxPoints = settledPoints(settled, rival) + 3 * rivalRemaining;
-            if (leaderPoints <= rivalMaxPoints) return;
+            if (leaderPoints <= rivalMaxPoints) return false;
         }
-        leader.setChampion(true);
+        return true;
+    }
+
+    Integer computeClinchRound(List<StandingRow> standings, List<RoundSettle> settledResults,
+                               LeagueFormat format) {
+        if (format == null) return null;
+        StandingRow champion = standings.stream()
+                .filter(StandingRow::isChampion)
+                .findFirst()
+                .orElse(null);
+        if (champion == null) return null;
+
+        int matchesPerTeam = format.getTotalRounds();
+        Map<Integer, List<RoundSettle>> byRound = settledResults.stream()
+                .collect(Collectors.groupingBy(RoundSettle::round, TreeMap::new, Collectors.toList()));
+        Map<UUID, int[]> progress = new HashMap<>();
+        int lastRound = 0;
+        for (Map.Entry<Integer, List<RoundSettle>> round : byRound.entrySet()) {
+            for (RoundSettle result : round.getValue()) {
+                settle(progress, result.teamId(), result.points());
+            }
+            lastRound = round.getKey();
+            if (settledPlayed(progress, champion) > 0
+                    && cannotBeCaught(champion, standings, progress, matchesPerTeam)) {
+                return round.getKey();
+            }
+        }
+        return byRound.isEmpty() ? null : lastRound;
+    }
+
+    record RoundSettle(int round, UUID teamId, int points) {
     }
 
     private static void settle(Map<UUID, int[]> settled, UUID teamId, int points) {

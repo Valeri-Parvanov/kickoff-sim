@@ -373,6 +373,122 @@ class RecapStoryCatalogTest {
     }
 
     @Test
+    void seasonStories_titleSharedOnPoints_isToldAsAGoalDifferenceStory() {
+        List<RoundRecapStandingData> rows = new ArrayList<>(championTable());
+        rows.set(1, new RoundRecapStandingData(2, "Beta", 3, 2, 1, 0, 5, 4, 1, 7, false));
+
+        List<RecapStory> stories = catalog.seasonStories(
+                data(SEASON, seasonMatches(), rows, 3), Locale.ENGLISH);
+
+        RecapStory title = find(stories, RecapStoryKind.TITLE_DECIDED).orElseThrow();
+        assertThat(title.weight()).isEqualTo(90);
+        assertThat(title.body()).contains("goal difference").contains("Alpha");
+        assertThat(find(stories, RecapStoryKind.TITLE_RACE)).isEmpty();
+    }
+
+    @Test
+    void seasonStories_biggestWinAndGoalFest_areToldAsSeasonRecords() {
+        List<RecapStory> stories = catalog.seasonStories(
+                data(SEASON, seasonMatches(), table(), 3), Locale.ENGLISH);
+
+        assertThat(body(stories, RecapStoryKind.BIG_WIN)).contains("Alpha", "Beta", "5");
+        assertThat(body(stories, RecapStoryKind.GOAL_FEST)).contains("Gama", "Delta", "6");
+        assertThat(find(stories, RecapStoryKind.AWAY_WIN)).isEmpty();
+    }
+
+    @Test
+    void seasonStories_singleGoallessGame_hasNoRecords() {
+        List<RecapStory> stories = catalog.seasonStories(
+                data(SEASON, List.of(match("Alpha", "Beta", 0, 0)), table(), 3), Locale.ENGLISH);
+
+        assertThat(find(stories, RecapStoryKind.BIG_WIN)).isEmpty();
+        assertThat(find(stories, RecapStoryKind.GOAL_FEST)).isEmpty();
+    }
+
+    @Test
+    void seasonStories_singleDecisiveGame_hasARoutButNoGoalFest() {
+        List<RecapStory> stories = catalog.seasonStories(
+                data(SEASON, List.of(match("Alpha", "Beta", 3, 0)), table(), 3), Locale.ENGLISH);
+
+        assertThat(find(stories, RecapStoryKind.BIG_WIN)).isPresent();
+        assertThat(find(stories, RecapStoryKind.GOAL_FEST)).isEmpty();
+    }
+
+    @Test
+    void seasonStories_noMatches_haveNoRecords() {
+        List<RecapStory> stories = catalog.seasonStories(
+                data(SEASON, List.of(), table(), 3), Locale.ENGLISH);
+
+        assertThat(find(stories, RecapStoryKind.BIG_WIN)).isEmpty();
+        assertThat(find(stories, RecapStoryKind.GOAL_FEST)).isEmpty();
+    }
+
+    @Test
+    void seasonStories_secondRichestGameIsGoalless_hasNoGoalFest() {
+        List<RecapStory> stories = catalog.seasonStories(
+                data(SEASON, List.of(match("Alpha", "Beta", 3, 0), match("Gama", "Delta", 0, 0)), table(), 3),
+                Locale.ENGLISH);
+
+        assertThat(find(stories, RecapStoryKind.BIG_WIN)).isPresent();
+        assertThat(find(stories, RecapStoryKind.GOAL_FEST)).isEmpty();
+    }
+
+    @Test
+    void roundStories_titleClinchedThisRound_crownsTheChampion() {
+        List<RecapStory> stories = catalog.roundStories(
+                clinchData(2, seasonMatches(), championTable(), 2), Locale.ENGLISH);
+
+        RecapStory title = find(stories, RecapStoryKind.TITLE_DECIDED).orElseThrow();
+        assertThat(title.weight()).isGreaterThanOrEqualTo(200);
+        assertThat(title.body()).contains("Alpha");
+    }
+
+    @Test
+    void roundStories_titleClinchedThreeWayThisRound_usesTheTiebreakStory() {
+        List<RoundRecapStandingData> rows = new ArrayList<>(championTable());
+        rows.set(1, new RoundRecapStandingData(2, "Beta", 3, 2, 1, 0, 5, 4, 1, 7, false));
+
+        List<RecapStory> stories = catalog.roundStories(
+                clinchData(2, seasonMatches(), rows, 2), Locale.ENGLISH);
+
+        RecapStory title = find(stories, RecapStoryKind.TITLE_DECIDED).orElseThrow();
+        assertThat(title.weight()).isGreaterThanOrEqualTo(200);
+        assertThat(title.body()).contains("goal difference");
+    }
+
+    @Test
+    void roundStories_beforeTheClinchRound_hasNoChampionStory() {
+        List<RecapStory> stories = catalog.roundStories(
+                clinchData(1, seasonMatches(), championTable(), 2), Locale.ENGLISH);
+
+        assertThat(find(stories, RecapStoryKind.TITLE_DECIDED)).isEmpty();
+    }
+
+    @Test
+    void roundStories_noClinchRound_hasNoChampionStory() {
+        List<RecapStory> stories = catalog.roundStories(
+                clinchData(2, seasonMatches(), championTable(), null), Locale.ENGLISH);
+
+        assertThat(find(stories, RecapStoryKind.TITLE_DECIDED)).isEmpty();
+    }
+
+    @Test
+    void roundStories_clinchRoundButNoStandings_hasNoChampionStory() {
+        List<RecapStory> stories = catalog.roundStories(
+                clinchData(2, seasonMatches(), List.of(), 2), Locale.ENGLISH);
+
+        assertThat(find(stories, RecapStoryKind.TITLE_DECIDED)).isEmpty();
+    }
+
+    @Test
+    void roundStories_clinchRoundButLeaderNotChampion_hasNoChampionStory() {
+        List<RecapStory> stories = catalog.roundStories(
+                clinchData(2, seasonMatches(), table(), 2), Locale.ENGLISH);
+
+        assertThat(find(stories, RecapStoryKind.TITLE_DECIDED)).isEmpty();
+    }
+
+    @Test
     void seasonStories_securedTitleWithGamesLeft_stepsAsideForTheOtherRaces() {
         List<RecapStory> stories = catalog.seasonStories(
                 data(SEASON, seasonMatches(), championTable(), 10), Locale.ENGLISH);
@@ -527,7 +643,7 @@ class RecapStoryCatalogTest {
                 List.of(new RoundRecapPlayerData("Petar", "Alpha", 9),
                         new RoundRecapPlayerData("Ivan", "Beta", 9),
                         new RoundRecapPlayerData("Georgi", "Gama", 4)),
-                List.of());
+                List.of(), null);
 
         assertThat(body(catalog.seasonStories(data, Locale.ENGLISH), RecapStoryKind.SCORER_RACE))
                 .isEqualTo("Top of the charts — Petar and Ivan, level on 9 goals.");
@@ -563,7 +679,7 @@ class RecapStoryCatalogTest {
                 seasonMatches(), table(), 3,
                 List.of(new RoundRecapPlayerData("Petar", "Alpha", 9),
                         new RoundRecapPlayerData("Ivan", "Beta", 6)),
-                List.of());
+                List.of(), null);
 
         List<RecapStory> stories = catalog.seasonStories(data, Locale.ENGLISH);
 
@@ -576,7 +692,7 @@ class RecapStoryCatalogTest {
     void seasonStories_singleScorer_dropsTheChaserClause() {
         RoundRecapPromptData data = new RoundRecapPromptData("Test League", SEASON, "en", "English",
                 seasonMatches(), table(), 3,
-                List.of(new RoundRecapPlayerData("Petar", "Alpha", 4)), List.of());
+                List.of(new RoundRecapPlayerData("Petar", "Alpha", 4)), List.of(), null);
 
         assertThat(body(catalog.seasonStories(data, Locale.ENGLISH), RecapStoryKind.SCORER_RACE))
                 .isEqualTo("Petar of Alpha tops the charts with 4 goals, with nobody else on the sheet yet.");
@@ -592,7 +708,7 @@ class RecapStoryCatalogTest {
     @Test
     void seasonStories_nullScorers_haveNoScorerRace() {
         RoundRecapPromptData data = new RoundRecapPromptData("Test League", SEASON, "en", "English",
-                seasonMatches(), table(), 3, null, null);
+                seasonMatches(), table(), 3, null, null, null);
 
         assertThat(find(catalog.seasonStories(data, Locale.ENGLISH), RecapStoryKind.SCORER_RACE)).isEmpty();
     }
@@ -620,7 +736,7 @@ class RecapStoryCatalogTest {
             for (int round = 1; round <= 3; round++) {
                 RoundRecapPromptData data = new RoundRecapPromptData(league, round, "en", "English",
                         List.of(match("Alpha", "Beta", 5, 0), match("Gama", "Delta", 1, 4)),
-                        table(), 3, List.of(), List.of());
+                        table(), 3, List.of(), List.of(), null);
                 headlines.add(headline(catalog.roundStories(data, Locale.ENGLISH), RecapStoryKind.AWAY_WIN));
             }
         }
@@ -636,7 +752,13 @@ class RecapStoryCatalogTest {
     private RoundRecapPromptData data(int round, List<RoundRecapMatchData> matches,
                                       List<RoundRecapStandingData> standings, int matchesPerTeam) {
         return new RoundRecapPromptData("Test League", round, "en", "English",
-                matches, standings, matchesPerTeam, List.of(), List.of());
+                matches, standings, matchesPerTeam, List.of(), List.of(), null);
+    }
+
+    private RoundRecapPromptData clinchData(int round, List<RoundRecapMatchData> matches,
+                                            List<RoundRecapStandingData> standings, Integer clinchRound) {
+        return new RoundRecapPromptData("Test League", round, "en", "English",
+                matches, standings, 3, List.of(), List.of(), clinchRound);
     }
 
     private RoundRecapMatchData match(String home, String away, int homeScore, int awayScore, String... goals) {

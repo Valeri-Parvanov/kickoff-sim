@@ -26,6 +26,7 @@ public class LeagueDetailView {
     private LocalDate scheduleStartDate;
     private LocalTime scheduleStartTime;
     private LocalDateTime endsAt;
+    private Integer championClinchRound;
 
     public String getEndsAtUtcIso() {
         if (endsAt == null) return "";
