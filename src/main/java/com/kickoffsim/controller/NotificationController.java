@@ -1,6 +1,8 @@
 package com.kickoffsim.controller;
 
+import com.kickoffsim.client.BulkSubscriptionRequest;
 import com.kickoffsim.client.NotificationClient;
+import com.kickoffsim.client.NotificationDto;
 import com.kickoffsim.client.NotifyRequest;
 import com.kickoffsim.client.SubscriptionDto;
 import com.kickoffsim.client.SubscriptionRequest;
@@ -203,6 +205,10 @@ public class NotificationController {
     private static final Set<String> TOASTABLE_TYPES =
             Set.of("GOAL", "MATCH_KICKOFF", "MATCH_HALFTIME", "MATCH_SECONDHALF", "MATCH_FULLTIME");
 
+    private static final int TOAST_WINDOW_MINUTES = 5;
+
+    private static final int MAX_TOASTS = 5;
+
     @GetMapping("/notifications/toasts")
     @ResponseBody
     public List<Map<String, Object>> liveToasts(Authentication authentication, HttpSession session) {
@@ -210,14 +216,19 @@ public class NotificationController {
         try {
             UUID userId = userService.findByUsername(authentication.getName()).getId();
             Object loginAt = session.getAttribute(SecurityConfig.LOGIN_AT_SESSION_ATTR);
-            LocalDateTime cutoff = loginAt instanceof LocalDateTime loginAtTime
+            LocalDateTime sessionStart = loginAt instanceof LocalDateTime loginAtTime
                     ? loginAtTime
                     : Instant.ofEpochMilli(session.getCreationTime())
                             .atZone(ZoneId.systemDefault())
                             .toLocalDateTime();
+            LocalDateTime recent = LocalDateTime.now().minusMinutes(TOAST_WINDOW_MINUTES);
+            LocalDateTime cutoff = sessionStart.isAfter(recent) ? sessionStart : recent;
             return notificationClient.getNotifications(userId).stream()
                     .filter(n -> TOASTABLE_TYPES.contains(n.getType()))
+                    .filter(n -> !n.isRead())
                     .filter(n -> n.getCreatedAt() != null && n.getCreatedAt().isAfter(cutoff))
+                    .sorted(Comparator.comparing(NotificationDto::getCreatedAt).reversed())
+                    .limit(MAX_TOASTS)
                     .map(n -> Map.<String, Object>of(
                             "id", n.getId().toString(),
                             "message", n.getMessage(),
@@ -279,13 +290,12 @@ public class NotificationController {
                     .map(SubscriptionDto::getEntityId)
                     .collect(Collectors.toSet());
 
-            for (MatchDto match : matches) {
-                if (alreadyFollowed.contains(match.getId())) continue;
-                try {
-                    notificationClient.subscribe(new SubscriptionRequest(userId, "MATCH", match.getId()));
-                } catch (Exception e) {
-                    log.warn("Could not backfill match subscription {} for user {}: {}", match.getId(), userId, e.getMessage());
-                }
+            List<SubscriptionRequest> requests = matches.stream()
+                    .filter(match -> !alreadyFollowed.contains(match.getId()))
+                    .map(match -> new SubscriptionRequest(userId, "MATCH", match.getId()))
+                    .toList();
+            if (!requests.isEmpty()) {
+                notificationClient.subscribeAll(new BulkSubscriptionRequest(requests));
             }
         } catch (Exception e) {
             log.warn("Could not backfill match subscriptions for {} {} (user {}): {}", entityType, entityId, userId, e.getMessage());

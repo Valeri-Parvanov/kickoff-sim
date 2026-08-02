@@ -242,6 +242,7 @@
 <script sec:authorize="isAuthenticated()">
 (function() {
     var SHOWN_KEY = 'kickoffShownToasts';
+    var MAX_VISIBLE_TOASTS = 4;
 
     function shownIds() {
         try { return JSON.parse(localStorage.getItem(SHOWN_KEY) || '[]'); } catch (e) { return []; }
@@ -406,6 +407,9 @@
         el.appendChild(body);
         el.appendChild(close);
         wrap.appendChild(el);
+        while (wrap.children.length > MAX_VISIBLE_TOASTS) {
+            wrap.removeChild(wrap.firstElementChild);
+        }
         requestAnimationFrame(function() { el.classList.add('show'); });
 
         var timer = setTimeout(dismiss, 15000 + Math.random() * 15000);
@@ -441,7 +445,11 @@
 
     function connectLiveStream() {
         if (!window.EventSource) return;
+        var live = window.KickoffLive = window.KickoffLive || {connected: false, handlers: []};
         var es = new EventSource('/notifications/stream');
+        es.addEventListener('open', function() { live.connected = true; });
+        es.addEventListener('error', function() { live.connected = false; });
+        es.addEventListener('matchUpdate', function() { if (live.emit) live.emit(); });
         es.addEventListener('toast', function(e) {
             try {
                 var data = JSON.parse(e.data);
@@ -455,6 +463,7 @@
     setInterval(pollToasts, 20000);
 }());
 </script>
+<script src="/js/live-updates.js"></script>
 <script sec:authorize="isAuthenticated()">
 (function() {
     document.addEventListener('click', function(e) {

@@ -25,7 +25,7 @@ import static org.mockito.Mockito.verify;
 
 class SseEmitterRegistryTest {
 
-    private final SseEmitterRegistry registry = new SseEmitterRegistry();
+    private final SseEmitterRegistry registry = new SseEmitterRegistry(Runnable::run);
 
     @Test
     void register_returnsEmitter() {
@@ -71,7 +71,7 @@ class SseEmitterRegistryTest {
 
     @Test
     void push_registeredUser_sendsEvent() throws IOException {
-        SseEmitterRegistry spyRegistry = spy(new SseEmitterRegistry());
+        SseEmitterRegistry spyRegistry = spy(new SseEmitterRegistry(Runnable::run));
         SseEmitter mockEmitter = mock(SseEmitter.class);
         doReturn(mockEmitter).when(spyRegistry).createEmitter();
 
@@ -83,8 +83,78 @@ class SseEmitterRegistryTest {
     }
 
     @Test
-    void push_multipleEmittersSameUser_sendsToBoth() throws IOException {
+    void heartbeat_registeredUser_sendsKeepalive() throws IOException {
+        SseEmitterRegistry spyRegistry = spy(new SseEmitterRegistry(Runnable::run));
+        SseEmitter mockEmitter = mock(SseEmitter.class);
+        doReturn(mockEmitter).when(spyRegistry).createEmitter();
+
+        spyRegistry.register(UUID.randomUUID());
+        spyRegistry.heartbeat();
+
+        verify(mockEmitter).send(any(SseEmitter.SseEventBuilder.class));
+    }
+
+    @Test
+    void broadcastAll_sendsToEveryConnectedUser() throws IOException {
+        SseEmitterRegistry spyRegistry = spy(new SseEmitterRegistry(Runnable::run));
+        SseEmitter mockEmitterA = mock(SseEmitter.class);
+        SseEmitter mockEmitterB = mock(SseEmitter.class);
+        doReturn(mockEmitterA, mockEmitterB).when(spyRegistry).createEmitter();
+
+        spyRegistry.register(UUID.randomUUID());
+        spyRegistry.register(UUID.randomUUID());
+        spyRegistry.broadcastAll("matchUpdate");
+
+        verify(mockEmitterA).send(any(SseEmitter.SseEventBuilder.class));
+        verify(mockEmitterB).send(any(SseEmitter.SseEventBuilder.class));
+    }
+
+    @Test
+    void broadcastAll_noEmitters_doesNothing() {
+        SseEmitterRegistry spyRegistry = spy(new SseEmitterRegistry(Runnable::run));
+
+        assertThatCode(() -> spyRegistry.broadcastAll("matchUpdate")).doesNotThrowAnyException();
+    }
+
+    @Test
+    void heartbeat_noEmitters_doesNothing() {
+        SseEmitterRegistry spyRegistry = spy(new SseEmitterRegistry(Runnable::run));
+
+        assertThatCode(spyRegistry::heartbeat).doesNotThrowAnyException();
+    }
+
+    @Test
+    void heartbeat_sendFails_dropsEmitter() throws IOException {
+        SseEmitterRegistry spyRegistry = spy(new SseEmitterRegistry(Runnable::run));
+        SseEmitter mockEmitter = mock(SseEmitter.class);
+        doReturn(mockEmitter).when(spyRegistry).createEmitter();
+        doThrow(new IOException("broken pipe")).when(mockEmitter).send(any(SseEmitter.SseEventBuilder.class));
+
+        UUID userId = UUID.randomUUID();
+        spyRegistry.register(userId);
+        spyRegistry.heartbeat();
+        spyRegistry.push(List.of(userId), "hi", "GOAL");
+
+        verify(mockEmitter, org.mockito.Mockito.times(1)).send(any(SseEmitter.SseEventBuilder.class));
+    }
+
+    @Test
+    void defaultConstructor_dispatchesOnItsOwnPool() throws Exception {
         SseEmitterRegistry spyRegistry = spy(new SseEmitterRegistry());
+        SseEmitter mockEmitter = mock(SseEmitter.class);
+        doReturn(mockEmitter).when(spyRegistry).createEmitter();
+
+        UUID userId = UUID.randomUUID();
+        spyRegistry.register(userId);
+        spyRegistry.push(List.of(userId), "hi", "GOAL");
+
+        verify(mockEmitter, org.mockito.Mockito.timeout(2000))
+                .send(any(SseEmitter.SseEventBuilder.class));
+    }
+
+    @Test
+    void push_multipleEmittersSameUser_sendsToBoth() throws IOException {
+        SseEmitterRegistry spyRegistry = spy(new SseEmitterRegistry(Runnable::run));
         SseEmitter mockEmitterA = mock(SseEmitter.class);
         SseEmitter mockEmitterB = mock(SseEmitter.class);
         doReturn(mockEmitterA, mockEmitterB).when(spyRegistry).createEmitter();
@@ -100,7 +170,7 @@ class SseEmitterRegistryTest {
 
     @Test
     void push_sendThrowsIOException_removesEmitterWithoutPropagating() throws IOException {
-        SseEmitterRegistry spyRegistry = spy(new SseEmitterRegistry());
+        SseEmitterRegistry spyRegistry = spy(new SseEmitterRegistry(Runnable::run));
         SseEmitter mockEmitter = mock(SseEmitter.class);
         doReturn(mockEmitter).when(spyRegistry).createEmitter();
         doThrow(new IOException("broken pipe")).when(mockEmitter).send(any(SseEmitter.SseEventBuilder.class));
@@ -116,7 +186,7 @@ class SseEmitterRegistryTest {
 
     @Test
     void push_sendThrowsIllegalStateException_removesEmitterWithoutPropagating() throws IOException {
-        SseEmitterRegistry spyRegistry = spy(new SseEmitterRegistry());
+        SseEmitterRegistry spyRegistry = spy(new SseEmitterRegistry(Runnable::run));
         SseEmitter mockEmitter = mock(SseEmitter.class);
         doReturn(mockEmitter).when(spyRegistry).createEmitter();
         doThrow(new IllegalStateException("already complete")).when(mockEmitter)
@@ -130,7 +200,7 @@ class SseEmitterRegistryTest {
 
     @Test
     void onCompletion_removesEmitter() throws IOException {
-        SseEmitterRegistry spyRegistry = spy(new SseEmitterRegistry());
+        SseEmitterRegistry spyRegistry = spy(new SseEmitterRegistry(Runnable::run));
         SseEmitter mockEmitter = mock(SseEmitter.class);
         doReturn(mockEmitter).when(spyRegistry).createEmitter();
 
@@ -147,7 +217,7 @@ class SseEmitterRegistryTest {
 
     @Test
     void onCompletion_calledTwice_secondCallIsNoOp() {
-        SseEmitterRegistry spyRegistry = spy(new SseEmitterRegistry());
+        SseEmitterRegistry spyRegistry = spy(new SseEmitterRegistry(Runnable::run));
         SseEmitter mockEmitter = mock(SseEmitter.class);
         doReturn(mockEmitter).when(spyRegistry).createEmitter();
 
@@ -163,7 +233,7 @@ class SseEmitterRegistryTest {
 
     @Test
     void onTimeout_removesEmitter() throws IOException {
-        SseEmitterRegistry spyRegistry = spy(new SseEmitterRegistry());
+        SseEmitterRegistry spyRegistry = spy(new SseEmitterRegistry(Runnable::run));
         SseEmitter mockEmitter = mock(SseEmitter.class);
         doReturn(mockEmitter).when(spyRegistry).createEmitter();
 
@@ -181,7 +251,7 @@ class SseEmitterRegistryTest {
     @Test
     @SuppressWarnings("unchecked")
     void onError_removesEmitter() throws IOException {
-        SseEmitterRegistry spyRegistry = spy(new SseEmitterRegistry());
+        SseEmitterRegistry spyRegistry = spy(new SseEmitterRegistry(Runnable::run));
         SseEmitter mockEmitter = mock(SseEmitter.class);
         doReturn(mockEmitter).when(spyRegistry).createEmitter();
 
@@ -198,7 +268,7 @@ class SseEmitterRegistryTest {
 
     @Test
     void onCompletion_multipleEmittersSameUser_removesOnlyThatOne() throws IOException {
-        SseEmitterRegistry spyRegistry = spy(new SseEmitterRegistry());
+        SseEmitterRegistry spyRegistry = spy(new SseEmitterRegistry(Runnable::run));
         SseEmitter mockEmitterA = mock(SseEmitter.class);
         SseEmitter mockEmitterB = mock(SseEmitter.class);
         doReturn(mockEmitterA, mockEmitterB).when(spyRegistry).createEmitter();
@@ -218,7 +288,7 @@ class SseEmitterRegistryTest {
 
     @Test
     void push_completeAlsoFails_stillDropsEmitterWithoutPropagating() throws IOException {
-        SseEmitterRegistry spyRegistry = spy(new SseEmitterRegistry());
+        SseEmitterRegistry spyRegistry = spy(new SseEmitterRegistry(Runnable::run));
         SseEmitter mockEmitter = mock(SseEmitter.class);
         doReturn(mockEmitter).when(spyRegistry).createEmitter();
         doThrow(new IllegalStateException("broken pipe"))

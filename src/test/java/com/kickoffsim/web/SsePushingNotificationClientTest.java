@@ -42,6 +42,16 @@ class SsePushingNotificationClientTest {
     }
 
     @Test
+    void subscribeAll_delegates() {
+        com.kickoffsim.client.BulkSubscriptionRequest request =
+                new com.kickoffsim.client.BulkSubscriptionRequest(List.of());
+        List<SubscriptionDto> response = List.of(new SubscriptionDto());
+        when(delegate.subscribeAll(request)).thenReturn(response);
+
+        assertThat(client.subscribeAll(request)).isSameAs(response);
+    }
+
+    @Test
     void unsubscribe_delegates() {
         UUID id = UUID.randomUUID();
         client.unsubscribe(id);
@@ -87,6 +97,7 @@ class SsePushingNotificationClientTest {
 
         assertThat(result).isSameAs(notified);
         verify(sseEmitterRegistry).push(notified, request.getMessage(), request.getType());
+        verify(sseEmitterRegistry).broadcastAll("matchUpdate");
     }
 
     @Test
@@ -103,5 +114,12 @@ class SsePushingNotificationClientTest {
         when(delegate.getNotifications(userId)).thenReturn(notifications);
 
         assertThat(client.getNotifications(userId)).isSameAs(notifications);
+    }
+
+    @Test
+    void markAllRead_delegates() {
+        UUID userId = UUID.randomUUID();
+        client.markAllRead(userId);
+        verify(delegate).markAllRead(userId);
     }
 }

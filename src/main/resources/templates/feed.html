@@ -624,7 +624,11 @@ var _feedActivateSub;
             }).catch(function() {});
     }
 
-    setInterval(poll, 5000);
+    if (window.KickoffLive && window.KickoffLive.poll) {
+        window.KickoffLive.poll(poll, 5000, 60000);
+    } else {
+        setInterval(poll, 5000);
+    }
 }());
 </script>
 <script>

@@ -1,5 +1,6 @@
 package com.kickoffsim.controller;
 
+import com.kickoffsim.client.BulkSubscriptionRequest;
 import com.kickoffsim.client.NotificationClient;
 import com.kickoffsim.client.NotificationDto;
 import com.kickoffsim.client.NotifyRequest;
@@ -432,19 +433,53 @@ class NotificationControllerTest {
     }
 
     @Test
-    void liveToasts_usesLoginAtSessionAttribute_whenPresent() {
+    void liveToasts_usesLoginAtSessionAttribute_whenItIsNewerThanTheWindow() {
         UUID userId = UUID.randomUUID();
         Authentication auth = authFor("alice", userId);
         MockHttpSession session = new MockHttpSession();
-        session.setAttribute(SecurityConfig.LOGIN_AT_SESSION_ATTR, LocalDateTime.now().minusHours(1));
+        session.setAttribute(SecurityConfig.LOGIN_AT_SESSION_ATTR, LocalDateTime.now().minusMinutes(1));
 
-        NotificationDto notification = recentNotification("GOAL", "GOAL for Home!");
-        notification.setCreatedAt(LocalDateTime.now().minusMinutes(30));
-        when(notificationClient.getNotifications(userId)).thenReturn(List.of(notification));
+        NotificationDto beforeLogin = recentNotification("GOAL", "GOAL for Home!");
+        beforeLogin.setCreatedAt(LocalDateTime.now().minusMinutes(3));
+        when(notificationClient.getNotifications(userId)).thenReturn(List.of(beforeLogin));
 
-        List<Map<String, Object>> toasts = controller.liveToasts(auth, session);
+        assertThat(controller.liveToasts(auth, session)).isEmpty();
+    }
 
-        assertThat(toasts).hasSize(1);
+    @Test
+    void liveToasts_dropsEventsOlderThanTheToastWindow() {
+        UUID userId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+        MockHttpSession session = new MockHttpSession();
+        session.setAttribute(SecurityConfig.LOGIN_AT_SESSION_ATTR, LocalDateTime.now().minusHours(2));
+
+        NotificationDto old = recentNotification("GOAL", "Old goal");
+        old.setCreatedAt(LocalDateTime.now().minusMinutes(30));
+        NotificationDto fresh = recentNotification("GOAL", "Fresh goal");
+        fresh.setCreatedAt(LocalDateTime.now().minusMinutes(1));
+        when(notificationClient.getNotifications(userId)).thenReturn(List.of(old, fresh));
+
+        assertThat(controller.liveToasts(auth, session)).extracting(t -> t.get("message"))
+                .containsExactly("Fresh goal");
+    }
+
+    @Test
+    void liveToasts_returnsAtMostFiveNewestEvents() {
+        UUID userId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+        MockHttpSession session = new MockHttpSession();
+        session.setAttribute(SecurityConfig.LOGIN_AT_SESSION_ATTR, LocalDateTime.now().minusHours(2));
+
+        List<NotificationDto> burst = new ArrayList<>();
+        for (int i = 0; i < 8; i++) {
+            NotificationDto notification = recentNotification("GOAL", "Goal " + i);
+            notification.setCreatedAt(LocalDateTime.now().minusSeconds(60L - i));
+            burst.add(notification);
+        }
+        when(notificationClient.getNotifications(userId)).thenReturn(burst);
+
+        assertThat(controller.liveToasts(auth, session)).extracting(t -> t.get("message"))
+                .containsExactly("Goal 7", "Goal 6", "Goal 5", "Goal 4", "Goal 3");
     }
 
     private NotificationDto recentNotification(String type, String message) {
@@ -508,8 +543,17 @@ class NotificationControllerTest {
         controller.subscribe(teamId, "TEAM", null, auth, ra);
 
         verify(notificationClient).subscribe(subReq(userId, "TEAM", teamId));
-        verify(notificationClient).subscribe(subReq(userId, "MATCH", teamMatch.getId()));
-        verify(notificationClient, never()).subscribe(subReq(userId, "MATCH", otherMatch.getId()));
+        assertThat(bulkSubscribedEntityIds()).containsExactly(teamMatch.getId());
+        assertThat(bulkSubscribedEntityIds()).doesNotContain(otherMatch.getId());
+    }
+
+    private List<UUID> bulkSubscribedEntityIds() {
+        org.mockito.ArgumentCaptor<BulkSubscriptionRequest> captor =
+                org.mockito.ArgumentCaptor.forClass(BulkSubscriptionRequest.class);
+        verify(notificationClient, org.mockito.Mockito.atLeastOnce()).subscribeAll(captor.capture());
+        return captor.getValue().getSubscriptions().stream()
+                .map(SubscriptionRequest::getEntityId)
+                .toList();
     }
 
     @Test
@@ -535,7 +579,7 @@ class NotificationControllerTest {
 
         controller.subscribe(teamId, "TEAM", null, auth, ra);
 
-        verify(notificationClient).subscribe(subReq(userId, "MATCH", awayMatch.getId()));
+        assertThat(bulkSubscribedEntityIds()).containsExactly(awayMatch.getId());
     }
 
     @Test
@@ -563,7 +607,7 @@ class NotificationControllerTest {
         when(leagueService.findDetail(leagueId)).thenReturn(league);
         when(notificationClient.getSubscriptions(userId)).thenReturn(List.of());
         doThrow(new RuntimeException("down"))
-                .when(notificationClient).subscribe(subReq(userId, "MATCH", m1.getId()));
+                .when(notificationClient).subscribeAll(any(BulkSubscriptionRequest.class));
 
         String view = controller.subscribe(leagueId, "LEAGUE", null, auth, ra);
 
@@ -591,8 +635,29 @@ class NotificationControllerTest {
 
         controller.subscribe(leagueId, "LEAGUE", null, auth, ra);
 
-        verify(notificationClient, never()).subscribe(subReq(userId, "MATCH", m1.getId()));
-        verify(notificationClient).subscribe(subReq(userId, "MATCH", m2.getId()));
+        assertThat(bulkSubscribedEntityIds()).containsExactly(m2.getId());
+    }
+
+    @Test
+    void subscribe_league_everyMatchAlreadyFollowed_sendsNoBulkRequest() {
+        UUID userId = UUID.randomUUID();
+        UUID leagueId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+        RedirectAttributesModelMap ra = new RedirectAttributesModelMap();
+
+        MatchDto match = feedMatch(UUID.randomUUID(), LocalDateTime.now().plusDays(1));
+        LeagueDetailView league = org.mockito.Mockito.mock(LeagueDetailView.class);
+        when(league.getMatches()).thenReturn(List.of(match));
+        when(leagueService.findDetail(leagueId)).thenReturn(league);
+
+        SubscriptionDto alreadyFollowedMatch = new SubscriptionDto();
+        alreadyFollowedMatch.setEntityType("MATCH");
+        alreadyFollowedMatch.setEntityId(match.getId());
+        when(notificationClient.getSubscriptions(userId)).thenReturn(List.of(alreadyFollowedMatch));
+
+        controller.subscribe(leagueId, "LEAGUE", null, auth, ra);
+
+        verify(notificationClient, never()).subscribeAll(any(BulkSubscriptionRequest.class));
     }
 
     @Test
@@ -1076,6 +1141,24 @@ class NotificationControllerTest {
         when(notificationClient.getNotifications(userId)).thenThrow(new RuntimeException("down"));
 
         assertThat(controller.liveToasts(auth, new MockHttpSession())).isEmpty();
+    }
+
+    @Test
+    void liveToasts_excludesAlreadyReadNotifications() {
+        UUID userId = UUID.randomUUID();
+        Authentication auth = authFor("alice", userId);
+        MockHttpSession session = new MockHttpSession();
+        session.setAttribute(SecurityConfig.LOGIN_AT_SESSION_ATTR, LocalDateTime.now().minusHours(1));
+
+        NotificationDto read = recentNotification("GOAL", "GOAL for Home!");
+        read.setRead(true);
+        NotificationDto unread = recentNotification("GOAL", "GOAL for Away!");
+        when(notificationClient.getNotifications(userId)).thenReturn(List.of(read, unread));
+
+        List<Map<String, Object>> toasts = controller.liveToasts(auth, session);
+
+        assertThat(toasts).extracting(t -> t.get("message"))
+                .containsExactly("GOAL for Away!");
     }
 
     @Test

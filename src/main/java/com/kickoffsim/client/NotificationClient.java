@@ -13,6 +13,9 @@ public interface NotificationClient {
     @RequestLine("POST /api/subscriptions")
     SubscriptionDto subscribe(SubscriptionRequest request);
 
+    @RequestLine("POST /api/subscriptions/bulk")
+    List<SubscriptionDto> subscribeAll(BulkSubscriptionRequest request);
+
     @RequestLine("DELETE /api/subscriptions/{id}")
     void unsubscribe(@Param("id") UUID id);
 
@@ -33,4 +36,7 @@ public interface NotificationClient {
 
     @RequestLine("GET /api/notifications?userId={userId}")
     List<NotificationDto> getNotifications(@Param("userId") UUID userId);
+
+    @RequestLine("PUT /api/notifications/read-all?userId={userId}")
+    void markAllRead(@Param("userId") UUID userId);
 }

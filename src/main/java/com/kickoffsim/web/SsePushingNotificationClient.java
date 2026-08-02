@@ -1,6 +1,7 @@
 package com.kickoffsim.web;
 
 import com.kickoffsim.client.BroadcastRequest;
+import com.kickoffsim.client.BulkSubscriptionRequest;
 import com.kickoffsim.client.NotificationClient;
 import com.kickoffsim.client.NotificationDto;
 import com.kickoffsim.client.NotifyRequest;
@@ -20,6 +21,11 @@ public class SsePushingNotificationClient implements NotificationClient {
     @Override
     public SubscriptionDto subscribe(SubscriptionRequest request) {
         return delegate.subscribe(request);
+    }
+
+    @Override
+    public List<SubscriptionDto> subscribeAll(BulkSubscriptionRequest request) {
+        return delegate.subscribeAll(request);
     }
 
     @Override
@@ -46,6 +52,7 @@ public class SsePushingNotificationClient implements NotificationClient {
     public List<UUID> broadcast(BroadcastRequest request) {
         List<UUID> notifiedUserIds = delegate.broadcast(request);
         sseEmitterRegistry.push(notifiedUserIds, request.getMessage(), request.getType());
+        sseEmitterRegistry.broadcastAll("matchUpdate");
         return notifiedUserIds;
     }
 
@@ -57,5 +64,10 @@ public class SsePushingNotificationClient implements NotificationClient {
     @Override
     public List<NotificationDto> getNotifications(UUID userId) {
         return delegate.getNotifications(userId);
+    }
+
+    @Override
+    public void markAllRead(UUID userId) {
+        delegate.markAllRead(userId);
     }
 }

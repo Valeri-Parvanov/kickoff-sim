@@ -97,7 +97,11 @@
             })
             .catch(function() {});
     }
-    setInterval(refreshPositions, 15000);
+    if (window.KickoffLive && window.KickoffLive.poll) {
+        window.KickoffLive.poll(refreshPositions, 15000, 60000);
+    } else {
+        setInterval(refreshPositions, 15000);
+    }
 })();
 </script>
 </body>
