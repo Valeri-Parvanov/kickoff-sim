@@ -1,6 +1,11 @@
 <!DOCTYPE html>
 <html lang="en" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
 <body>
+<div th:fragment="panel">
+    <th:block th:if="${recap != null}">
+        <div th:replace="~{fragments/recap :: sections(${recap})}"></div>
+    </th:block>
+</div>
 <div th:fragment="sections(recap)" class="recap-feed">
 
     <article class="recap-headline" th:if="${recap.lead != null}"
@@ -48,6 +53,16 @@
                     </span>
                     <span class="recap-slot-name" th:text="${player.name}"></span>
                     <span class="recap-slot-team" th:text="${player.team}"></span>
+                    <span class="recap-slot-stats" th:if="${player.goals > 0 or player.assists > 0}">
+                        <span class="recap-slot-stat recap-slot-goals" th:if="${player.goals > 0}"
+                              th:title="#{recap.player.goals}">
+                            <span class="recap-slot-stat-icon">⚽</span><span th:text="${player.goals}"></span>
+                        </span>
+                        <span class="recap-slot-stat recap-slot-assists" th:if="${player.assists > 0}"
+                              th:title="#{recap.player.assists}">
+                            <span class="recap-slot-stat-icon">👟</span><span th:text="${player.assists}"></span>
+                        </span>
+                    </span>
                 </div>
             </div>
         </div>
@@ -60,6 +75,12 @@
                 <span class="recap-bench-player" th:each="player : ${recap.bench.players()}">
                     <span class="recap-bench-name" th:text="${player.name}"></span>
                     <span class="recap-bench-team" th:text="${player.team}"></span>
+                    <span class="recap-bench-stats" th:if="${player.goals > 0 or player.assists > 0}">
+                        <span th:if="${player.goals > 0}" th:title="#{recap.player.goals}">⚽<span
+                                th:text="${player.goals}"></span></span>
+                        <span th:if="${player.assists > 0}" th:title="#{recap.player.assists}">👟<span
+                                th:text="${player.assists}"></span></span>
+                    </span>
                 </span>
             </span>
         </div>

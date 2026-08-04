@@ -491,6 +491,62 @@ class LeagueRoundRecapControllerTest {
                 .andExpect(model().attribute("seasonRecap", storedSeason));
     }
 
+    @Test
+    @WithMockUser
+    void roundRecapPanelRendersTheStoredRecapWithAVersionHeader() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(roundRecapService.find(id, 2, Locale.ENGLISH))
+                .thenReturn(Optional.of(recapView("MVP|40|Panel headline|Petar shone.")));
+
+        mockMvc.perform(get("/leagues/{id}/rounds/{round}/recap/panel", id, 2)
+                        .with(user("member").roles("USER"))
+                        .locale(Locale.ENGLISH))
+                .andExpect(status().isOk())
+                .andExpect(header().exists("X-Recap-Generated"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Panel headline")));
+    }
+
+    @Test
+    @WithMockUser
+    void roundRecapPanelWithoutARecapReturnsNoVersionHeader() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(roundRecapService.find(id, 2, Locale.ENGLISH)).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/leagues/{id}/rounds/{round}/recap/panel", id, 2)
+                        .with(user("member").roles("USER"))
+                        .locale(Locale.ENGLISH))
+                .andExpect(status().isOk())
+                .andExpect(header().doesNotExist("X-Recap-Generated"));
+    }
+
+    @Test
+    @WithMockUser
+    void seasonRecapPanelRendersTheStoredSeasonRecapWithAVersionHeader() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(roundRecapService.findSeason(id, Locale.ENGLISH))
+                .thenReturn(Optional.of(recapView("MVP|40|Season headline|A fine campaign.")));
+
+        mockMvc.perform(get("/leagues/{id}/season-recap/panel", id)
+                        .with(user("member").roles("USER"))
+                        .locale(Locale.ENGLISH))
+                .andExpect(status().isOk())
+                .andExpect(header().exists("X-Recap-Generated"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Season headline")));
+    }
+
+    @Test
+    @WithMockUser
+    void seasonRecapPanelWithoutARecapReturnsNoVersionHeader() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(roundRecapService.findSeason(id, Locale.ENGLISH)).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/leagues/{id}/season-recap/panel", id)
+                        .with(user("member").roles("USER"))
+                        .locale(Locale.ENGLISH))
+                .andExpect(status().isOk())
+                .andExpect(header().doesNotExist("X-Recap-Generated"));
+    }
+
     private RoundRecapView recapView(String content) {
         return new RoundRecapView(content, LocalDateTime.now(), "en", "a".repeat(64),
                 RecapStoryParser.parse(content));

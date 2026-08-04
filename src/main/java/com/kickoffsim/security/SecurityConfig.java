@@ -49,7 +49,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) {
         http
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/register", "/login", "/css/**", "/js/**", "/teams/*/logo", "/leagues/*/logo").permitAll()
+                        .requestMatchers("/", "/register", "/login", "/css/**", "/js/**", "/favicon.svg", "/teams/*/logo", "/leagues/*/logo").permitAll()
                         .anyRequest().authenticated())
                 .formLogin(form -> form
                         .loginPage("/login")

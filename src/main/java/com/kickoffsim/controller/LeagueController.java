@@ -24,6 +24,7 @@ import com.kickoffsim.web.ScheduleWindowSupport;
 import com.kickoffsim.web.SortSupport;
 import com.kickoffsim.web.StandingsExportSupport;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,6 +47,7 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -60,6 +62,8 @@ public class LeagueController {
     private static final Map<String, String> SORTABLE_FIELDS = Map.of(
             "name", "name"
     );
+    private static final String RECAP_VERSION_HEADER = "X-Recap-Generated";
+    private static final DateTimeFormatter RECAP_VERSION = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS");
 
     private final LeagueService leagueService;
     private final TeamService teamService;
@@ -233,6 +237,24 @@ public class LeagueController {
             redirectAttributes.addFlashAttribute("errorMessage", "flash.seasonrecap.failed");
         }
         return "redirect:/leagues/" + id + "?tab=overview#overview";
+    }
+
+    @GetMapping("/{id}/rounds/{round}/recap/panel")
+    public String roundRecapPanel(@PathVariable UUID id, @PathVariable int round, Locale locale,
+                                  Model model, HttpServletResponse response) {
+        Optional<RoundRecapView> recap = roundRecapService.find(id, round, locale);
+        recap.ifPresent(view -> response.setHeader(RECAP_VERSION_HEADER, RECAP_VERSION.format(view.generatedAt())));
+        model.addAttribute("recap", recap.orElse(null));
+        return "fragments/recap :: panel";
+    }
+
+    @GetMapping("/{id}/season-recap/panel")
+    public String seasonRecapPanel(@PathVariable UUID id, Locale locale,
+                                   Model model, HttpServletResponse response) {
+        Optional<RoundRecapView> recap = roundRecapService.findSeason(id, locale);
+        recap.ifPresent(view -> response.setHeader(RECAP_VERSION_HEADER, RECAP_VERSION.format(view.generatedAt())));
+        model.addAttribute("recap", recap.orElse(null));
+        return "fragments/recap :: panel";
     }
 
     @GetMapping("/{id}/standings-summary")

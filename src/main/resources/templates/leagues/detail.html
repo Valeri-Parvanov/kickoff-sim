@@ -10,6 +10,7 @@
     <link rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"/>
     <link rel="stylesheet" th:href="@{/css/style.css}"/>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}"/>
 </head>
 <body>
 <div th:replace="~{fragments/topbar :: topbar}"></div>
@@ -111,7 +112,11 @@
                 </form>
             </div>
             <th:block th:if="${seasonRecap != null}">
-                <div th:replace="~{fragments/recap :: sections(${seasonRecap})}"></div>
+                <div class="recap-live"
+                     th:data-recap-url="@{/leagues/{id}/season-recap/panel(id=${league.id})}"
+                     th:data-recap-generated="${#temporals.format(seasonRecap.generatedAt,'yyyyMMddHHmmssSSS')}">
+                    <div th:replace="~{fragments/recap :: sections(${seasonRecap})}"></div>
+                </div>
             </th:block>
             <p th:if="${seasonRecap == null and seasonRecapReady == true}" class="rules-sub"
                th:text="#{seasonrecap.unavailable}">No season overview is available in this language yet.</p>
@@ -152,7 +157,11 @@
                     </form>
                 </div>
                 <th:block th:if="${roundRecap != null}">
-                    <div th:replace="~{fragments/recap :: sections(${roundRecap})}"></div>
+                    <div class="recap-live"
+                         th:data-recap-url="@{/leagues/{id}/rounds/{round}/recap/panel(id=${league.id},round=${selectedRound})}"
+                         th:data-recap-generated="${#temporals.format(roundRecap.generatedAt,'yyyyMMddHHmmssSSS')}">
+                        <div th:replace="~{fragments/recap :: sections(${roundRecap})}"></div>
+                    </div>
                 </th:block>
                 <p th:if="${roundRecap == null and roundRecapReady == true}" class="rules-sub"
                    th:text="#{recap.unavailable}">No recap is available in this language yet.</p>
@@ -462,6 +471,46 @@
     var LIVE_MATCHES = /*[[${liveMatchesForJs}]]*/[];
     var LEAGUE_ID = /*[[${league.id}]]*/'';
     var SELECTED_ROUND = /*[[${selectedRound}]]*/null;
+</script>
+<script>
+    (function () {
+        var MAX_TRIES = 12;
+        var INTERVAL_MS = 4000;
+
+        function watch(el) {
+            var url = el.getAttribute('data-recap-url');
+            if (!url) { return; }
+            var current = el.getAttribute('data-recap-generated') || '';
+            var tries = 0;
+            var timer = setInterval(function () {
+                if (++tries > MAX_TRIES) { clearInterval(timer); return; }
+                fetch(url, { credentials: 'same-origin' }).then(function (response) {
+                    if (!response.ok) { clearInterval(timer); return null; }
+                    var version = response.headers.get('X-Recap-Generated') || '';
+                    if (version && version !== current) {
+                        return response.text().then(function (html) {
+                            el.innerHTML = html;
+                            el.setAttribute('data-recap-generated', version);
+                            current = version;
+                            clearInterval(timer);
+                        });
+                    }
+                    return null;
+                }).catch(function () { clearInterval(timer); });
+            }, INTERVAL_MS);
+        }
+
+        function init() {
+            var nodes = document.querySelectorAll('.recap-live');
+            for (var i = 0; i < nodes.length; i++) { watch(nodes[i]); }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    })();
 </script>
 <script>
     var PAGE_LOAD_TIME = Date.now();

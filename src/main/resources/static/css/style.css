@@ -3567,6 +3567,23 @@ details.match-card > summary:hover .match-scoreline {
     color: rgba(255, 255, 255, 0.75);
     overflow-wrap: anywhere;
 }
+.recap-slot-stats {
+    display: flex;
+    gap: 0.4rem;
+    margin-top: 0.15rem;
+}
+.recap-slot-stat {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #ffffff;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+}
+.recap-slot-stat-icon {
+    font-size: 0.8rem;
+}
 .recap-bench {
     display: flex;
     flex-direction: column;
@@ -3603,6 +3620,13 @@ details.match-card > summary:hover .match-scoreline {
     color: var(--text);
 }
 .recap-bench-team {
+    font-size: 0.7rem;
+    color: var(--muted);
+}
+.recap-bench-stats {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.3rem;
     font-size: 0.7rem;
     color: var(--muted);
 }
