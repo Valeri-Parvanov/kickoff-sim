@@ -18,6 +18,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -44,12 +46,17 @@ class RoundRecapServiceImplTest {
     @Mock
     private RoundRecapAiClient aiClient;
 
+    @Mock
+    private RoundRecapEnhancer enhancer;
+
     private RoundRecapServiceImpl service;
     private UUID leagueId;
 
     @BeforeEach
     void setUp() {
-        service = new RoundRecapServiceImpl(recapRepository, leagueRepository, leagueService, aiClient);
+        service = new RoundRecapServiceImpl(recapRepository, leagueRepository, leagueService, aiClient,
+                new FactCollector(), new LeagueContextBuilder(), new StorylineMemory(recapRepository),
+                enhancer, false);
         leagueId = UUID.randomUUID();
     }
 
@@ -111,7 +118,7 @@ class RoundRecapServiceImplTest {
         existing.setRoundNumber(0);
         when(recapRepository.findByLeagueIdAndRoundNumberAndLocaleTag(leagueId, 0, "en"))
                 .thenReturn(Optional.of(existing));
-        when(leagueService.findDetail(leagueId)).thenReturn(completedLeague());
+        when(leagueService.findSettledDetail(leagueId)).thenReturn(completedLeague());
         when(leagueRepository.getReferenceById(leagueId)).thenReturn(new League());
         when(aiClient.generate(any())).thenReturn("MVP|40|Fresh season|body");
         when(recapRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -457,6 +464,22 @@ class RoundRecapServiceImplTest {
     }
 
     @Test
+    void findSkipsRecapsWhoseResultsHaveNoMatchLinks() {
+        when(recapRepository.findByLeagueIdAndRoundNumberAndLocaleTag(leagueId, 1, "en"))
+                .thenReturn(Optional.of(recap("en", "RESULTS|5|Results|Alpha 1:0 Beta")));
+
+        assertThat(service.find(leagueId, 1, Locale.ENGLISH)).isEmpty();
+    }
+
+    @Test
+    void findKeepsRecapsWhoseResultsCarryMatchLinks() {
+        when(recapRepository.findByLeagueIdAndRoundNumberAndLocaleTag(leagueId, 1, "en"))
+                .thenReturn(Optional.of(recap("en", "RESULTS|5|Results|Alpha 1:0 Beta::match-1")));
+
+        assertThat(service.find(leagueId, 1, Locale.ENGLISH)).isPresent();
+    }
+
+    @Test
     void findSeasonSkipsRecapsLeftOverFromAnOlderContentFormat() {
         RoundRecap existing = recap("en", "✨ Highlights:\n- Draws: 2");
         existing.setRoundNumber(0);
@@ -493,7 +516,7 @@ class RoundRecapServiceImplTest {
         league.setMatches(List.of(league.getMatches().get(0), unfinished));
         when(recapRepository.findByLeagueIdAndRoundNumberAndLocaleTag(leagueId, 0, "bg"))
                 .thenReturn(Optional.empty());
-        when(leagueService.findDetail(leagueId)).thenReturn(league);
+        when(leagueService.findSettledDetail(leagueId)).thenReturn(league);
         when(leagueRepository.getReferenceById(leagueId)).thenReturn(new League());
         when(aiClient.generate(any())).thenReturn("Обзор на сезона");
         when(recapRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -519,7 +542,7 @@ class RoundRecapServiceImplTest {
         existing.setRoundNumber(0);
         when(recapRepository.findByLeagueIdAndRoundNumberAndLocaleTag(leagueId, 0, "en"))
                 .thenReturn(Optional.of(existing));
-        when(leagueService.findDetail(leagueId)).thenReturn(completedLeague());
+        when(leagueService.findSettledDetail(leagueId)).thenReturn(completedLeague());
         when(leagueRepository.getReferenceById(leagueId)).thenReturn(existing.getLeague());
         when(aiClient.generate(any())).thenReturn("New season");
         when(recapRepository.save(existing)).thenReturn(existing);
@@ -533,7 +556,7 @@ class RoundRecapServiceImplTest {
     void generateSeasonAllLanguagesCreatesSeparateOriginalRecaps() {
         when(recapRepository.findByLeagueIdAndRoundNumberAndLocaleTag(eq(leagueId), eq(0), anyString()))
                 .thenReturn(Optional.empty());
-        when(leagueService.findDetail(leagueId)).thenReturn(completedLeague());
+        when(leagueService.findSettledDetail(leagueId)).thenReturn(completedLeague());
         when(leagueRepository.getReferenceById(leagueId)).thenReturn(new League());
         when(aiClient.generate(any())).thenAnswer(invocation ->
                 "Original " + ((RoundRecapPromptData) invocation.getArgument(0)).localeTag());
@@ -555,7 +578,7 @@ class RoundRecapServiceImplTest {
         league.getStandings().get(1).setPlayed(3);
         when(recapRepository.findByLeagueIdAndRoundNumberAndLocaleTag(leagueId, 0, "en"))
                 .thenReturn(Optional.empty());
-        when(leagueService.findDetail(leagueId)).thenReturn(league);
+        when(leagueService.findSettledDetail(leagueId)).thenReturn(league);
 
         assertThatThrownBy(() -> service.generateSeason(
                 leagueId, Locale.ENGLISH, false))
@@ -583,6 +606,56 @@ class RoundRecapServiceImplTest {
 
         league.setStandings(null);
         assertThat(service.isSeasonRecapReady(league)).isFalse();
+    }
+
+    @Test
+    void generate_enabledWithoutAnActiveTransaction_enhancesDirectly() {
+        RoundRecapServiceImpl enhancing = enhancingService();
+        stubFreshRoundGeneration();
+
+        enhancing.generate(leagueId, 1, Locale.ENGLISH, false);
+
+        verify(enhancer).enhance(any(), any());
+    }
+
+    @Test
+    void generate_enabledWithinTransaction_enhancesAfterCommit() {
+        RoundRecapServiceImpl enhancing = enhancingService();
+        stubFreshRoundGeneration();
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            enhancing.generate(leagueId, 1, Locale.ENGLISH, false);
+
+            List<TransactionSynchronization> syncs = TransactionSynchronizationManager.getSynchronizations();
+            assertThat(syncs).hasSize(1);
+            verifyNoInteractions(enhancer);
+
+            syncs.get(0).afterCommit();
+            verify(enhancer).enhance(any(), any());
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    private RoundRecapServiceImpl enhancingService() {
+        return new RoundRecapServiceImpl(recapRepository, leagueRepository, leagueService, aiClient,
+                new FactCollector(), new LeagueContextBuilder(), new StorylineMemory(recapRepository),
+                enhancer, true);
+    }
+
+    private void stubFreshRoundGeneration() {
+        when(recapRepository.findByLeagueIdAndRoundNumberAndLocaleTag(leagueId, 1, "en"))
+                .thenReturn(Optional.empty());
+        when(leagueService.findDetail(leagueId)).thenReturn(completedLeague());
+        when(leagueRepository.getReferenceById(leagueId)).thenReturn(new League());
+        when(aiClient.generate(any())).thenReturn("MVP|40|Head|Body");
+        when(recapRepository.save(any())).thenAnswer(invocation -> {
+            RoundRecap saved = invocation.getArgument(0);
+            if (saved.getId() == null) {
+                saved.setId(UUID.randomUUID());
+            }
+            return saved;
+        });
     }
 
     private LeagueDetailView completedLeague() {

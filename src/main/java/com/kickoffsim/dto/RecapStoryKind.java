@@ -6,6 +6,11 @@ public enum RecapStoryKind {
 
     TITLE_DECIDED("🏆", RecapStoryFamily.NARRATIVE),
     TITLE_RACE("⚔️", RecapStoryFamily.NARRATIVE),
+    TITLE_BATTLE("🏁", RecapStoryFamily.NARRATIVE),
+    UPSET("😱", RecapStoryFamily.NARRATIVE),
+    SURGE("🚀", RecapStoryFamily.NARRATIVE),
+    COLLAPSE("📉", RecapStoryFamily.NARRATIVE),
+    BREAKOUT("✨", RecapStoryFamily.NARRATIVE),
     COMEBACK("🔄", RecapStoryFamily.NARRATIVE),
     LATE_DRAMA("⏱️", RecapStoryFamily.NARRATIVE),
     SWINGS("🎢", RecapStoryFamily.NARRATIVE),

@@ -210,7 +210,7 @@ class RecapStoryCatalogTest {
         List<RecapStory> stories = round(swingMatch());
 
         assertThat(body(stories, RecapStoryKind.HAT_TRICK))
-                .isEqualTo("Petar scored 3 for Alpha and added 0 assists.");
+                .isEqualTo("Petar scored 3 for Alpha.");
         assertThat(find(stories, RecapStoryKind.MVP)).isEmpty();
     }
 
@@ -220,7 +220,29 @@ class RecapStoryCatalogTest {
                 "Alpha, Petar, minute 3, first half"));
 
         assertThat(body(stories, RecapStoryKind.MVP))
-                .isEqualTo("Petar of Alpha finished the round on 1 goals and 0 assists.");
+                .isEqualTo("Petar of Alpha finished the round on one goal.");
+    }
+
+    @Test
+    void roundStories_starPlayerWithOneAssist_usesSingularWording() {
+        List<RecapStory> stories = round(match("Alpha", "Beta", 2, 0,
+                "Alpha, Petar, minute 3, first half, assist Georgi",
+                "Alpha, Georgi, minute 9, first half, assist Petar"));
+
+        assertThat(body(stories, RecapStoryKind.MVP))
+                .isEqualTo("Georgi of Alpha finished the round on one goal and one assist.");
+    }
+
+    @Test
+    void roundStories_starPlayerWithSeveralAssists_usesPluralWording() {
+        List<RecapStory> stories = round(match("Alpha", "Beta", 4, 0,
+                "Alpha, Star, minute 3, first half",
+                "Alpha, Asen, minute 6, first half, assist Star",
+                "Alpha, Boris, minute 9, first half, assist Star",
+                "Alpha, Chavdar, minute 12, first half, assist Star"));
+
+        assertThat(body(stories, RecapStoryKind.MVP))
+                .isEqualTo("Star of Alpha finished the round on one goal and 3 assists.");
     }
 
     @Test
@@ -316,7 +338,7 @@ class RecapStoryCatalogTest {
         List<RecapStory> stories = round(match("Alpha", "Beta", 2, 1));
 
         assertThat(items(stories, RecapStoryKind.STATS))
-                .containsExactly("1::matches", "3::goals", "3.0::goals per game");
+                .containsExactly("1::match", "3::goals", "3.0::goals per game");
     }
 
     @Test
@@ -506,8 +528,54 @@ class RecapStoryCatalogTest {
                 data(SEASON, seasonMatches(), table(), 10), Locale.ENGLISH);
 
         assertThat(body(stories, RecapStoryKind.TITLE_RACE)).isEqualTo(
-                "Alpha top the table on 7 points, 3 clear of Beta on 4. "
-                        + "With 7 games left for the leaders, the title is still open.");
+                "Alpha lead on 7 points, but 4 sides are still in the hunt "
+                        + "with 7 rounds to play — this is going to the wire.");
+    }
+
+    @Test
+    void seasonStories_twoTeamRaceWithOneRoundLeft_describesTheRunIn() {
+        List<RoundRecapStandingData> rows = List.of(
+                new RoundRecapStandingData(1, "Alpha", 3, 3, 1, 0, 9, 2, 7, 10, false),
+                new RoundRecapStandingData(2, "Beta", 3, 2, 2, 0, 6, 3, 3, 8, false),
+                new RoundRecapStandingData(3, "Gama", 3, 0, 2, 1, 2, 6, -4, 2, false),
+                new RoundRecapStandingData(4, "Delta", 3, 0, 1, 2, 1, 7, -6, 1, false));
+
+        List<RecapStory> stories = catalog.seasonStories(
+                data(SEASON, seasonMatches(), rows, 4), Locale.ENGLISH);
+
+        assertThat(body(stories, RecapStoryKind.TITLE_RACE)).isEqualTo(
+                "Alpha top the table on 10 points, 2 clear of Beta on 8. "
+                        + "With one game left for the leaders, the title is still open.");
+    }
+
+    @Test
+    void seasonStories_twoTeamRaceWithGamesInHand_hasNoRunInBoost() {
+        List<RoundRecapStandingData> rows = List.of(
+                new RoundRecapStandingData(1, "Alpha", 10, 9, 1, 0, 30, 8, 22, 28, false),
+                new RoundRecapStandingData(2, "Beta", 10, 8, 2, 0, 26, 10, 16, 26, false),
+                new RoundRecapStandingData(3, "Gama", 10, 3, 1, 6, 12, 20, -8, 10, false),
+                new RoundRecapStandingData(4, "Delta", 10, 1, 2, 7, 8, 28, -20, 5, false));
+
+        List<RecapStory> stories = catalog.seasonStories(
+                data(SEASON, seasonMatches(), rows, 14), Locale.ENGLISH);
+
+        assertThat(body(stories, RecapStoryKind.TITLE_RACE)).isEqualTo(
+                "Alpha top the table on 28 points, 2 clear of Beta on 26. "
+                        + "With 4 games left for the leaders, the title is still open.");
+    }
+
+    @Test
+    void seasonStories_uncatchableLeader_isFramedAsCommanding() {
+        List<RoundRecapStandingData> rows = List.of(
+                new RoundRecapStandingData(1, "Alpha", 3, 3, 0, 0, 9, 1, 8, 9, false),
+                new RoundRecapStandingData(2, "Beta", 3, 1, 0, 2, 3, 5, -2, 3, false),
+                new RoundRecapStandingData(3, "Gama", 3, 1, 0, 2, 2, 5, -3, 3, false));
+
+        List<RecapStory> stories = catalog.seasonStories(
+                data(SEASON, seasonMatches(), rows, 4), Locale.ENGLISH);
+
+        assertThat(body(stories, RecapStoryKind.TITLE_RACE)).isEqualTo(
+                "Alpha lead on 9 points, 6 points clear of Beta with one round left — the title is all but theirs.");
     }
 
     @Test
@@ -546,7 +614,8 @@ class RecapStoryCatalogTest {
                 data(SEASON, seasonMatches(), table(), 3), Locale.ENGLISH);
 
         assertThat(body(stories, RecapStoryKind.SECOND_PLACE))
-                .isEqualTo("Beta sit second on 4 points, 1 ahead of Gama on 3.");
+                .isEqualTo("Beta have second sewn up on 4 points, "
+                        + "one point ahead of Gama with too few games left for a challenge.");
         assertThat(body(stories, RecapStoryKind.BOTTOM))
                 .isEqualTo("Bottom of the table — Delta, 1 points from 3 matches.");
     }

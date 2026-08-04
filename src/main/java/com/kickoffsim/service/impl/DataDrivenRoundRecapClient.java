@@ -1,7 +1,7 @@
 package com.kickoffsim.service.impl;
 
 import com.kickoffsim.dto.RecapStory;
-import com.kickoffsim.dto.RecapStoryFamily;
+import com.kickoffsim.dto.RecapStoryKind;
 import com.kickoffsim.dto.RoundRecapMatchData;
 import com.kickoffsim.dto.RoundRecapPromptData;
 import com.kickoffsim.exception.RoundRecapGenerationException;
@@ -11,7 +11,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
@@ -21,9 +20,11 @@ public class DataDrivenRoundRecapClient implements RoundRecapAiClient {
 
     private static final int SEASON_SCOPE = 0;
 
-    private static final int MAX_NARRATIVE_STORIES = 6;
-
     private final RecapStoryCatalog catalog;
+
+    private final EditorialDesk editorialDesk;
+
+    private final RecapValidator validator;
 
     @Override
     public String generate(RoundRecapPromptData data) {
@@ -37,31 +38,23 @@ public class DataDrivenRoundRecapClient implements RoundRecapAiClient {
 
         Locale locale = Locale.forLanguageTag(data.localeTag() == null ? "en" : data.localeTag());
         boolean season = data.roundNumber() == SEASON_SCOPE;
-        List<RecapStory> candidates = season
+        boolean useContext = !season && data.context() != null;
+
+        List<RecapStory> base = season
                 ? catalog.seasonStories(data, locale)
                 : catalog.roundStories(data, locale);
+        if (useContext) {
+            base = base.stream()
+                    .filter(story -> story.kind() != RecapStoryKind.BIG_WIN)
+                    .toList();
+        }
 
-        return RecapStoryParser.serialize(arrange(candidates));
-    }
+        List<RecapStory> candidates = new ArrayList<>(base);
+        if (useContext) {
+            candidates.addAll(catalog.contextStories(data, locale));
+        }
 
-    private List<RecapStory> arrange(List<RecapStory> candidates) {
-        List<RecapStory> narrative = byFamily(candidates, RecapStoryFamily.NARRATIVE).stream()
-                .sorted(Comparator.comparingInt(RecapStory::weight).reversed()
-                        .thenComparing(story -> story.kind().name()))
-                .limit(MAX_NARRATIVE_STORIES)
-                .toList();
-
-        List<RecapStory> arranged = new ArrayList<>(narrative);
-        arranged.addAll(byFamily(candidates, RecapStoryFamily.STATS));
-        arranged.addAll(byFamily(candidates, RecapStoryFamily.LIST).stream()
-                .sorted(Comparator.comparingInt(RecapStory::weight).reversed())
-                .toList());
-        return arranged;
-    }
-
-    private List<RecapStory> byFamily(List<RecapStory> candidates, RecapStoryFamily family) {
-        return candidates.stream()
-                .filter(story -> story.kind().getFamily() == family)
-                .toList();
+        List<RecapStory> arranged = editorialDesk.arrange(candidates, data.memory());
+        return RecapStoryParser.serialize(validator.validate(arranged, data));
     }
 }

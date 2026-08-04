@@ -61,6 +61,21 @@ class RoundRecapRepositoryTest {
         assertThat(roundRecapRepository.count()).isEqualTo(4);
     }
 
+    @Test
+    void findsEarlierRoundsForALocaleNewestFirstWithinRange() {
+        League league = leagueRepository.save(league("History League"));
+        roundRecapRepository.saveAndFlush(recap(league, 1, "en", "Round one"));
+        roundRecapRepository.saveAndFlush(recap(league, 2, "en", "Round two"));
+        roundRecapRepository.saveAndFlush(recap(league, 3, "en", "Round three"));
+        roundRecapRepository.saveAndFlush(recap(league, 2, "bg", "Кръг две"));
+
+        assertThat(roundRecapRepository
+                .findByLeagueIdAndLocaleTagAndRoundNumberBetweenOrderByRoundNumberDesc(
+                        league.getId(), "en", 1, 2))
+                .extracting(RoundRecap::getContent)
+                .containsExactly("Round two", "Round one");
+    }
+
     private League league(String name) {
         League league = new League();
         league.setName(name);

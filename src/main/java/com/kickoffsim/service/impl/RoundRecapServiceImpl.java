@@ -11,8 +11,11 @@ import com.kickoffsim.service.RoundRecapAiClient;
 import com.kickoffsim.service.RoundRecapService;
 import com.kickoffsim.web.RecapStoryParser;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -36,15 +39,30 @@ public class RoundRecapServiceImpl implements RoundRecapService {
     private final LeagueRepository leagueRepository;
     private final LeagueService leagueService;
     private final RoundRecapAiClient aiClient;
+    private final FactCollector factCollector;
+    private final LeagueContextBuilder leagueContextBuilder;
+    private final StorylineMemory storylineMemory;
+    private final RoundRecapEnhancer enhancer;
+    private final boolean ollamaEnabled;
 
     public RoundRecapServiceImpl(RoundRecapRepository roundRecapRepository,
                                  LeagueRepository leagueRepository,
                                  LeagueService leagueService,
-                                 RoundRecapAiClient aiClient) {
+                                 RoundRecapAiClient aiClient,
+                                 FactCollector factCollector,
+                                 LeagueContextBuilder leagueContextBuilder,
+                                 StorylineMemory storylineMemory,
+                                 RoundRecapEnhancer enhancer,
+                                 @Value("${kickoffsim.ollama.enabled:true}") boolean ollamaEnabled) {
         this.roundRecapRepository = roundRecapRepository;
         this.leagueRepository = leagueRepository;
         this.leagueService = leagueService;
         this.aiClient = aiClient;
+        this.factCollector = factCollector;
+        this.leagueContextBuilder = leagueContextBuilder;
+        this.storylineMemory = storylineMemory;
+        this.enhancer = enhancer;
+        this.ollamaEnabled = ollamaEnabled;
     }
 
     @Override
@@ -73,7 +91,7 @@ public class RoundRecapServiceImpl implements RoundRecapService {
         }
 
         RoundRecapPromptData promptData = toPromptData(
-                league, roundNumber, localeTag, matches, true);
+                league, roundNumber, localeTag, matches, true, existing.isPresent());
         String fingerprint = fingerprint(promptData);
         String content = aiClient.generate(promptData);
 
@@ -84,7 +102,9 @@ public class RoundRecapServiceImpl implements RoundRecapService {
         recap.setContent(content);
         recap.setGeneratedAt(LocalDateTime.now());
         recap.setSourceFingerprint(fingerprint);
-        return toView(roundRecapRepository.save(recap));
+        RoundRecap saved = roundRecapRepository.save(recap);
+        scheduleEnhancement(saved.getId(), promptData);
+        return toView(saved);
     }
 
     @Override
@@ -119,7 +139,7 @@ public class RoundRecapServiceImpl implements RoundRecapService {
             return toView(existing.get());
         }
 
-        LeagueDetailView league = leagueService.findDetail(leagueId);
+        LeagueDetailView league = leagueService.findSettledDetail(leagueId);
         List<MatchDto> completedMatches = league.getMatches().stream()
                 .filter(this::isMatchComplete)
                 .toList();
@@ -129,7 +149,7 @@ public class RoundRecapServiceImpl implements RoundRecapService {
         }
 
         RoundRecapPromptData promptData = toPromptData(
-                league, SEASON_SCOPE, localeTag, completedMatches, false);
+                league, SEASON_SCOPE, localeTag, completedMatches, false, existing.isPresent());
         String content = aiClient.generate(promptData);
         RoundRecap recap = existing.orElseGet(RoundRecap::new);
         recap.setLeague(leagueRepository.getReferenceById(league.getId()));
@@ -138,7 +158,9 @@ public class RoundRecapServiceImpl implements RoundRecapService {
         recap.setContent(content);
         recap.setGeneratedAt(LocalDateTime.now());
         recap.setSourceFingerprint(fingerprint(promptData));
-        return toView(roundRecapRepository.save(recap));
+        RoundRecap saved = roundRecapRepository.save(recap);
+        scheduleEnhancement(saved.getId(), promptData);
+        return toView(saved);
     }
 
     @Override
@@ -177,7 +199,7 @@ public class RoundRecapServiceImpl implements RoundRecapService {
 
     private RoundRecapPromptData toPromptData(LeagueDetailView league, int roundNumber,
                                                String localeTag, List<MatchDto> matches,
-                                               boolean includeGoals) {
+                                               boolean includeGoals, boolean overwriting) {
         List<RoundRecapMatchData> matchData = matches.stream()
                 .sorted(Comparator.comparing(MatchDto::getPlayedAt)
                         .thenComparing(match -> match.getId().toString()))
@@ -191,12 +213,28 @@ public class RoundRecapServiceImpl implements RoundRecapService {
                     row.getWins(), row.getDraws(), row.getLosses(), row.getGoalsFor(),
                     row.getGoalsAgainst(), row.getGoalDiff(), row.getPoints(), row.isChampion()));
         }
+        List<MatchFact> matchFacts = factCollector.collect(matches, includeGoals);
+        LeagueContext context = buildContext(league, roundNumber);
+        RecapMemory memory = storylineMemory.recall(league.getId(), roundNumber, localeTag, overwriting);
         return new RoundRecapPromptData(
                 league.getName(), roundNumber, localeTag, LANGUAGES.get(localeTag), matchData, standings,
                 league.getFormat() == null ? 0 : league.getFormat().getTotalRounds(),
                 toPlayerData(league.getTopScorers()),
                 toPlayerData(league.getTopAssists()),
-                league.getChampionClinchRound());
+                league.getChampionClinchRound(),
+                matchFacts, context, memory);
+    }
+
+    private LeagueContext buildContext(LeagueDetailView league, int roundNumber) {
+        if (roundNumber == SEASON_SCOPE) {
+            return null;
+        }
+        List<MatchDto> completed = league.getMatches().stream()
+                .filter(this::isMatchComplete)
+                .toList();
+        List<MatchFact> facts = factCollector.collect(completed, false);
+        int totalRounds = league.getFormat() == null ? roundNumber : league.getFormat().getTotalRounds();
+        return leagueContextBuilder.build(facts, roundNumber, totalRounds);
     }
 
     private List<RoundRecapPlayerData> toPlayerData(List<PlayerStatRow> rows) {
@@ -255,7 +293,30 @@ public class RoundRecapServiceImpl implements RoundRecapService {
                 RecapStoryParser.parse(recap.getContent()));
     }
 
+    private void scheduleEnhancement(UUID recapId, RoundRecapPromptData promptData) {
+        if (!ollamaEnabled) {
+            return;
+        }
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    enhancer.enhance(recapId, promptData);
+                }
+            });
+        } else {
+            enhancer.enhance(recapId, promptData);
+        }
+    }
+
     private boolean isCurrentFormat(RoundRecap recap) {
-        return !RecapStoryParser.parse(recap.getContent()).isEmpty();
+        List<RecapStory> stories = RecapStoryParser.parse(recap.getContent());
+        if (stories.isEmpty()) {
+            return false;
+        }
+        return stories.stream()
+                .filter(story -> story.kind() == RecapStoryKind.RESULTS)
+                .flatMap(story -> story.results().stream())
+                .allMatch(link -> link.id() != null);
     }
 }

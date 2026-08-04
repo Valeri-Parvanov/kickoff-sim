@@ -1,5 +1,10 @@
 package com.kickoffsim.service.impl;
 
+import com.kickoffsim.dto.GoalFact;
+import com.kickoffsim.dto.LeagueContext;
+import com.kickoffsim.dto.LeagueContext.TeamForm;
+import com.kickoffsim.dto.LeagueContext.TitleRace;
+import com.kickoffsim.dto.MatchFact;
 import com.kickoffsim.dto.RecapStory;
 import com.kickoffsim.dto.RecapStoryKind;
 import com.kickoffsim.dto.RoundRecapMatchData;
@@ -54,6 +59,22 @@ public class RecapStoryCatalog {
 
     private static final int BODY_VARIANTS = 3;
 
+    private static final int BREAKOUT_GOALS = 2;
+
+    private static final int SURGE_STREAK = 2;
+
+    private static final int COLLAPSE_WINLESS = 2;
+
+    private static final int TITLE_BATTLE_WEIGHT = 80;
+
+    private static final int TITLE_LEVEL_WEIGHT = 80;
+
+    private static final int TITLE_MULTI_WEIGHT = 100;
+
+    private static final int TIGHT_RUN_IN = 3;
+
+    private static final int WIN_POINTS = 3;
+
     private static final String SECOND_HALF = "second half";
 
     private static final String OWN_GOAL = ", own goal";
@@ -102,6 +123,137 @@ public class RecapStoryCatalog {
         return stories;
     }
 
+    public List<RecapStory> contextStories(RoundRecapPromptData data, Locale locale) {
+        LeagueContext context = data.context();
+        if (context == null) {
+            return List.of();
+        }
+        List<RecapStory> stories = new ArrayList<>();
+        addTitleBattle(stories, data, context, locale);
+        MatchFact upset = addUpset(stories, data, context, locale);
+        addContextRout(stories, data, context, locale, upset);
+        addSurge(stories, data, context, locale);
+        addCollapse(stories, data, context, locale);
+        addBreakout(stories, data, context, locale);
+        return stories;
+    }
+
+    private void addContextRout(List<RecapStory> stories, RoundRecapPromptData data,
+                                LeagueContext context, Locale locale, MatchFact upset) {
+        MatchFact widest = data.matchFacts().stream()
+                .filter(match -> match.winner() != null)
+                .filter(match -> match != upset)
+                .max(Comparator.comparingInt(MatchFact::margin))
+                .orElse(null);
+        if (widest == null) {
+            return;
+        }
+        int base = 30 + widest.margin() * 2;
+        int weight;
+        if (context.isBottomTier(widest.loser()) && !context.isTopTier(widest.winner())) {
+            weight = Math.max(10, base - 20);
+        } else if (context.isTopTier(widest.loser())) {
+            weight = base + 25;
+        } else {
+            weight = base;
+        }
+        stories.add(story(RecapStoryKind.BIG_WIN, weight, data, locale, widest.winner(),
+                new Object[]{widest.winner(), widest.loser(), widest.winnerScore(),
+                        widest.loserScore(), widest.margin()}));
+    }
+
+    private void addTitleBattle(List<RecapStory> stories, RoundRecapPromptData data,
+                                LeagueContext context, Locale locale) {
+        TitleRace race = context.titleRace();
+        if (race == null || !race.tight() || race.remaining() <= 0) {
+            return;
+        }
+        stories.add(story(RecapStoryKind.TITLE_BATTLE, TITLE_BATTLE_WEIGHT, data, locale, race.leader(),
+                new Object[]{race.leader(), race.leaderPoints(), race.second(), race.secondPoints(),
+                        race.gap(), race.remaining()}));
+    }
+
+    private MatchFact addUpset(List<RecapStory> stories, RoundRecapPromptData data,
+                              LeagueContext context, Locale locale) {
+        MatchFact upset = data.matchFacts().stream()
+                .filter(match -> match.winner() != null)
+                .filter(match -> context.isTopTier(match.loser()) && context.isBottomTier(match.winner()))
+                .max(Comparator.comparingInt(match ->
+                        context.positionOf(match.winner()) - context.positionOf(match.loser())))
+                .orElse(null);
+        if (upset == null) {
+            return null;
+        }
+        int winnerPos = context.positionOf(upset.winner());
+        int loserPos = context.positionOf(upset.loser());
+        int weight = 55 + (winnerPos - loserPos) * 3 + upset.margin();
+        stories.add(story(RecapStoryKind.UPSET, weight, data, locale, upset.winner(),
+                new Object[]{upset.winner(), upset.loser(), upset.winnerScore(), upset.loserScore(),
+                        loserPos, winnerPos}));
+        return upset;
+    }
+
+    private void addSurge(List<RecapStory> stories, RoundRecapPromptData data,
+                          LeagueContext context, Locale locale) {
+        TeamForm surging = context.forms().stream()
+                .filter(TeamForm::rising)
+                .filter(form -> form.winStreak() >= SURGE_STREAK)
+                .max(Comparator.comparingInt(form -> form.climb() + form.winStreak()))
+                .orElse(null);
+        if (surging == null) {
+            return;
+        }
+        int weight = 45 + surging.winStreak() * 5 + surging.climb() * 3;
+        stories.add(story(RecapStoryKind.SURGE, weight, data, locale, surging.team(),
+                new Object[]{surging.team(), surging.climb(), surging.position(), surging.winStreak()}));
+    }
+
+    private void addCollapse(List<RecapStory> stories, RoundRecapPromptData data,
+                             LeagueContext context, Locale locale) {
+        TeamForm sliding = context.forms().stream()
+                .filter(TeamForm::falling)
+                .filter(form -> form.winlessStreak() >= COLLAPSE_WINLESS)
+                .max(Comparator.comparingInt(form -> -form.climb() + form.winlessStreak()))
+                .orElse(null);
+        if (sliding == null) {
+            return;
+        }
+        int weight = 40 + sliding.winlessStreak() * 4 - sliding.climb() * 3;
+        stories.add(story(RecapStoryKind.COLLAPSE, weight, data, locale, sliding.team(),
+                new Object[]{sliding.team(), -sliding.climb(), sliding.position(), sliding.winlessStreak()}));
+    }
+
+    private void addBreakout(List<RecapStory> stories, RoundRecapPromptData data,
+                             LeagueContext context, Locale locale) {
+        Map<String, int[]> goals = new LinkedHashMap<>();
+        Map<String, String> teams = new LinkedHashMap<>();
+        for (MatchFact match : data.matchFacts()) {
+            for (GoalFact goal : match.goals()) {
+                if (goal.ownGoal() || goal.scorer() == null) {
+                    continue;
+                }
+                goals.computeIfAbsent(goal.scorer(), key -> new int[1])[0]++;
+                teams.putIfAbsent(goal.scorer(), goal.team());
+            }
+        }
+        String established = data.topScorers() == null || data.topScorers().isEmpty()
+                ? null : data.topScorers().get(0).player();
+        goals.entrySet().stream()
+                .filter(entry -> entry.getValue()[0] >= BREAKOUT_GOALS)
+                .filter(entry -> !entry.getKey().equals(established))
+                .filter(entry -> context.isBottomTier(teams.get(entry.getKey()))
+                        || rising(context, teams.get(entry.getKey())))
+                .max(Comparator.comparingInt(entry -> entry.getValue()[0]))
+                .ifPresent(entry -> stories.add(story(RecapStoryKind.BREAKOUT,
+                        40 + entry.getValue()[0] * 8, data, locale, entry.getKey(),
+                        new Object[]{entry.getKey(), teams.get(entry.getKey()), entry.getValue()[0]})));
+    }
+
+    private boolean rising(LeagueContext context, String team) {
+        TeamForm form = context.formOf(team);
+        return form != null && form.rising();
+    }
+
     private void addTitle(List<RecapStory> stories, RoundRecapPromptData data,
                           List<RoundRecapStandingData> table, Locale locale, boolean open) {
         if (table.isEmpty()) {
@@ -126,14 +278,38 @@ public class RecapStoryCatalog {
         }
         RoundRecapStandingData second = table.get(1);
         int gap = leader.points() - second.points();
-        int remaining = Math.max(0, data.matchesPerTeam() - leader.played());
+        int remaining = remainingFor(leader, data);
         if (gap == 0) {
-            stories.add(story(RecapStoryKind.TITLE_RACE, 70, data, locale, leader.team(),
+            stories.add(story(RecapStoryKind.TITLE_RACE, TITLE_LEVEL_WEIGHT, data, locale, leader.team(),
                     new Object[]{leader.team(), second.team(), leader.points(), remaining}, "title-race-level"));
             return;
         }
-        stories.add(story(RecapStoryKind.TITLE_RACE, Math.max(40, 70 - gap), data, locale, leader.team(),
+        List<RoundRecapStandingData> chasers = aliveChasers(table, data);
+        if (chasers.size() >= 2) {
+            stories.add(story(RecapStoryKind.TITLE_RACE, TITLE_MULTI_WEIGHT, data, locale, leader.team(),
+                    new Object[]{leader.team(), leader.points(), chasers.size() + 1, remaining}, "title-race-multi"));
+            return;
+        }
+        if (chasers.isEmpty()) {
+            stories.add(story(RecapStoryKind.TITLE_RACE, Math.max(30, 55 - gap), data, locale, leader.team(),
+                    new Object[]{leader.team(), leader.points(), second.team(), gap, remaining}, "title-race-commanding"));
+            return;
+        }
+        int weight = Math.max(40, 70 - gap) + (remaining <= TIGHT_RUN_IN ? 15 : 0);
+        stories.add(story(RecapStoryKind.TITLE_RACE, weight, data, locale, leader.team(),
                 new Object[]{leader.team(), leader.points(), second.team(), second.points(), gap, remaining}));
+    }
+
+    private int remainingFor(RoundRecapStandingData row, RoundRecapPromptData data) {
+        return Math.max(0, data.matchesPerTeam() - row.played());
+    }
+
+    private List<RoundRecapStandingData> aliveChasers(List<RoundRecapStandingData> table,
+                                                      RoundRecapPromptData data) {
+        RoundRecapStandingData leader = table.get(0);
+        return table.stream().skip(1)
+                .filter(row -> leader.points() - row.points() <= remainingFor(row, data) * WIN_POINTS)
+                .toList();
     }
 
     private void addRoundChampion(List<RecapStory> stories, RoundRecapPromptData data,
@@ -195,6 +371,11 @@ public class RecapStoryCatalog {
         if (gap == 0) {
             stories.add(story(RecapStoryKind.SECOND_PLACE, 45 + boost, data, locale, second.team(),
                     new Object[]{second.team(), third.team(), second.points()}, "second-place-level"));
+            return;
+        }
+        if (gap > remainingFor(third, data) * WIN_POINTS) {
+            stories.add(story(RecapStoryKind.SECOND_PLACE, 25 + boost, data, locale, second.team(),
+                    new Object[]{second.team(), second.points(), third.team(), gap}, "second-place-secured"));
             return;
         }
         stories.add(story(RecapStoryKind.SECOND_PLACE, 45 + boost, data, locale, second.team(),
@@ -452,7 +633,7 @@ public class RecapStoryCatalog {
     }
 
     private String tile(Object value, String key, Locale locale) {
-        return value + RecapStory.FIELD_SEPARATOR + msg(key, locale);
+        return value + RecapStory.FIELD_SEPARATOR + msg(key, locale, value);
     }
 
     private RecapStory story(RecapStoryKind kind, int weight, RoundRecapPromptData data,

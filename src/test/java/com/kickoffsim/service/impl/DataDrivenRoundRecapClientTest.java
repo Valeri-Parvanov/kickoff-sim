@@ -1,5 +1,9 @@
 package com.kickoffsim.service.impl;
 
+import com.kickoffsim.dto.LeagueContext;
+import com.kickoffsim.dto.LeagueContext.SurvivalRace;
+import com.kickoffsim.dto.LeagueContext.TeamForm;
+import com.kickoffsim.dto.MatchFact;
 import com.kickoffsim.dto.RecapStory;
 import com.kickoffsim.dto.RecapStoryFamily;
 import com.kickoffsim.dto.RecapStoryKind;
@@ -33,7 +37,8 @@ class DataDrivenRoundRecapClientTest {
         messageSource.setBasename("messages");
         messageSource.setDefaultEncoding("UTF-8");
         messageSource.setFallbackToSystemLocale(false);
-        client = new DataDrivenRoundRecapClient(new RecapStoryCatalog(messageSource));
+        client = new DataDrivenRoundRecapClient(
+                new RecapStoryCatalog(messageSource), new EditorialDesk(), new RecapValidator());
     }
 
     @Test
@@ -84,7 +89,7 @@ class DataDrivenRoundRecapClientTest {
     @Test
     void generate_storiesOfEqualWeight_areOrderedByKind() {
         RoundRecapPromptData data = new RoundRecapPromptData("Test League", SEASON, "en", "English",
-                matches(), standings(), 3,
+                matches(), standings(), 6,
                 List.of(new RoundRecapPlayerData("Petar", "Alpha", 12),
                         new RoundRecapPlayerData("Ivan", "Beta", 2)),
                 List.of(), null);
@@ -153,6 +158,31 @@ class DataDrivenRoundRecapClientTest {
     @Test
     void generate_isDeterministic() {
         assertThat(client.generate(roundData("bg", 4))).isEqualTo(client.generate(roundData("bg", 4)));
+    }
+
+    @Test
+    void generate_withContext_replacesTheBlindRoutWithContextAngles() {
+        List<RecapStory> stories = stories(contextRound());
+
+        assertThat(stories).extracting(RecapStory::kind).contains(RecapStoryKind.UPSET);
+        assertThat(stories.stream().filter(story -> story.kind() == RecapStoryKind.BIG_WIN)).hasSize(1);
+    }
+
+    private RoundRecapPromptData contextRound() {
+        List<TeamForm> forms = List.of(
+                new TeamForm("Alpha", 1, 1, 9, 3, "WWW", 3, 3, 0),
+                new TeamForm("Beta", 2, 2, 6, 3, "WWL", 0, 0, 1),
+                new TeamForm("Gama", 3, 3, 3, 3, "LWL", 0, 0, 1),
+                new TeamForm("Delta", 4, 4, 0, 3, "LLL", 0, 0, 3));
+        LeagueContext context = new LeagueContext(3, 6, forms, null,
+                new SurvivalRace("Delta", 0, "Gama", 3));
+        List<MatchFact> facts = List.of(
+                new MatchFact("m1", 3, "Alpha", "Delta", 0, 2, List.of()),
+                new MatchFact("m2", 3, "Beta", "Gama", 5, 0, List.of()));
+        return new RoundRecapPromptData("Test League", 3, "en", "English",
+                List.of(new RoundRecapMatchData("Alpha", "Delta", 0, 2, List.of()),
+                        new RoundRecapMatchData("Beta", "Gama", 5, 0, List.of())),
+                standings(), 6, List.of(), List.of(), null, facts, context, null);
     }
 
     private List<RecapStory> stories(RoundRecapPromptData data) {
