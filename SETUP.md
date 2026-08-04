@@ -113,9 +113,10 @@ Open `http://localhost:8080`, register a user (the first one becomes `ADMIN`), a
 
 ## AI round and season recaps (Ollama)
 
-The recap feature calls a **local** Ollama model through Spring AI. Nothing is sent to an
-external provider and no API key is needed. The rest of the app works fine without Ollama —
-only the recap buttons will report a failure.
+The recap feature calls a **local** Ollama model through Spring AI to rewrite the narrative story
+cards into natural prose. Nothing is sent to an external provider and no API key is needed. The app
+works fine without Ollama — when it is disabled, unreachable, or too slow, recaps fall back to the
+deterministic template writer, so the feature always produces a result and the page never breaks.
 
 ### 1. Install and start Ollama
 
@@ -136,10 +137,15 @@ ollama run gemma3:4b "Say hello"
 
 ### Configuration
 
-| Property                     | Environment variable | Default                  |
-|------------------------------|----------------------|--------------------------|
-| `kickoffsim.ollama.base-url` | `OLLAMA_BASE_URL`    | `http://localhost:11434` |
-| `kickoffsim.ollama.model`    | `OLLAMA_MODEL`       | `gemma3:4b`              |
+| Property                            | Environment variable     | Default                  |
+|-------------------------------------|--------------------------|--------------------------|
+| `kickoffsim.ollama.enabled`         | `OLLAMA_ENABLED`         | `true`                   |
+| `kickoffsim.ollama.base-url`        | `OLLAMA_BASE_URL`        | `http://localhost:11434` |
+| `kickoffsim.ollama.model`           | `OLLAMA_MODEL`           | `gemma3:4b`              |
+| `kickoffsim.ollama.timeout-seconds` | `OLLAMA_TIMEOUT_SECONDS` | `12`                     |
+
+Set `OLLAMA_ENABLED=false` to skip the model entirely and always use the deterministic template
+recaps. `OLLAMA_TIMEOUT_SECONDS` caps how long a page will wait for the model before falling back.
 
 A larger model produces better prose at the cost of generation time — pull it and set
 `OLLAMA_MODEL` to its tag.
